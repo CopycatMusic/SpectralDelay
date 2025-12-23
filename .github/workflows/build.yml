@@ -1,0 +1,135 @@
+name: Build VST3 Plugin
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  BUILD_TYPE: Release
+  JUCE_VERSION: "8.0.4"  # Update this to match your JUCE version
+
+jobs:
+  # ===========================================================================
+  # macOS Build (Universal Binary: Intel + Apple Silicon)
+  # ===========================================================================
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Cache JUCE
+      uses: actions/cache@v4
+      id: cache-juce-macos
+      with:
+        path: ~/JUCE
+        key: juce-macos-${{ env.JUCE_VERSION }}
+        
+    - name: Download JUCE
+      if: steps.cache-juce-macos.outputs.cache-hit != 'true'
+      run: |
+        cd ~
+        git clone --depth 1 --branch ${{ env.JUCE_VERSION }} https://github.com/juce-framework/JUCE.git
+        
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+          -DJUCE_DIR=~/JUCE \
+          -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+          
+    - name: Build
+      run: cmake --build build --config ${{ env.BUILD_TYPE }} -j$(sysctl -n hw.ncpu)
+      
+    - name: Package VST3
+      run: |
+        cd build/CopyCatSpectralDelay_artefacts/${{ env.BUILD_TYPE }}/VST3
+        zip -r ../../../../CopyCat_Spectral_Delay_macOS_VST3.zip "CopyCat Spectral Delay.vst3"
+        
+    - name: Upload macOS Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: CopyCat-Spectral-Delay-macOS-VST3
+        path: CopyCat_Spectral_Delay_macOS_VST3.zip
+        retention-days: 30
+
+  # ===========================================================================
+  # Windows Build (64-bit)
+  # ===========================================================================
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Cache JUCE
+      uses: actions/cache@v4
+      id: cache-juce-windows
+      with:
+        path: C:/JUCE
+        key: juce-windows-${{ env.JUCE_VERSION }}
+        
+    - name: Download JUCE
+      if: steps.cache-juce-windows.outputs.cache-hit != 'true'
+      run: |
+        cd C:/
+        git clone --depth 1 --branch ${{ env.JUCE_VERSION }} https://github.com/juce-framework/JUCE.git
+        
+    - name: Configure CMake
+      run: |
+        cmake -B build `
+          -G "Visual Studio 17 2022" `
+          -A x64 `
+          -DJUCE_DIR=C:/JUCE
+          
+    - name: Build
+      run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+      
+    - name: Package VST3
+      run: |
+        cd build/CopyCatSpectralDelay_artefacts/${{ env.BUILD_TYPE }}/VST3
+        Compress-Archive -Path "CopyCat Spectral Delay.vst3" -DestinationPath "../../../../CopyCat_Spectral_Delay_Windows_VST3.zip"
+        
+    - name: Upload Windows Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: CopyCat-Spectral-Delay-Windows-VST3
+        path: CopyCat_Spectral_Delay_Windows_VST3.zip
+        retention-days: 30
+
+  # ===========================================================================
+  # Create Release (only on tags)
+  # ===========================================================================
+  create-release:
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    permissions:
+      contents: write
+      
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+        
+    - name: Display structure
+      run: ls -R artifacts
+      
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          artifacts/CopyCat-Spectral-Delay-macOS-VST3/CopyCat_Spectral_Delay_macOS_VST3.zip
+          artifacts/CopyCat-Spectral-Delay-Windows-VST3/CopyCat_Spectral_Delay_Windows_VST3.zip
+        draft: false
+        prerelease: false
+        generate_release_notes: true
