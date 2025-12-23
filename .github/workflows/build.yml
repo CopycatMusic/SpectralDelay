@@ -28,20 +28,19 @@ jobs:
       uses: actions/cache@v4
       id: cache-juce-macos
       with:
-        path: ~/JUCE
+        path: ${{ github.workspace }}/JUCE
         key: juce-macos-${{ env.JUCE_VERSION }}
         
     - name: Download JUCE
       if: steps.cache-juce-macos.outputs.cache-hit != 'true'
       run: |
-        cd ~
         git clone --depth 1 --branch ${{ env.JUCE_VERSION }} https://github.com/juce-framework/JUCE.git
         
     - name: Configure CMake
       run: |
         cmake -B build \
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-          -DJUCE_DIR=~/JUCE \
+          -DJUCE_DIR=${{ github.workspace }}/JUCE \
           -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
           
     - name: Build
