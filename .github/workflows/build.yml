@@ -11,7 +11,7 @@ on:
 
 env:
   BUILD_TYPE: Release
-  JUCE_VERSION: "8.0.12"  # Must match a valid JUCE release tag
+  JUCE_VERSION: "8.0.12"
 
 jobs:
   # ===========================================================================
