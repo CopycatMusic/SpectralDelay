@@ -20,6 +20,7 @@ public:
 private:
   void timerCallback() override;
   void updateEditingCurve();
+  void updateAxisLabel();
 
   //==============================================================================
   CopyCatSpectralDelayProcessor &processorRef;

@@ -16,7 +16,7 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
   addAndMakeVisible(titleLabel);
 
   // Version (top right)
-  versionLabel.setText("v0.2.1beta", juce::dontSendNotification);
+  versionLabel.setText("v0.2.2beta", juce::dontSendNotification);
   versionLabel.setFont(juce::Font(14.0f));
   versionLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
   versionLabel.setJustificationType(juce::Justification::centredRight);
@@ -137,6 +137,40 @@ void CopyCatSpectralDelayEditor::updateEditingCurve() {
       spectrumDisplay.setEditingCurve(&engine.getPhaseCurve(), 0.0f, 360.0f);
     }
   }
+
+  // Update axis label to match current parameter
+  updateAxisLabel();
+}
+
+void CopyCatSpectralDelayEditor::updateAxisLabel() {
+  auto &parameters = processorRef.getParameters();
+  int paramType = controlPanel.getCurrentParameterType();
+
+  if (paramType == 0) {
+    // Gain: base max 200%, scaled by gainMult (0-100%)
+    auto *gainMultParam = parameters.getRawParameterValue("gainMult");
+    float mult = gainMultParam ? (*gainMultParam / 100.0f) : 1.0f;
+    float displayMax = 200.0f * mult;
+    spectrumDisplay.setAxisLabel("%", displayMax);
+  } else if (paramType == 1) {
+    // Feedback: base max 100%, scaled by feedbackMult (0-100%)
+    auto *feedbackMultParam = parameters.getRawParameterValue("feedbackMult");
+    float mult = feedbackMultParam ? (*feedbackMultParam / 100.0f) : 1.0f;
+    float displayMax = 100.0f * mult;
+    spectrumDisplay.setAxisLabel("%", displayMax);
+  } else {
+    // Time parameter
+    if (controlPanel.isDelayMode()) {
+      // Delay mode: base max 2000ms, scaled by delayMult (0-100%)
+      auto *delayMultParam = parameters.getRawParameterValue("delayMult");
+      float mult = delayMultParam ? (*delayMultParam / 100.0f) : 1.0f;
+      float displayMax = 2000.0f * mult;
+      spectrumDisplay.setAxisLabel("ms", displayMax);
+    } else {
+      // Phase mode: fixed 0-360°, no multiplier
+      spectrumDisplay.setAxisLabel(juce::CharPointer_UTF8("\xc2\xb0"), 360.0f);
+    }
+  }
 }
 
 void CopyCatSpectralDelayEditor::paint(juce::Graphics &g) {
@@ -207,6 +241,9 @@ void CopyCatSpectralDelayEditor::timerCallback() {
 
   spectrumDisplay.setSpectralData(spectrumData, engine.getNumBins(),
                                   engine.getSampleRate());
+
+  // Update axis label (in case multiply slider changed)
+  updateAxisLabel();
 
   // Trigger repaint
   spectrumDisplay.repaint();

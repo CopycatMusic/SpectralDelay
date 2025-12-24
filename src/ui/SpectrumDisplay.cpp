@@ -102,6 +102,12 @@ void SpectrumDisplay::setEditingCurve(ParameterCurve *curve, float valueMin,
   repaint();
 }
 
+void SpectrumDisplay::setAxisLabel(const juce::String &unit, float displayMax) {
+  axisUnit = unit;
+  axisDisplayMax = displayMax;
+  repaint();
+}
+
 //==============================================================================
 void SpectrumDisplay::paint(juce::Graphics &g) {
   auto bounds = getLocalBounds().toFloat();
@@ -116,8 +122,33 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
 
   auto graphBounds = bounds.reduced(10.0f);
 
-  // Grid removed by user request
-  // (Previously drew frequency and dB grid lines)
+  // Reserve space for axis labels on the right
+  auto axisArea = graphBounds.removeFromRight(axisLabelWidth);
+
+  // Draw Y-axis labels (min at bottom, max at top)
+  if (axisUnit.isNotEmpty()) {
+    g.setColour(juce::Colours::white.withAlpha(0.7f));
+    g.setFont(juce::Font(12.0f));
+
+    // Format max value label
+    juce::String maxLabel;
+    if (axisDisplayMax >= 1000.0f) {
+      maxLabel = juce::String(static_cast<int>(axisDisplayMax)) + axisUnit;
+    } else if (axisDisplayMax >= 100.0f) {
+      maxLabel = juce::String(static_cast<int>(axisDisplayMax)) + axisUnit;
+    } else {
+      maxLabel = juce::String(axisDisplayMax, 1) + axisUnit;
+    }
+
+    // Min value is always 0
+    juce::String minLabel = "0" + axisUnit;
+
+    // Draw labels
+    g.drawText(maxLabel, axisArea.removeFromTop(20).toNearestInt(),
+               juce::Justification::centredLeft);
+    g.drawText(minLabel, axisArea.removeFromBottom(20).toNearestInt(),
+               juce::Justification::centredLeft);
+  }
 
   // Draw spectrum
   if (currentNumBins > 0 && !magnitudeData.empty()) {

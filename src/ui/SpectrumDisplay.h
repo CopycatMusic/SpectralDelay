@@ -35,6 +35,14 @@ public:
    */
   void setDbRange(float minDb, float maxDb);
 
+  /**
+   * Set axis label unit and displayed range (shown on right side of spectrum).
+   * The displayMax value updates dynamically based on the multiply slider.
+   * @param unit The unit string (e.g., "ms", "%", "°")
+   * @param displayMax The maximum value to display (e.g., 2000 for 2000ms)
+   */
+  void setAxisLabel(const juce::String &unit, float displayMax);
+
   // Display mode
   enum class DisplayMode { Line, Bar };
 
@@ -138,6 +146,12 @@ private:
 
   // Bypass state
   bool isBypassed = false;
+
+  // Axis label settings (right side Y-axis)
+  juce::String axisUnit = "";
+  float axisDisplayMax = 100.0f;
+  static constexpr float axisLabelWidth =
+      50.0f; // Reserved width for axis labels
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpectrumDisplay)
 };
