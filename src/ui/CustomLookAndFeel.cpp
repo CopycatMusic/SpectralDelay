@@ -2,13 +2,13 @@
 
 //==============================================================================
 CustomLookAndFeel::CustomLookAndFeel() {
-  // Define color palette
-  backgroundDark = juce::Colour(0xFF0d1117);
-  backgroundMedium = juce::Colour(0xFF161b22);
-  accentPrimary = juce::Colour(0xFF00d4ff);
-  accentSecondary = juce::Colour(0xFFff6b6b);
-  textPrimary = juce::Colours::white;
-  textSecondary = juce::Colours::white.withAlpha(0.7f);
+  // Initialize color palette from static getters
+  backgroundDark = getBackgroundDark();
+  backgroundMedium = getBackgroundMedium();
+  accentPrimary = getAccentPrimary();
+  accentSecondary = getAccentSecondary();
+  accentTertiary = getAccentTertiary();
+  textPrimary = getTextPrimary();
 
   // Set default colors
   setColour(juce::Slider::thumbColourId, accentPrimary);
@@ -21,14 +21,13 @@ CustomLookAndFeel::CustomLookAndFeel() {
 
   setColour(juce::TextButton::buttonColourId, backgroundMedium);
   setColour(juce::TextButton::buttonOnColourId, accentPrimary);
-  setColour(juce::TextButton::textColourOffId, textSecondary);
+  setColour(juce::TextButton::textColourOffId, textPrimary);
   setColour(juce::TextButton::textColourOnId, backgroundDark);
 
   setColour(juce::ComboBox::backgroundColourId, backgroundMedium);
-  setColour(juce::ComboBox::outlineColourId,
-            juce::Colours::white.withAlpha(0.2f));
+  setColour(juce::ComboBox::outlineColourId, textPrimary.withAlpha(0.2f));
   setColour(juce::ComboBox::textColourId, textPrimary);
-  setColour(juce::ComboBox::arrowColourId, textSecondary);
+  setColour(juce::ComboBox::arrowColourId, textPrimary);
 
   setColour(juce::PopupMenu::backgroundColourId, backgroundMedium);
   setColour(juce::PopupMenu::textColourId, textPrimary);
@@ -148,7 +147,7 @@ void CustomLookAndFeel::drawButtonBackground(
   g.setColour(baseColour);
   g.fillRoundedRectangle(bounds, 6.0f);
 
-  g.setColour(juce::Colours::white.withAlpha(0.1f));
+  g.setColour(textPrimary.withAlpha(0.1f));
   g.drawRoundedRectangle(bounds, 6.0f, 1.0f);
 }
 
@@ -159,7 +158,7 @@ void CustomLookAndFeel::drawButtonText(juce::Graphics &g,
   auto font = juce::Font(14.0f);
   g.setFont(font);
 
-  auto textColour = button.getToggleState() ? backgroundDark : textSecondary;
+  auto textColour = button.getToggleState() ? backgroundDark : textPrimary;
 
   if (shouldDrawButtonAsHighlighted && !button.getToggleState())
     textColour = textPrimary;
@@ -180,7 +179,7 @@ void CustomLookAndFeel::drawComboBox(juce::Graphics &g, int width, int height,
   g.setColour(backgroundMedium);
   g.fillRoundedRectangle(bounds, 6.0f);
 
-  g.setColour(juce::Colours::white.withAlpha(0.15f));
+  g.setColour(textPrimary.withAlpha(0.15f));
   g.drawRoundedRectangle(bounds, 6.0f, 1.0f);
 
   // Arrow
@@ -190,7 +189,7 @@ void CustomLookAndFeel::drawComboBox(juce::Graphics &g, int width, int height,
   arrow.addTriangle(arrowX, arrowY, arrowX + 10, arrowY, arrowX + 5,
                     arrowY + 6);
 
-  g.setColour(textSecondary);
+  g.setColour(textPrimary);
   g.fillPath(arrow);
 }
 
@@ -203,7 +202,7 @@ void CustomLookAndFeel::drawPopupMenuItem(
     auto r = area.reduced(5, 0);
     r.removeFromTop(r.getHeight() / 2 - 1);
 
-    g.setColour(juce::Colours::white.withAlpha(0.1f));
+    g.setColour(textPrimary.withAlpha(0.1f));
     g.fillRect(r.removeFromTop(1));
   } else {
     auto r = area.reduced(1);
@@ -214,7 +213,7 @@ void CustomLookAndFeel::drawPopupMenuItem(
 
       g.setColour(backgroundDark);
     } else {
-      g.setColour(isActive ? textPrimary : textSecondary);
+      g.setColour(isActive ? textPrimary : textPrimary.withAlpha(0.5f));
     }
 
     r.reduce(juce::jmin(5, area.getWidth() / 20), 0);

@@ -11,7 +11,6 @@ CopyCatSpectralDelayProcessor::CopyCatSpectralDelayProcessor()
                  createParameterLayout()) {
   // Get parameter pointers
   fftSizeParam = parameters.getRawParameterValue("fftSize");
-  overlapParam = parameters.getRawParameterValue("overlap");
   mixParam = parameters.getRawParameterValue("mix");
 }
 
@@ -27,11 +26,6 @@ CopyCatSpectralDelayProcessor::createParameterLayout() {
       "fftSize", "FFT Size",
       juce::StringArray{"256", "512", "1024", "2048", "4096", "8192"},
       3)); // Default: 2048
-
-  // Overlap: 2x, 4x, 8x
-  params.push_back(std::make_unique<juce::AudioParameterChoice>(
-      "overlap", "Overlap", juce::StringArray{"2x", "4x", "8x"},
-      1)); // Default: 4x
 
   // Mix (dry/wet)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
@@ -113,10 +107,8 @@ void CopyCatSpectralDelayProcessor::prepareToPlay(double sampleRate,
   int fftSizes[] = {256, 512, 1024, 2048, 4096, 8192};
   engine.setFFTSize(fftSizes[fftSizeIndex]);
 
-  // Convert overlap index to factor
-  int overlapIndex = static_cast<int>(*overlapParam);
-  int overlapFactors[] = {2, 4, 8};
-  engine.setOverlapFactor(overlapFactors[overlapIndex]);
+  // Set fixed overlap factor (4x)
+  engine.setOverlapFactor(4);
 
   // Report latency to host
   setLatencySamples(engine.getLatencyInSamples());
@@ -147,11 +139,6 @@ void CopyCatSpectralDelayProcessor::processBlock(
   int fftSizeIndex = static_cast<int>(*fftSizeParam);
   int fftSizes[] = {256, 512, 1024, 2048, 4096, 8192};
   engine.setFFTSize(fftSizes[fftSizeIndex]);
-
-  // Check for overlap changes
-  int overlapIndex = static_cast<int>(*overlapParam);
-  int overlapFactors[] = {2, 4, 8};
-  engine.setOverlapFactor(overlapFactors[overlapIndex]);
 
   // Update feedback multiplier from automation parameter
   auto *feedbackMultParam = parameters.getRawParameterValue("feedbackMult");

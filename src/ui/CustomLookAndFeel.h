@@ -12,6 +12,20 @@ public:
   CustomLookAndFeel();
   ~CustomLookAndFeel() override;
 
+  // Static color getters for use throughout the application
+  static juce::Colour getBackgroundDark() { return juce::Colour(0xFF0f1c2e); }
+  static juce::Colour getBackgroundMedium() { return juce::Colour(0xFF0D1827); }
+  static juce::Colour getBackgroundPanel() { return juce::Colour(0xFF0a131f); }
+  static juce::Colour getAccentPrimary() { return juce::Colour(0xFF45D4ED); }
+  // Sky Blue
+  static juce::Colour getAccentSecondary() { return juce::Colour(0xFFE63946); }
+  // Punch Red
+  static juce::Colour getAccentTertiary() { return juce::Colour(0xFFffd93d); }
+  // Mustard Yellow
+  static juce::Colour getTextPrimary() { return juce::Colour(0xFFF1FAEE); }
+
+  // https://coolors.co/0d1117-161b22-00d4ff-ff6b6b-ffd93d-ffffff
+
   // Slider
   void drawRotarySlider(juce::Graphics &g, int x, int y, int width, int height,
                         float sliderPos, float rotaryStartAngle,
@@ -46,13 +60,13 @@ public:
                          const juce::Colour *textColour) override;
 
 private:
-  // Color palette
+  // Color palette (cached from static getters)
   juce::Colour backgroundDark;
   juce::Colour backgroundMedium;
   juce::Colour accentPrimary;
   juce::Colour accentSecondary;
+  juce::Colour accentTertiary;
   juce::Colour textPrimary;
-  juce::Colour textSecondary;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CustomLookAndFeel)
 };

@@ -11,14 +11,16 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
   // Title
   titleLabel.setText("SPECTRAL DELAY", juce::dontSendNotification);
   titleLabel.setFont(juce::Font(28.0f, juce::Font::bold));
-  titleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+  titleLabel.setColour(juce::Label::textColourId,
+                       CustomLookAndFeel::getTextPrimary());
   titleLabel.setJustificationType(juce::Justification::centredLeft);
   addAndMakeVisible(titleLabel);
 
   // Version (top right)
-  versionLabel.setText("v0.2.2beta", juce::dontSendNotification);
+  versionLabel.setText("v0.2.3beta", juce::dontSendNotification);
   versionLabel.setFont(juce::Font(14.0f));
-  versionLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+  versionLabel.setColour(juce::Label::textColourId,
+                         CustomLookAndFeel::getTextPrimary());
   versionLabel.setJustificationType(juce::Justification::centredRight);
   addAndMakeVisible(versionLabel);
 
@@ -108,6 +110,9 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
   updateEditingCurve();
 
   // Set plugin window size (wider for better spectrum display)
+  // Enable resizing with constraints
+  setResizable(true, true);
+  setResizeLimits(700, 400, 1600, 1000);
   setSize(950, 500);
 
   // Start timer for spectrum update (30 Hz)
@@ -174,17 +179,17 @@ void CopyCatSpectralDelayEditor::updateAxisLabel() {
 }
 
 void CopyCatSpectralDelayEditor::paint(juce::Graphics &g) {
-  // Background gradient
-  juce::ColourGradient gradient(juce::Colour(0xFF1a1a2e), 0.0f, 0.0f,
-                                juce::Colour(0xFF16213e), 0.0f,
-                                static_cast<float>(getHeight()), false);
+  // Background gradient using centralized palette
+  juce::ColourGradient gradient(CustomLookAndFeel::getBackgroundDark(), 0.0f,
+                                0.0f, CustomLookAndFeel::getBackgroundMedium(),
+                                0.0f, static_cast<float>(getHeight()), false);
   g.setGradientFill(gradient);
   g.fillAll();
 
   // Divider line between left and right panels
   auto bounds = getLocalBounds();
   int dividerX = static_cast<int>(bounds.getWidth() * 0.70f);
-  g.setColour(juce::Colours::white.withAlpha(0.2f));
+  g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.2f));
   g.drawVerticalLine(dividerX, 50.0f,
                      static_cast<float>(bounds.getHeight() - 10));
 }

@@ -1,18 +1,19 @@
 #include "SpectrumDisplay.h"
+#include "CustomLookAndFeel.h"
 #include <cmath>
 
 //==============================================================================
 SpectrumDisplay::SpectrumDisplay() {
-  // Set up colors for a modern dark theme
-  backgroundColour = juce::Colour(0xFF0d1117);
-  gridColour = juce::Colours::white.withAlpha(0.1f);
-  spectrumColour = juce::Colour(0xFF00d4ff);
+  // Set up colors from centralized palette
+  backgroundColour = CustomLookAndFeel::getBackgroundPanel();
+  gridColour = CustomLookAndFeel::getTextPrimary().withAlpha(0.1f);
+  spectrumColour = CustomLookAndFeel::getAccentPrimary();
   spectrumFillColour = spectrumColour.withAlpha(0.3f);
 
   // Curve colors
-  curveColour = juce::Colour(0xFFff6b6b);      // Coral red
-  pointColour = juce::Colour(0xFFffd93d);      // Golden yellow
-  pointHoverColour = juce::Colour(0xFFffffff); // White when hovered
+  curveColour = CustomLookAndFeel::getAccentSecondary();
+  pointColour = CustomLookAndFeel::getAccentTertiary();
+  pointHoverColour = CustomLookAndFeel::getTextPrimary();
 }
 
 SpectrumDisplay::~SpectrumDisplay() {}
@@ -117,37 +118,33 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
   g.fillRoundedRectangle(bounds, 8.0f);
 
   // Border
-  g.setColour(juce::Colours::white.withAlpha(0.1f));
+  g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.1f));
   g.drawRoundedRectangle(bounds.reduced(0.5f), 8.0f, 1.0f);
 
-  auto graphBounds = bounds.reduced(10.0f);
+  auto graphBounds = getGraphBounds();
 
-  // Reserve space for axis labels on the right
-  auto axisArea = graphBounds.removeFromRight(axisLabelWidth);
-
-  // Draw Y-axis labels (min at bottom, max at top)
+  // Draw Y-axis labels - only MAX at top, at right edge of graph
   if (axisUnit.isNotEmpty()) {
-    g.setColour(juce::Colours::white.withAlpha(0.7f));
+    g.setColour(CustomLookAndFeel::getTextPrimary());
     g.setFont(juce::Font(12.0f));
 
-    // Format max value label
+    // Format max value label with "MAX:" prefix
     juce::String maxLabel;
     if (axisDisplayMax >= 1000.0f) {
-      maxLabel = juce::String(static_cast<int>(axisDisplayMax)) + axisUnit;
+      maxLabel =
+          "MAX:" + juce::String(static_cast<int>(axisDisplayMax)) + axisUnit;
     } else if (axisDisplayMax >= 100.0f) {
-      maxLabel = juce::String(static_cast<int>(axisDisplayMax)) + axisUnit;
+      maxLabel =
+          "MAX:" + juce::String(static_cast<int>(axisDisplayMax)) + axisUnit;
     } else {
-      maxLabel = juce::String(axisDisplayMax, 1) + axisUnit;
+      maxLabel = "MAX:" + juce::String(axisDisplayMax, 1) + axisUnit;
     }
 
-    // Min value is always 0
-    juce::String minLabel = "0" + axisUnit;
-
-    // Draw labels
-    g.drawText(maxLabel, axisArea.removeFromTop(20).toNearestInt(),
-               juce::Justification::centredLeft);
-    g.drawText(minLabel, axisArea.removeFromBottom(20).toNearestInt(),
-               juce::Justification::centredLeft);
+    // Draw max label at right edge of graph bounds (top only)
+    auto labelArea =
+        graphBounds.withWidth(80.0f).withX(graphBounds.getRight() - 80.0f);
+    g.drawText(maxLabel, labelArea.removeFromTop(20).toNearestInt(),
+               juce::Justification::centredRight);
   }
 
   // Draw spectrum
@@ -224,11 +221,11 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
 
   // Draw bypass overlay (dim the display when bypassed)
   if (isBypassed) {
-    g.setColour(juce::Colour(0xFF161b22).withAlpha(0.7f));
+    g.setColour(CustomLookAndFeel::getBackgroundMedium().withAlpha(0.7f));
     g.fillRoundedRectangle(bounds, 8.0f);
 
     // Draw "BYPASSED" text
-    g.setColour(juce::Colours::white.withAlpha(0.5f));
+    g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.5f));
     g.setFont(juce::Font(16.0f));
     g.drawText("BYPASSED", bounds, juce::Justification::centred);
   }
@@ -238,7 +235,7 @@ void SpectrumDisplay::drawCurve(juce::Graphics &g) {
   if (editingCurve == nullptr)
     return;
 
-  auto graphBounds = getLocalBounds().toFloat().reduced(10.0f);
+  auto graphBounds = getGraphBounds();
   const auto &points = editingCurve->getPoints();
 
   // Draw the curve line
@@ -308,6 +305,13 @@ void SpectrumDisplay::drawCurve(juce::Graphics &g) {
 void SpectrumDisplay::resized() {}
 
 //==============================================================================
+juce::Rectangle<float> SpectrumDisplay::getGraphBounds() const {
+  // Use the full bounds reduced by padding - no reserved space for axis labels
+  // (labels are drawn on top of the graph at the right edge)
+  return getLocalBounds().toFloat().reduced(10.0f);
+}
+
+//==============================================================================
 float SpectrumDisplay::frequencyToX(float frequency) const {
   float logMin = std::log10(minFreq);
   float logMax = std::log10(maxFreq);
@@ -342,7 +346,7 @@ int SpectrumDisplay::hitTestPoint(float x, float y) const {
   if (editingCurve == nullptr)
     return -1;
 
-  auto graphBounds = getLocalBounds().toFloat().reduced(10.0f);
+  auto graphBounds = getGraphBounds();
   const auto &points = editingCurve->getPoints();
 
   for (int i = 0; i < static_cast<int>(points.size()); ++i) {
@@ -368,7 +372,7 @@ void SpectrumDisplay::mouseDown(const juce::MouseEvent &e) {
   if (editingCurve == nullptr)
     return;
 
-  auto graphBounds = getLocalBounds().toFloat().reduced(10.0f);
+  auto graphBounds = getGraphBounds();
 
   // Check if we clicked on an existing point
   int pointIndex =
@@ -412,7 +416,7 @@ void SpectrumDisplay::mouseDrag(const juce::MouseEvent &e) {
   if (!isDragging || draggedPointIndex < 0 || editingCurve == nullptr)
     return;
 
-  auto graphBounds = getLocalBounds().toFloat().reduced(10.0f);
+  auto graphBounds = getGraphBounds();
   const auto &points = editingCurve->getPoints();
 
   float normX = (e.x - graphBounds.getX()) / graphBounds.getWidth();

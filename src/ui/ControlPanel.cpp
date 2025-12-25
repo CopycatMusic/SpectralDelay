@@ -1,4 +1,5 @@
 #include "ControlPanel.h"
+#include "CustomLookAndFeel.h"
 
 //==============================================================================
 ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
@@ -23,7 +24,8 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addAndMakeVisible(delayButton);
 
   // Delay mode toggle (Phase vs Delay) - initially hidden
-  delayModeButton.setButtonText("Phase");
+  delayModeButton.setButtonText("Delay");
+  delayModeButton.setToggleState(true, juce::dontSendNotification);
   delayModeButton.setClickingTogglesState(true);
   delayModeButton.onClick = [this]() {
     currentDelayMode = delayModeButton.getToggleState();
@@ -47,12 +49,14 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   // Mode label for delay mode toggle
   delayModeLabel.setText("Mode:", juce::dontSendNotification);
-  delayModeLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+  delayModeLabel.setColour(juce::Label::textColourId,
+                           CustomLookAndFeel::getTextPrimary());
   addChildComponent(delayModeLabel); // Initially hidden
 
   // Feedback controls - initially hidden
   feedbackMultLabel.setText("Multiply:", juce::dontSendNotification);
-  feedbackMultLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+  feedbackMultLabel.setColour(juce::Label::textColourId,
+                              CustomLookAndFeel::getTextPrimary());
   addChildComponent(feedbackMultLabel);
 
   feedbackMultSlider.setSliderStyle(juce::Slider::LinearHorizontal);
@@ -72,7 +76,8 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   // Gain multiply control - initially hidden
   gainMultLabel.setText("Multiply:", juce::dontSendNotification);
-  gainMultLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+  gainMultLabel.setColour(juce::Label::textColourId,
+                          CustomLookAndFeel::getTextPrimary());
   addChildComponent(gainMultLabel);
 
   gainMultSlider.setSliderStyle(juce::Slider::LinearHorizontal);
@@ -84,7 +89,8 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   // Delay multiply control - initially hidden
   delayMultLabel.setText("Multiply:", juce::dontSendNotification);
-  delayMultLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+  delayMultLabel.setColour(juce::Label::textColourId,
+                           CustomLookAndFeel::getTextPrimary());
   addChildComponent(delayMultLabel);
 
   delayMultSlider.setSliderStyle(juce::Slider::LinearHorizontal);
@@ -96,7 +102,8 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   // FFT settings
   fftSizeLabel.setText("FFT Size:", juce::dontSendNotification);
-  fftSizeLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+  fftSizeLabel.setColour(juce::Label::textColourId,
+                         CustomLookAndFeel::getTextPrimary());
   addAndMakeVisible(fftSizeLabel);
 
   fftSizeSelector.addItem("256", 1);
@@ -110,21 +117,10 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
       std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
           parameters, "fftSize", fftSizeSelector);
 
-  overlapLabel.setText("Overlap:", juce::dontSendNotification);
-  overlapLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-  addAndMakeVisible(overlapLabel);
-
-  overlapSelector.addItem("2x", 1);
-  overlapSelector.addItem("4x", 2);
-  overlapSelector.addItem("8x", 3);
-  addAndMakeVisible(overlapSelector);
-  overlapAttachment =
-      std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
-          parameters, "overlap", overlapSelector);
-
   // Mix control (horizontal slider style)
   mixLabel.setText("Mix:", juce::dontSendNotification);
-  mixLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+  mixLabel.setColour(juce::Label::textColourId,
+                     CustomLookAndFeel::getTextPrimary());
   addAndMakeVisible(mixLabel);
 
   mixSlider.setSliderStyle(juce::Slider::LinearHorizontal);
@@ -137,7 +133,8 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   // Display mode toggle
   displayModeLabel.setText("Display:", juce::dontSendNotification);
-  displayModeLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+  displayModeLabel.setColour(juce::Label::textColourId,
+                             CustomLookAndFeel::getTextPrimary());
   addAndMakeVisible(displayModeLabel);
 
   displayModeButton.setButtonText("Line");
@@ -154,15 +151,14 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   // Spectrum source toggle
   spectrumSourceLabel.setText("Source:", juce::dontSendNotification);
   spectrumSourceLabel.setColour(juce::Label::textColourId,
-                                juce::Colours::white);
+                                CustomLookAndFeel::getTextPrimary());
   addAndMakeVisible(spectrumSourceLabel);
 
-  spectrumSourceButton.setButtonText("Display Output");
+  spectrumSourceButton.setButtonText("Output");
   spectrumSourceButton.setClickingTogglesState(true);
   spectrumSourceButton.onClick = [this]() {
     bool isInput = spectrumSourceButton.getToggleState();
-    spectrumSourceButton.setButtonText(isInput ? "Display Input"
-                                               : "Display Output");
+    spectrumSourceButton.setButtonText(isInput ? "Input" : "Output");
     if (onSpectrumSourceChanged) {
       onSpectrumSourceChanged(isInput);
     }
@@ -174,37 +170,37 @@ ControlPanel::~ControlPanel() { mixSlider.removeListener(this); }
 
 //==============================================================================
 void ControlPanel::paint(juce::Graphics &g) {
-  g.fillAll(juce::Colour(0xFF161b22));
+  g.fillAll(CustomLookAndFeel::getBackgroundPanel());
 
   // Draw border
-  g.setColour(juce::Colours::white.withAlpha(0.1f));
+  g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.1f));
   g.drawRect(getLocalBounds(), 1);
 
   // Draw separator line between top (parameter controls) and bottom (global
   // settings)
   int rowHeight = 25;
-  int spacing = 5;
+  int spacing = 8;
   int margin = 10;
-  int globalRowsCount = 5; // FFT, Overlap, Display, Source, Mix
+  int globalRowsCount = 4; // FFT, Display (with Source), Mix Label, Mix Slider
   int globalSectionHeight =
       (globalRowsCount * rowHeight) + (globalRowsCount * spacing) + margin;
   int separatorY = getHeight() - globalSectionHeight - margin;
 
-  g.setColour(juce::Colours::white.withAlpha(0.2f));
+  g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.2f));
   g.fillRect(margin, separatorY, getWidth() - margin * 2, 1);
 }
 
 void ControlPanel::resized() {
   int rowHeight = 25;
   int labelWidth = 80;
-  int spacing = 5;
+  int spacing = 8;
   int margin = 10;
 
   int width = getWidth();
   int height = getHeight();
 
   // ============ BOTTOM SECTION: Global settings (fixed at bottom) ============
-  int globalRowsCount = 5; // FFT, Overlap, Display, Source, Mix
+  int globalRowsCount = 4; // FFT, Display (with Source), Mix Label, Mix Slider
   int globalSectionHeight =
       (globalRowsCount * rowHeight) + (globalRowsCount * spacing) + margin;
   int separatorY = height - globalSectionHeight - margin;
@@ -214,34 +210,38 @@ void ControlPanel::resized() {
   // FFT Size row
   juce::Rectangle<int> fftRow(margin, bottomY, width - margin * 2, rowHeight);
   fftSizeLabel.setBounds(fftRow.removeFromLeft(labelWidth));
-  fftSizeSelector.setBounds(fftRow.reduced(spacing, 0));
+  fftRow.removeFromLeft(spacing); // Add spacing after label
+  fftSizeSelector.setBounds(fftRow);
   bottomY += rowHeight + spacing;
 
-  // Overlap row
-  juce::Rectangle<int> overlapRow(margin, bottomY, width - margin * 2,
+  // Display row (combined: Display label + Bar/Line button + Input/Output
+  // button)
+  juce::Rectangle<int> displayRow(margin, bottomY, width - margin * 2,
                                   rowHeight);
-  overlapLabel.setBounds(overlapRow.removeFromLeft(labelWidth));
-  overlapSelector.setBounds(overlapRow.reduced(spacing, 0));
+  displayModeLabel.setBounds(displayRow.removeFromLeft(labelWidth));
+  displayRow.removeFromLeft(spacing); // Add spacing after label
+  // Split remaining space for two buttons
+  int buttonAreaWidth = displayRow.getWidth();
+  int singleButtonWidth = (buttonAreaWidth - spacing) / 2;
+  displayModeButton.setBounds(displayRow.removeFromLeft(singleButtonWidth));
+  displayRow.removeFromLeft(spacing);
+  spectrumSourceButton.setBounds(displayRow);
   bottomY += rowHeight + spacing;
 
-  // Display mode row
-  juce::Rectangle<int> displayModeRow(margin, bottomY, width - margin * 2,
-                                      rowHeight);
-  displayModeLabel.setBounds(displayModeRow.removeFromLeft(labelWidth));
-  displayModeButton.setBounds(displayModeRow.reduced(spacing, 0));
+  // Hide spectrum source label (no longer needed)
+  spectrumSourceLabel.setVisible(false);
+
+  // Mix label row
+  juce::Rectangle<int> mixLabelRow(margin, bottomY, width - margin * 2,
+                                   rowHeight);
+  mixLabel.setBounds(mixLabelRow);
   bottomY += rowHeight + spacing;
 
-  // Spectrum source row
-  juce::Rectangle<int> spectrumSourceRow(margin, bottomY, width - margin * 2,
-                                         rowHeight);
-  spectrumSourceLabel.setBounds(spectrumSourceRow.removeFromLeft(labelWidth));
-  spectrumSourceButton.setBounds(spectrumSourceRow.reduced(spacing, 0));
-  bottomY += rowHeight + spacing;
-
-  // Mix slider row
-  juce::Rectangle<int> mixRow(margin, bottomY, width - margin * 2, rowHeight);
-  mixLabel.setBounds(mixRow.removeFromLeft(labelWidth));
-  mixSlider.setBounds(mixRow.reduced(spacing, 0));
+  // Mix slider row (full width)
+  juce::Rectangle<int> mixSliderRow(margin, bottomY, width - margin * 2,
+                                    rowHeight);
+  mixSliderRow.removeFromLeft(spacing); // Add left margin
+  mixSlider.setBounds(mixSliderRow.reduced(spacing, 0));
 
   // ============ TOP SECTION: Parameter controls ============
   int topY = margin;
@@ -261,7 +261,8 @@ void ControlPanel::resized() {
     juce::Rectangle<int> delayModeRow(margin, topY, width - margin * 2,
                                       rowHeight);
     delayModeLabel.setBounds(delayModeRow.removeFromLeft(labelWidth));
-    delayModeButton.setBounds(delayModeRow.reduced(spacing, 0));
+    delayModeRow.removeFromLeft(spacing); // Add spacing after label
+    delayModeButton.setBounds(delayModeRow);
   }
 
   // Feedback controls (only visible when Feedback is selected)

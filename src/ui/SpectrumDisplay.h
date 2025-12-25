@@ -90,6 +90,9 @@ private:
   // Draw curve points and lines
   void drawCurve(juce::Graphics &g);
 
+  // Get the graph bounds (excluding axis labels)
+  juce::Rectangle<float> getGraphBounds() const;
+
   // Spectrum data
   std::vector<float> magnitudeData;
   int currentNumBins = 0;

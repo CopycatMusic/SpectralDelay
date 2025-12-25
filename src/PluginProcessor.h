@@ -61,7 +61,6 @@ private:
 
   // Parameter pointers for quick access
   std::atomic<float> *fftSizeParam = nullptr;
-  std::atomic<float> *overlapParam = nullptr;
   std::atomic<float> *mixParam = nullptr;
 
   // UI state storage (for DAW recall)

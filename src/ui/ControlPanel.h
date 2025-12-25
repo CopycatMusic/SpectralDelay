@@ -61,8 +61,7 @@ public:
   // Set spectrum source UI state (for restoring from saved state)
   void setShowInputSpectrum(bool isInput) {
     spectrumSourceButton.setToggleState(isInput, juce::dontSendNotification);
-    spectrumSourceButton.setButtonText(isInput ? "Display Input"
-                                               : "Display Output");
+    spectrumSourceButton.setButtonText(isInput ? "Input" : "Output");
   }
 
   // Set feedback invert UI state (for restoring from saved state)
@@ -89,12 +88,8 @@ private:
   // FFT settings
   juce::Label fftSizeLabel;
   juce::ComboBox fftSizeSelector;
-  juce::Label overlapLabel;
-  juce::ComboBox overlapSelector;
   std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>
       fftSizeAttachment;
-  std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>
-      overlapAttachment;
 
   // Mix control
   juce::Label mixLabel;
@@ -139,7 +134,7 @@ private:
   int currentParameterType = 0;
 
   // Current delay mode (false = Phase, true = Delay)
-  bool currentDelayMode = false;
+  bool currentDelayMode = true;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ControlPanel)
 };

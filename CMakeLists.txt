@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(CopyCatSpectralDelay VERSION 1.0.0)
+project(CopyCatSpectralDelay VERSION 0.2.3)
 
 # ============================================================================
 # JUCE Path Configuration (supports local dev and CI builds)
@@ -30,7 +30,7 @@ juce_add_plugin(CopyCatSpectralDelay
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
-    COPY_PLUGIN_AFTER_BUILD FALSE  # Disabled for CI builds
+    COPY_PLUGIN_AFTER_BUILD TRUE 
     PLUGIN_MANUFACTURER_CODE "CpCt"
     PLUGIN_CODE "CCSD"
     FORMATS VST3
