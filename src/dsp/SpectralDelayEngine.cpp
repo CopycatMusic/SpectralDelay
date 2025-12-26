@@ -322,6 +322,23 @@ void SpectralDelayEngine::setFFTSize(int size) {
   // Resize input spectrum storage
   inputMagnitudeSpectrum.resize(currentNumBins, 0.0f);
 
+  // Resize output FFT analyzer buffers (critical for UI thread safety)
+  int outputFFTOrder = static_cast<int>(std::log2(currentFFTSize));
+  outputFFT = std::make_unique<juce::dsp::FFT>(outputFFTOrder);
+  outputFFTBuffer.resize(currentFFTSize * 2, 0.0f);
+  outputMagnitudeSpectrum.assign(currentNumBins, 0.0f);
+  outputAccumBuffer.assign(currentFFTSize, 0.0f);
+  outputAccumPos = 0;
+
+  // Recreate Hann window for output FFT
+  outputWindow.resize(currentFFTSize);
+  for (int i = 0; i < currentFFTSize; ++i) {
+    outputWindow[i] =
+        0.5f * (1.0f - std::cos(2.0f * juce::MathConstants<float>::pi *
+                                static_cast<float>(i) /
+                                static_cast<float>(currentFFTSize)));
+  }
+
   // Update dry signal delay to match new STFT latency
   int latency = stftProcessorL.getLatencyInSamples();
   dryDelayL.setDelay(static_cast<float>(latency));
