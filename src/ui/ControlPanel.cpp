@@ -240,8 +240,7 @@ void ControlPanel::resized() {
   // Mix slider row (full width)
   juce::Rectangle<int> mixSliderRow(margin, bottomY, width - margin * 2,
                                     rowHeight);
-  mixSliderRow.removeFromLeft(spacing); // Add left margin
-  mixSlider.setBounds(mixSliderRow.reduced(spacing, 0));
+  mixSlider.setBounds(mixSliderRow);
 
   // ============ TOP SECTION: Parameter controls ============
   int topY = margin;
@@ -280,7 +279,7 @@ void ControlPanel::resized() {
     topY += rowHeight + spacing;
     juce::Rectangle<int> multSliderRow(margin, topY, width - margin * 2,
                                        rowHeight);
-    feedbackMultSlider.setBounds(multSliderRow.reduced(spacing, 0));
+    feedbackMultSlider.setBounds(multSliderRow);
   }
 
   // Gain multiply control (only visible when Gain is selected)
@@ -294,7 +293,7 @@ void ControlPanel::resized() {
     topY += rowHeight + spacing;
     juce::Rectangle<int> gainMultSliderRow(margin, topY, width - margin * 2,
                                            rowHeight);
-    gainMultSlider.setBounds(gainMultSliderRow.reduced(spacing, 0));
+    gainMultSlider.setBounds(gainMultSliderRow);
   }
 
   // Delay multiply control (only visible when Delay mode is active)
@@ -308,7 +307,7 @@ void ControlPanel::resized() {
     topY += rowHeight + spacing;
     juce::Rectangle<int> delayMultSliderRow(margin, topY, width - margin * 2,
                                             rowHeight);
-    delayMultSlider.setBounds(delayMultSliderRow.reduced(spacing, 0));
+    delayMultSlider.setBounds(delayMultSliderRow);
   }
 }
 

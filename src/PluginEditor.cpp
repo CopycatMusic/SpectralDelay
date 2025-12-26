@@ -17,7 +17,7 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
   addAndMakeVisible(titleLabel);
 
   // Version (top right)
-  versionLabel.setText("v0.2.3beta", juce::dontSendNotification);
+  versionLabel.setText("v0.2.4beta", juce::dontSendNotification);
   versionLabel.setFont(juce::Font(14.0f));
   versionLabel.setColour(juce::Label::textColourId,
                          CustomLookAndFeel::getTextPrimary());
@@ -199,8 +199,8 @@ void CopyCatSpectralDelayEditor::resized() {
 
   // Title bar
   auto titleArea = bounds.removeFromTop(50);
-  titleLabel.setBounds(titleArea.removeFromLeft(250).reduced(15, 10));
-  versionLabel.setBounds(titleArea.removeFromRight(100).reduced(15, 10));
+  titleLabel.setBounds(titleArea.removeFromLeft(250).reduced(15, 0));
+  versionLabel.setBounds(titleArea.removeFromRight(100).reduced(15, 0));
 
   // Split remaining area (70% spectrum, 30% controls)
   int spectrumWidth = static_cast<int>(bounds.getWidth() * 0.70f);
