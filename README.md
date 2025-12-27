@@ -23,7 +23,6 @@
 | **Real-time Spectrum Display** | View input or output spectrum in real-time |
 | **Multi-point Curve Editor** | Click to add points, drag to move, double-click to delete |
 | **FFT Size** | Adjustable from 256 to 8192 |
-| **Overlap Factor** | Choose from 2x, 4x, or 8x overlap |
 | **Dry/Wet Mix** | Blend between original and processed signal |
 | **Parameter Multipliers** | Separate multiply sliders for Gain, Delay, and Feedback |
 | **Feedback Phase Invert** | Invert feedback signal phase |
@@ -152,7 +151,6 @@ This software is provided for personal use only. Redistribution or modification 
 | **实时频谱显示** | 实时查看输入或输出频谱 |
 | **多点曲线编辑器** | 单击添加点、拖拽移动点、双击删除点 |
 | **FFT 窗口大小** | 可调范围 256 - 8192 |
-| **重叠倍数** | 可选 2x、4x 或 8x |
 | **干湿混合** | 混合原始信号和处理后信号 |
 | **参数倍率** | Gain、Delay、Feedback 各自独立的倍率滑块 |
 | **反馈相位反转** | 反转反馈信号相位 |
