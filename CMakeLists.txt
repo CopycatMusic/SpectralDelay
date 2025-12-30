@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(CopyCatSpectralDelay VERSION 0.2.4)
+project(CopyCatSpectralDelay VERSION 1.0.0)
 
 # ============================================================================
 # JUCE Path Configuration (supports local dev and CI builds)
@@ -19,6 +19,13 @@ endif()
 
 message(STATUS "Using JUCE from: ${JUCE_DIR}")
 add_subdirectory(${JUCE_DIR} build/JUCE)
+
+# ============================================================================
+# Binary Resources (Fonts)
+# ============================================================================
+juce_add_binary_data(FontResources
+    SOURCES
+        resources/fonts/Montserrat-Bold.ttf)
 
 # ============================================================================
 # Plugin Target Configuration
@@ -68,6 +75,7 @@ target_sources(CopyCatSpectralDelay
 # ============================================================================
 target_link_libraries(CopyCatSpectralDelay
     PRIVATE
+        FontResources
         juce::juce_audio_utils
         juce::juce_dsp
         juce::juce_gui_extra

@@ -24,17 +24,22 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addAndMakeVisible(delayButton);
 
   // Delay mode toggle (Phase vs Delay) - initially hidden
+  // Default: Toggle off = Delay mode, Toggle on = Phase mode
   delayModeButton.setButtonText("Delay");
-  delayModeButton.setToggleState(true, juce::dontSendNotification);
+  delayModeButton.setToggleState(false,
+                                 juce::dontSendNotification); // Off = Delay
   delayModeButton.setClickingTogglesState(true);
   delayModeButton.onClick = [this]() {
-    currentDelayMode = delayModeButton.getToggleState();
+    // Inverted: toggle off = Delay, toggle on = Phase
+    currentDelayMode = !delayModeButton.getToggleState();
     delayModeButton.setButtonText(currentDelayMode ? "Delay" : "Phase");
 
     // Show/hide delay multiply control based on mode (only show in Delay mode)
     bool showDelayMult = currentDelayMode && (currentParameterType == 2);
     delayMultLabel.setVisible(showDelayMult);
     delayMultSlider.setVisible(showDelayMult);
+    delayMaxLabel.setVisible(showDelayMult);
+    updateMaxLabels();
     resized();
 
     if (onDelayModeChanged) {
@@ -61,10 +66,16 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   feedbackMultSlider.setSliderStyle(juce::Slider::LinearHorizontal);
   feedbackMultSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+  feedbackMultSlider.onValueChange = [this]() { updateMaxLabels(); };
   addChildComponent(feedbackMultSlider);
   feedbackMultAttachment =
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           parameters, "feedbackMult", feedbackMultSlider);
+
+  // Feedback MAX label
+  feedbackMaxLabel.setColour(juce::Label::textColourId,
+                             CustomLookAndFeel::getTextPrimary());
+  addChildComponent(feedbackMaxLabel);
 
   feedbackInvertButton.setClickingTogglesState(true);
   feedbackInvertButton.onClick = [this]() {
@@ -82,10 +93,16 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   gainMultSlider.setSliderStyle(juce::Slider::LinearHorizontal);
   gainMultSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+  gainMultSlider.onValueChange = [this]() { updateMaxLabels(); };
   addChildComponent(gainMultSlider);
   gainMultAttachment =
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           parameters, "gainMult", gainMultSlider);
+
+  // Gain MAX label
+  gainMaxLabel.setColour(juce::Label::textColourId,
+                         CustomLookAndFeel::getTextPrimary());
+  addChildComponent(gainMaxLabel);
 
   // Delay multiply control - initially hidden
   delayMultLabel.setText("Multiply:", juce::dontSendNotification);
@@ -95,10 +112,16 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   delayMultSlider.setSliderStyle(juce::Slider::LinearHorizontal);
   delayMultSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+  delayMultSlider.onValueChange = [this]() { updateMaxLabels(); };
   addChildComponent(delayMultSlider);
   delayMultAttachment =
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           parameters, "delayMult", delayMultSlider);
+
+  // Delay MAX label
+  delayMaxLabel.setColour(juce::Label::textColourId,
+                          CustomLookAndFeel::getTextPrimary());
+  addChildComponent(delayMaxLabel);
 
   // FFT settings
   fftSizeLabel.setText("FFT Size:", juce::dontSendNotification);
@@ -176,18 +199,41 @@ void ControlPanel::paint(juce::Graphics &g) {
   g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.1f));
   g.drawRect(getLocalBounds(), 1);
 
-  // Draw separator line between top (parameter controls) and bottom (global
-  // settings)
   int rowHeight = 25;
   int spacing = 8;
   int margin = 10;
-  int globalRowsCount = 4; // FFT, Display (with Source), Mix Label, Mix Slider
+
+  // Top section needs: param buttons (1 row) + mode row (1 row) + spacing
+  int topSectionMinHeight = (2 * rowHeight) + (2 * spacing) + margin;
+  int topSectionEndY = topSectionMinHeight;
+
+  // Bottom section: FFT, Display, Mix (4 rows)
+  int globalRowsCount = 4;
   int globalSectionHeight =
       (globalRowsCount * rowHeight) + (globalRowsCount * spacing) + margin;
-  int separatorY = getHeight() - globalSectionHeight - margin;
+  int bottomSeparatorY = getHeight() - globalSectionHeight - margin;
+
+  // Middle section: Multiply label + slider + MAX (3 rows)
+  int middleRowsCount = 3;
+  int middleSectionHeight =
+      (middleRowsCount * rowHeight) + (middleRowsCount * spacing) + margin;
+  int middleSeparatorY = bottomSeparatorY - middleSectionHeight - margin;
+
+  // Clamp middle separator to not go above top section
+  middleSeparatorY = std::max(middleSeparatorY, topSectionEndY);
 
   g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.2f));
-  g.fillRect(margin, separatorY, getWidth() - margin * 2, 1);
+
+  // Draw separator above middle section (centered in the gap)
+  int middleLineY = middleSeparatorY + margin;
+  g.fillRect(margin, middleLineY, getWidth() - margin * 2, 1);
+
+  // Draw separator above bottom section (centered in the gap, only if there's
+  // room)
+  if (bottomSeparatorY > middleSeparatorY + middleSectionHeight) {
+    int bottomLineY = bottomSeparatorY + margin;
+    g.fillRect(margin, bottomLineY, getWidth() - margin * 2, 1);
+  }
 }
 
 void ControlPanel::resized() {
@@ -199,28 +245,42 @@ void ControlPanel::resized() {
   int width = getWidth();
   int height = getHeight();
 
-  // ============ BOTTOM SECTION: Global settings (fixed at bottom) ============
-  int globalRowsCount = 4; // FFT, Display (with Source), Mix Label, Mix Slider
+  // ============ Calculate section boundaries ============
+  // Top section needs: param buttons (1 row) + mode row (1 row) + spacing
+  int topSectionMinHeight = (2 * rowHeight) + (2 * spacing) + margin;
+  int topSectionEndY = topSectionMinHeight;
+
+  // Bottom section: FFT, Display, Mix (4 rows)
+  int globalRowsCount = 4;
   int globalSectionHeight =
       (globalRowsCount * rowHeight) + (globalRowsCount * spacing) + margin;
-  int separatorY = height - globalSectionHeight - margin;
+  int bottomSeparatorY = height - globalSectionHeight - margin;
 
-  int bottomY = separatorY + margin + spacing;
+  // Middle section: Multiply label + slider + MAX (3 rows)
+  int middleRowsCount = 3;
+  int middleSectionHeight =
+      (middleRowsCount * rowHeight) + (middleRowsCount * spacing) + margin;
+  int middleSeparatorY = bottomSeparatorY - middleSectionHeight - margin;
+
+  // Clamp middle separator to not go above top section
+  middleSeparatorY = std::max(middleSeparatorY, topSectionEndY);
+  int middleStartY = middleSeparatorY + margin + spacing;
+
+  // ============ BOTTOM SECTION: Global settings (fixed at bottom) ============
+  int bottomY = bottomSeparatorY + margin + spacing;
 
   // FFT Size row
   juce::Rectangle<int> fftRow(margin, bottomY, width - margin * 2, rowHeight);
   fftSizeLabel.setBounds(fftRow.removeFromLeft(labelWidth));
-  fftRow.removeFromLeft(spacing); // Add spacing after label
+  fftRow.removeFromLeft(spacing);
   fftSizeSelector.setBounds(fftRow);
   bottomY += rowHeight + spacing;
 
-  // Display row (combined: Display label + Bar/Line button + Input/Output
-  // button)
+  // Display row
   juce::Rectangle<int> displayRow(margin, bottomY, width - margin * 2,
                                   rowHeight);
   displayModeLabel.setBounds(displayRow.removeFromLeft(labelWidth));
-  displayRow.removeFromLeft(spacing); // Add spacing after label
-  // Split remaining space for two buttons
+  displayRow.removeFromLeft(spacing);
   int buttonAreaWidth = displayRow.getWidth();
   int singleButtonWidth = (buttonAreaWidth - spacing) / 2;
   displayModeButton.setBounds(displayRow.removeFromLeft(singleButtonWidth));
@@ -228,7 +288,6 @@ void ControlPanel::resized() {
   spectrumSourceButton.setBounds(displayRow);
   bottomY += rowHeight + spacing;
 
-  // Hide spectrum source label (no longer needed)
   spectrumSourceLabel.setVisible(false);
 
   // Mix label row
@@ -237,10 +296,48 @@ void ControlPanel::resized() {
   mixLabel.setBounds(mixLabelRow);
   bottomY += rowHeight + spacing;
 
-  // Mix slider row (full width)
+  // Mix slider row
   juce::Rectangle<int> mixSliderRow(margin, bottomY, width - margin * 2,
                                     rowHeight);
   mixSlider.setBounds(mixSliderRow);
+
+  // ============ MIDDLE SECTION: Multiply controls (fixed position)
+  // ============
+  int midY = middleStartY;
+
+  // Multiply label (show whichever is active)
+  juce::Rectangle<int> multLabelRow(margin, midY, width - margin * 2,
+                                    rowHeight);
+  if (currentParameterType == 0) {
+    gainMultLabel.setBounds(multLabelRow);
+  } else if (currentParameterType == 1) {
+    feedbackMultLabel.setBounds(multLabelRow);
+  } else if (currentParameterType == 2 && currentDelayMode) {
+    delayMultLabel.setBounds(multLabelRow);
+  }
+  midY += rowHeight + spacing;
+
+  // Multiply slider
+  juce::Rectangle<int> multSliderRow(margin, midY, width - margin * 2,
+                                     rowHeight);
+  if (currentParameterType == 0) {
+    gainMultSlider.setBounds(multSliderRow);
+  } else if (currentParameterType == 1) {
+    feedbackMultSlider.setBounds(multSliderRow);
+  } else if (currentParameterType == 2 && currentDelayMode) {
+    delayMultSlider.setBounds(multSliderRow);
+  }
+  midY += rowHeight + spacing;
+
+  // MAX label
+  juce::Rectangle<int> maxLabelRow(margin, midY, width - margin * 2, rowHeight);
+  if (currentParameterType == 0) {
+    gainMaxLabel.setBounds(maxLabelRow);
+  } else if (currentParameterType == 1) {
+    feedbackMaxLabel.setBounds(maxLabelRow);
+  } else if (currentParameterType == 2 && currentDelayMode) {
+    delayMaxLabel.setBounds(maxLabelRow);
+  }
 
   // ============ TOP SECTION: Parameter controls ============
   int topY = margin;
@@ -253,62 +350,21 @@ void ControlPanel::resized() {
   delayButton.setBounds(paramRow.removeFromLeft(buttonWidth));
   paramRow.removeFromLeft(spacing);
   feedbackButton.setBounds(paramRow);
+  topY += rowHeight + spacing * 2;
 
-  // Delay mode toggle (only visible when Time is selected)
+  // Mode/Invert row (variable content based on parameter type)
+  juce::Rectangle<int> modeRow(margin, topY, width - margin * 2, rowHeight);
+
   if (currentParameterType == 2) {
-    topY += rowHeight + spacing;
-    juce::Rectangle<int> delayModeRow(margin, topY, width - margin * 2,
-                                      rowHeight);
-    delayModeLabel.setBounds(delayModeRow.removeFromLeft(labelWidth));
-    delayModeRow.removeFromLeft(spacing); // Add spacing after label
-    delayModeButton.setBounds(delayModeRow);
+    // Time: show delay mode toggle
+    delayModeLabel.setBounds(modeRow.removeFromLeft(labelWidth));
+    modeRow.removeFromLeft(spacing);
+    delayModeButton.setBounds(modeRow);
+  } else if (currentParameterType == 1) {
+    // Feedback: show invert button
+    feedbackInvertButton.setBounds(modeRow);
   }
-
-  // Feedback controls (only visible when Feedback is selected)
-  if (currentParameterType == 1) {
-    topY += rowHeight + spacing;
-    juce::Rectangle<int> invertRow(margin, topY, width - margin * 2, rowHeight);
-    feedbackInvertButton.setBounds(invertRow);
-
-    // Multiply label on its own row
-    topY += rowHeight + spacing;
-    juce::Rectangle<int> multLabelRow(margin, topY, width - margin * 2,
-                                      rowHeight);
-    feedbackMultLabel.setBounds(multLabelRow);
-    // Slider on next row (full width)
-    topY += rowHeight + spacing;
-    juce::Rectangle<int> multSliderRow(margin, topY, width - margin * 2,
-                                       rowHeight);
-    feedbackMultSlider.setBounds(multSliderRow);
-  }
-
-  // Gain multiply control (only visible when Gain is selected)
-  if (currentParameterType == 0) {
-    // Multiply label on its own row
-    topY += rowHeight + spacing;
-    juce::Rectangle<int> gainMultLabelRow(margin, topY, width - margin * 2,
-                                          rowHeight);
-    gainMultLabel.setBounds(gainMultLabelRow);
-    // Slider on next row (full width)
-    topY += rowHeight + spacing;
-    juce::Rectangle<int> gainMultSliderRow(margin, topY, width - margin * 2,
-                                           rowHeight);
-    gainMultSlider.setBounds(gainMultSliderRow);
-  }
-
-  // Delay multiply control (only visible when Delay mode is active)
-  if (currentParameterType == 2 && currentDelayMode) {
-    // Multiply label on its own row
-    topY += rowHeight + spacing;
-    juce::Rectangle<int> delayMultLabelRow(margin, topY, width - margin * 2,
-                                           rowHeight);
-    delayMultLabel.setBounds(delayMultLabelRow);
-    // Slider on next row (full width)
-    topY += rowHeight + spacing;
-    juce::Rectangle<int> delayMultSliderRow(margin, topY, width - margin * 2,
-                                            rowHeight);
-    delayMultSlider.setBounds(delayMultSliderRow);
-  }
+  // Gain: nothing extra in the mode row
 }
 
 //==============================================================================
@@ -330,19 +386,23 @@ void ControlPanel::selectParameter(int paramType) {
   feedbackMultLabel.setVisible(showFeedbackControls);
   feedbackMultSlider.setVisible(showFeedbackControls);
   feedbackInvertButton.setVisible(showFeedbackControls);
+  feedbackMaxLabel.setVisible(showFeedbackControls);
 
   // Show/hide gain multiply control (Gain = paramType 0)
   bool showGainControls = (paramType == 0);
   gainMultLabel.setVisible(showGainControls);
   gainMultSlider.setVisible(showGainControls);
+  gainMaxLabel.setVisible(showGainControls);
 
   // Show/hide delay multiply control (only when Delay mode is active, not
   // Phase)
   bool showDelayControls = (paramType == 2) && currentDelayMode;
   delayMultLabel.setVisible(showDelayControls);
   delayMultSlider.setVisible(showDelayControls);
+  delayMaxLabel.setVisible(showDelayControls);
 
-  resized(); // Update layout
+  updateMaxLabels(); // Update MAX label values
+  resized();         // Update layout
 
   if (onParameterTypeChanged) {
     onParameterTypeChanged(currentParameterType);
@@ -355,4 +415,27 @@ void ControlPanel::comboBoxChanged(juce::ComboBox * /*comboBox*/) {
 
 void ControlPanel::sliderValueChanged(juce::Slider * /*slider*/) {
   // Mix slider is auto-attached, no manual handling needed
+}
+
+void ControlPanel::updateMaxLabels() {
+  // Gain: base max 200%, scaled by multiply slider (0-100%)
+  float gainMult = static_cast<float>(gainMultSlider.getValue()) / 100.0f;
+  float gainMax = 200.0f * gainMult;
+  gainMaxLabel.setText("MAX: " + juce::String(static_cast<int>(gainMax)) + "%",
+                       juce::dontSendNotification);
+
+  // Feedback: base max 100%, scaled by multiply slider (0-100%)
+  float feedbackMult =
+      static_cast<float>(feedbackMultSlider.getValue()) / 100.0f;
+  float feedbackMax = 100.0f * feedbackMult;
+  feedbackMaxLabel.setText(
+      "MAX: " + juce::String(static_cast<int>(feedbackMax)) + "%",
+      juce::dontSendNotification);
+
+  // Delay: base max 2000ms, scaled by multiply slider (0-100%)
+  float delayMult = static_cast<float>(delayMultSlider.getValue()) / 100.0f;
+  float delayMax = 2000.0f * delayMult;
+  delayMaxLabel.setText("MAX: " + juce::String(static_cast<int>(delayMax)) +
+                            "ms",
+                        juce::dontSendNotification);
 }

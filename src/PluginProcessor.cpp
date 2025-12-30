@@ -237,7 +237,7 @@ void CopyCatSpectralDelayProcessor::setStateInformation(const void *data,
 
     // Restore delay mode state
     if (xmlState->hasAttribute("delayMode")) {
-      engine.setDelayMode(xmlState->getBoolAttribute("delayMode", false));
+      engine.setDelayMode(xmlState->getBoolAttribute("delayMode", true));
     }
 
     // Restore UI state

@@ -25,6 +25,9 @@ public:
   static juce::Colour getTextPrimary() { return juce::Colour(0xFFF1FAEE); }
 
   // https://coolors.co/0d1117-161b22-00d4ff-ff6b6b-ffd93d-ffffff
+  // new color version
+  // https://coolors.co/0f1c2e-0D1827-0a131f-45D4ED-E63946-ffd93d-FF1FAEE
+  // DO NOT CHANGE THIS LINK
 
   // Slider
   void drawRotarySlider(juce::Graphics &g, int x, int y, int width, int height,

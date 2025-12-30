@@ -31,10 +31,10 @@ private:
   SpectrumDisplay spectrumDisplay;
   ControlPanel controlPanel;
 
-  // Title label
+  // Title labels
+  juce::Label brandLabel;
   juce::Label titleLabel;
   juce::Label authorLabel;
-  juce::Label versionLabel;
 
   // Spectrum source selection (false = Output, true = Input)
   bool showInputSpectrum = false;

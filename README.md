@@ -110,7 +110,6 @@ The plugin interface is divided into two main sections:
 - **Mode Toggle**: Switch between Phase and Delay modes
 - **Multiply Sliders**: Scale the effect of each parameter (0-100%)
 - **FFT Size**: Select FFT window size (256-8192)
-- **Overlap**: Select overlap factor (2x, 4x, 8x)
 - **Display**: Toggle between Line and Bar visualization
 - **Source**: Switch between Input and Output spectrum display
 - **Mix**: Dry/Wet balance control
@@ -238,7 +237,6 @@ cmake --build build --config Release
 - **模式切换**：在 Phase（相位）和 Delay（延迟）模式之间切换
 - **倍率滑块**：缩放各参数的效果（0-100%）
 - **FFT Size**：选择 FFT 窗口大小（256-8192）
-- **Overlap**：选择重叠倍数（2x、4x、8x）
 - **Display**：在线条图和柱状图之间切换
 - **Source**：在输入和输出频谱显示之间切换
 - **Mix**：干湿混合控制

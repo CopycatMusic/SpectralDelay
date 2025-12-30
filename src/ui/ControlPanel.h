@@ -48,7 +48,8 @@ public:
   // Set delay mode UI state (for restoring from saved state)
   void setDelayMode(bool isDelay) {
     currentDelayMode = isDelay;
-    delayModeButton.setToggleState(isDelay, juce::dontSendNotification);
+    // Inverted: toggle off = Delay, toggle on = Phase
+    delayModeButton.setToggleState(!isDelay, juce::dontSendNotification);
     delayModeButton.setButtonText(isDelay ? "Delay" : "Phase");
   }
 
@@ -75,6 +76,7 @@ public:
 private:
   void comboBoxChanged(juce::ComboBox *comboBox) override;
   void sliderValueChanged(juce::Slider *slider) override;
+  void updateMaxLabels(); // Update MAX value labels based on multiply sliders
 
   // Reference to parameter tree
   juce::AudioProcessorValueTreeState &parameters;
@@ -115,18 +117,21 @@ private:
   juce::Label feedbackMultLabel;
   juce::Slider feedbackMultSlider;
   juce::TextButton feedbackInvertButton{"Phase Invert"};
+  juce::Label feedbackMaxLabel; // Shows "MAX: xxx%"
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       feedbackMultAttachment;
 
   // Gain multiply control
   juce::Label gainMultLabel;
   juce::Slider gainMultSlider;
+  juce::Label gainMaxLabel; // Shows "MAX: xxx%"
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       gainMultAttachment;
 
   // Delay multiply control
   juce::Label delayMultLabel;
   juce::Slider delayMultSlider;
+  juce::Label delayMaxLabel; // Shows "MAX: xxxms"
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       delayMultAttachment;
 

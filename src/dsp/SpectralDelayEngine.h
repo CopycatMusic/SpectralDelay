@@ -216,7 +216,7 @@ private:
   std::vector<float> inputMagnitudeSpectrum;
 
   // Delay mode (false = Phase rotation, true = Frame delay)
-  bool useDelayMode = false;
+  bool useDelayMode = true;
 
   // Output spectrum analyzer (analyzes signal after mix)
   std::unique_ptr<juce::dsp::FFT> outputFFT;

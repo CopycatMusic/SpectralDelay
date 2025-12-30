@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "BinaryData.h"
 #include "PluginProcessor.h"
 
 //==============================================================================
@@ -8,21 +9,24 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
       controlPanel(p.getParameters()) {
   setLookAndFeel(&customLookAndFeel);
 
-  // Title
-  titleLabel.setText("SPECTRAL DELAY", juce::dontSendNotification);
-  titleLabel.setFont(juce::Font(28.0f, juce::Font::bold));
-  titleLabel.setColour(juce::Label::textColourId,
+  // Load embedded Montserrat font
+  auto montserratTypeface = juce::Typeface::createSystemTypefaceFor(
+      BinaryData::MontserratBold_ttf, BinaryData::MontserratBold_ttfSize);
+
+  // Title labels
+  brandLabel.setText("COPYCAT", juce::dontSendNotification);
+  brandLabel.setFont(juce::Font(montserratTypeface).withHeight(32.0f));
+  brandLabel.setColour(juce::Label::textColourId,
                        CustomLookAndFeel::getTextPrimary());
+  brandLabel.setJustificationType(juce::Justification::centredLeft);
+  addAndMakeVisible(brandLabel);
+
+  titleLabel.setText("SPECTRAL DELAY", juce::dontSendNotification);
+  titleLabel.setFont(juce::Font(montserratTypeface).withHeight(32.0f));
+  titleLabel.setColour(juce::Label::textColourId,
+                       CustomLookAndFeel::getTextPrimary().withAlpha(0.6f));
   titleLabel.setJustificationType(juce::Justification::centredLeft);
   addAndMakeVisible(titleLabel);
-
-  // Version (top right)
-  versionLabel.setText("v0.2.4beta", juce::dontSendNotification);
-  versionLabel.setFont(juce::Font(14.0f));
-  versionLabel.setColour(juce::Label::textColourId,
-                         CustomLookAndFeel::getTextPrimary());
-  versionLabel.setJustificationType(juce::Justification::centredRight);
-  addAndMakeVisible(versionLabel);
 
   // Spectrum display (with integrated curve editing)
   addAndMakeVisible(spectrumDisplay);
@@ -113,7 +117,7 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
   // Enable resizing with constraints
   setResizable(true, true);
   setResizeLimits(700, 400, 1600, 1000);
-  setSize(950, 500);
+  setSize(950, 450);
 
   // Start timer for spectrum update (30 Hz)
   startTimerHz(30);
@@ -190,7 +194,7 @@ void CopyCatSpectralDelayEditor::paint(juce::Graphics &g) {
   auto bounds = getLocalBounds();
   int dividerX = static_cast<int>(bounds.getWidth() * 0.70f);
   g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.2f));
-  g.drawVerticalLine(dividerX, 50.0f,
+  g.drawVerticalLine(dividerX, 40.0f,
                      static_cast<float>(bounds.getHeight() - 10));
 }
 
@@ -198,9 +202,15 @@ void CopyCatSpectralDelayEditor::resized() {
   auto bounds = getLocalBounds();
 
   // Title bar
-  auto titleArea = bounds.removeFromTop(50);
-  titleLabel.setBounds(titleArea.removeFromLeft(250).reduced(15, 0));
-  versionLabel.setBounds(titleArea.removeFromRight(100).reduced(15, 0));
+  auto titleArea = bounds.removeFromTop(40);
+  auto titleLabelArea =
+      titleArea.removeFromLeft(450).withTrimmedLeft(15).withTrimmedTop(5);
+
+  // Position brand and title
+  int brandWidth = brandLabel.getFont().getStringWidth(brandLabel.getText());
+  brandLabel.setBounds(
+      titleLabelArea.removeFromLeft(brandWidth + 8)); // 8px space after COPYCAT
+  titleLabel.setBounds(titleLabelArea);
 
   // Split remaining area (70% spectrum, 30% controls)
   int spectrumWidth = static_cast<int>(bounds.getWidth() * 0.70f);

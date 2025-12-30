@@ -46,16 +46,23 @@ jobs:
     - name: Build
       run: cmake --build build --config ${{ env.BUILD_TYPE }} -j$(sysctl -n hw.ncpu)
       
-    - name: Package VST3
+    - name: Package macOS (AU + VST3)
       run: |
-        cd build/CopyCatSpectralDelay_artefacts/${{ env.BUILD_TYPE }}/VST3
-        zip -r ../../../../CopyCat_Spectral_Delay_macOS_VST3.zip "CopyCat Spectral Delay.vst3"
+        mkdir -p installer
+        cp -R "build/CopyCatSpectralDelay_artefacts/${{ env.BUILD_TYPE }}/AU/CopyCat Spectral Delay.component" installer/
+        cp -R "build/CopyCatSpectralDelay_artefacts/${{ env.BUILD_TYPE }}/VST3/CopyCat Spectral Delay.vst3" installer/
+        
+        # Create DMG
+        hdiutil create -volname "CopyCat Spectral Delay" \
+          -srcfolder installer \
+          -ov -format UDZO \
+          "CopyCat_Spectral_Delay_v1.0.0_macOS.dmg"
         
     - name: Upload macOS Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: CopyCat-Spectral-Delay-macOS-VST3
-        path: CopyCat_Spectral_Delay_macOS_VST3.zip
+        name: CopyCat-Spectral-Delay-macOS
+        path: CopyCat_Spectral_Delay_v1.0.0_macOS.dmg
         retention-days: 30
 
   # ===========================================================================
@@ -104,8 +111,6 @@ jobs:
         retention-days: 30
 
   # ===========================================================================
-  # Create Release (only on tags)
-  # ===========================================================================
   create-release:
     needs: [build-macos, build-windows]
     runs-on: ubuntu-latest
@@ -127,7 +132,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          artifacts/CopyCat-Spectral-Delay-macOS-VST3/CopyCat_Spectral_Delay_macOS_VST3.zip
+          artifacts/CopyCat-Spectral-Delay-macOS/CopyCat_Spectral_Delay_v1.0.0_macOS.dmg
           artifacts/CopyCat-Spectral-Delay-Windows-VST3/CopyCat_Spectral_Delay_Windows_VST3.zip
         draft: false
         prerelease: false

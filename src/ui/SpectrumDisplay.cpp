@@ -27,10 +27,15 @@ void SpectrumDisplay::setSpectralData(const float *magnitudes, int numBins,
   currentNumBins = numBins;
   currentSampleRate = sampleRate;
 
-  // Resize if needed
+  // Resize if needed - clear smoothed data when numBins changes to avoid stale
+  // display
   if (magnitudeData.size() != static_cast<size_t>(numBins)) {
     magnitudeData.resize(numBins);
-    smoothedData.resize(numBins, 0.0f);
+    smoothedData.assign(numBins, 0.0f); // Clear to zero on resize
+
+    // Reset auto-scaling to force recalculation
+    currentMaxDb = maxDbFloor;
+    currentMinDb = minDbCeiling;
   }
 
   // Find peak and min magnitude for auto-scaling
@@ -122,30 +127,6 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
   g.drawRoundedRectangle(bounds.reduced(0.5f), 8.0f, 1.0f);
 
   auto graphBounds = getGraphBounds();
-
-  // Draw Y-axis labels - only MAX at top, at right edge of graph
-  if (axisUnit.isNotEmpty()) {
-    g.setColour(CustomLookAndFeel::getTextPrimary());
-    g.setFont(juce::Font(12.0f));
-
-    // Format max value label with "MAX:" prefix
-    juce::String maxLabel;
-    if (axisDisplayMax >= 1000.0f) {
-      maxLabel =
-          "MAX:" + juce::String(static_cast<int>(axisDisplayMax)) + axisUnit;
-    } else if (axisDisplayMax >= 100.0f) {
-      maxLabel =
-          "MAX:" + juce::String(static_cast<int>(axisDisplayMax)) + axisUnit;
-    } else {
-      maxLabel = "MAX:" + juce::String(axisDisplayMax, 1) + axisUnit;
-    }
-
-    // Draw max label at right edge of graph bounds (top only)
-    auto labelArea =
-        graphBounds.withWidth(80.0f).withX(graphBounds.getRight() - 80.0f);
-    g.drawText(maxLabel, labelArea.removeFromTop(20).toNearestInt(),
-               juce::Justification::centredRight);
-  }
 
   // Draw spectrum
   if (currentNumBins > 0 && !magnitudeData.empty()) {
