@@ -64,7 +64,7 @@ private:
   std::atomic<float> *mixParam = nullptr;
 
   // UI state storage (for DAW recall)
-  int uiParameterType = 0;       // 0=Gain, 1=Feedback, 2=Time
+  int uiParameterType = 2;       // 0=Gain, 1=Feedback, 2=Time
   bool uiDisplayModeBar = false; // false=Line, true=Bar
   bool uiShowInputSpectrum = false;
 

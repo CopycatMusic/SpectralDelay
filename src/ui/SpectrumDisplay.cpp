@@ -14,6 +14,22 @@ SpectrumDisplay::SpectrumDisplay() {
   curveColour = CustomLookAndFeel::getAccentSecondary();
   pointColour = CustomLookAndFeel::getAccentTertiary();
   pointHoverColour = CustomLookAndFeel::getTextPrimary();
+
+  // Set up clear button
+  addAndMakeVisible(clearButton);
+  clearButton.setTooltip("Clear all points");
+
+  clearButton.onClick = [this] {
+    if (editingCurve != nullptr) {
+      editingCurve->clearPoints();
+      updateClearButtonVisibility();
+      if (onCurveModified)
+        onCurveModified();
+      repaint();
+    }
+  };
+
+  updateClearButtonVisibility();
 }
 
 SpectrumDisplay::~SpectrumDisplay() {}
@@ -30,12 +46,20 @@ void SpectrumDisplay::setSpectralData(const float *magnitudes, int numBins,
   // Resize if needed - clear smoothed data when numBins changes to avoid stale
   // display
   if (magnitudeData.size() != static_cast<size_t>(numBins)) {
-    magnitudeData.resize(numBins);
-    smoothedData.assign(numBins, 0.0f); // Clear to zero on resize
+    magnitudeData.resize(static_cast<size_t>(numBins));
+    smoothedData.assign(static_cast<size_t>(numBins),
+                        0.0f); // Clear to zero on resize
 
     // Reset auto-scaling to force recalculation
     currentMaxDb = maxDbFloor;
     currentMinDb = minDbCeiling;
+  }
+
+  // Copy data from the engine into our UI-local buffer
+  // This is safe because magnitudes is a pointer to a visualization buffer in
+  // the engine
+  for (int i = 0; i < numBins; ++i) {
+    magnitudeData[static_cast<size_t>(i)] = magnitudes[i];
   }
 
   // Find peak and min magnitude for auto-scaling
@@ -45,16 +69,17 @@ void SpectrumDisplay::setSpectralData(const float *magnitudes, int numBins,
   // Copy and smooth data
   for (int i = 0; i < numBins; ++i) {
     float newValue = magnitudes[i];
-    smoothedData[i] =
-        smoothedData[i] * smoothingFactor + newValue * (1.0f - smoothingFactor);
-    magnitudeData[i] = smoothedData[i];
+    size_t idx = static_cast<size_t>(i);
+    smoothedData[idx] = smoothedData[idx] * smoothingFactor +
+                        newValue * (1.0f - smoothingFactor);
+    magnitudeData[idx] = smoothedData[idx];
 
-    if (smoothedData[i] > peakMagnitude) {
-      peakMagnitude = smoothedData[i];
+    if (smoothedData[idx] > peakMagnitude) {
+      peakMagnitude = smoothedData[idx];
     }
 
-    if (smoothedData[i] > 1e-10f && smoothedData[i] < minMagnitude) {
-      minMagnitude = smoothedData[i];
+    if (smoothedData[idx] > 1e-10f && smoothedData[idx] < minMagnitude) {
+      minMagnitude = smoothedData[idx];
     }
   }
 
@@ -105,6 +130,26 @@ void SpectrumDisplay::setEditingCurve(ParameterCurve *curve, float valueMin,
   editingCurve = curve;
   curveValueMin = valueMin;
   curveValueMax = valueMax;
+  updateClearButtonVisibility();
+  repaint();
+}
+
+void SpectrumDisplay::updateClearButtonVisibility() {
+  if (editingCurve == nullptr) {
+    clearButton.setVisible(false);
+  } else {
+    clearButton.setVisible(editingCurve->getNumPoints() > 0);
+  }
+}
+
+void SpectrumDisplay::setBackgroundCurves(ParameterCurve *gain,
+                                          ParameterCurve *feedback,
+                                          ParameterCurve *delay,
+                                          ParameterCurve *phase) {
+  gainCurve = gain;
+  feedbackCurve = feedback;
+  delayCurve = delay;
+  phaseCurve = phase;
   repaint();
 }
 
@@ -135,29 +180,30 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
 
     if (displayMode == DisplayMode::Bar) {
       // Bar chart mode - vertical lines
-      for (int i = 1; i < currentNumBins; ++i) {
-        float freq = i * binWidth;
+      if (magnitudeData.size() >= static_cast<size_t>(currentNumBins)) {
+        for (int i = 1; i < currentNumBins; ++i) {
+          float freq = i * binWidth;
 
-        if (freq < minFreq || freq > maxFreq)
-          continue;
+          if (freq < minFreq || freq > maxFreq)
+            continue;
 
-        float x =
-            graphBounds.getX() + frequencyToX(freq) * graphBounds.getWidth();
-        float y = graphBounds.getY() +
-                  magnitudeToY(magnitudeData[i]) * graphBounds.getHeight();
+          float x =
+              graphBounds.getX() + frequencyToX(freq) * graphBounds.getWidth();
+          float y = graphBounds.getY() +
+                    magnitudeToY(magnitudeData[static_cast<size_t>(i)]) *
+                        graphBounds.getHeight();
 
-        y = juce::jlimit(graphBounds.getY(), graphBounds.getBottom(), y);
+          y = juce::jlimit(graphBounds.getY(), graphBounds.getBottom(), y);
 
-        // Draw vertical line from bottom to magnitude
-        g.setColour(spectrumColour);
-        g.drawLine(x, y, x, graphBounds.getBottom(), 1.0f);
+          // Draw vertical line from bottom to magnitude
+          g.setColour(spectrumColour);
+          g.drawLine(x, y, x, graphBounds.getBottom(), 1.0f);
+        }
       }
     } else {
       // Line chart mode (default)
       juce::Path spectrumPath;
       bool pathStarted = false;
-      float lastY = graphBounds.getBottom(); // Default to bottom
-
       for (int i = 1; i < currentNumBins; ++i) {
         float freq = i * binWidth;
 
@@ -167,7 +213,8 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
         float x =
             graphBounds.getX() + frequencyToX(freq) * graphBounds.getWidth();
         float y = graphBounds.getY() +
-                  magnitudeToY(magnitudeData[i]) * graphBounds.getHeight();
+                  magnitudeToY(magnitudeData[static_cast<size_t>(i)]) *
+                      graphBounds.getHeight();
 
         y = juce::jlimit(graphBounds.getY(), graphBounds.getBottom(), y);
 
@@ -179,7 +226,6 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
         } else {
           spectrumPath.lineTo(x, y);
         }
-        lastY = y;
       }
 
       if (pathStarted) {
@@ -213,24 +259,63 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
 }
 
 void SpectrumDisplay::drawCurve(juce::Graphics &g) {
-  if (editingCurve == nullptr)
+  // Draw background curves in gray
+  juce::Colour ghostColour =
+      CustomLookAndFeel::getTextPrimary().withAlpha(0.2f);
+
+  // Gain (if not active)
+  if (gainCurve != nullptr && gainCurve != editingCurve) {
+    drawParameterCurve(g, gainCurve, ghostColour, 0.0f, 200.0f, false);
+  }
+
+  // Feedback (if not active)
+  if (feedbackCurve != nullptr && feedbackCurve != editingCurve) {
+    drawParameterCurve(g, feedbackCurve, ghostColour, 0.0f, 100.0f, false);
+  }
+
+  // Time (Delay or Phase - only one is shown as ghost based on mode)
+  if (editingCurve != delayCurve && editingCurve != phaseCurve) {
+    if (useDelayMode && delayCurve != nullptr) {
+      drawParameterCurve(g, delayCurve, ghostColour, 0.0f, 2000.0f, false);
+    } else if (!useDelayMode && phaseCurve != nullptr) {
+      drawParameterCurve(g, phaseCurve, ghostColour, 0.0f, 360.0f, false);
+    }
+  }
+
+  // Finally, draw the active editing curve on top
+  if (editingCurve != nullptr) {
+    drawParameterCurve(g, editingCurve, curveColour, curveValueMin,
+                       curveValueMax, true);
+  }
+}
+
+void SpectrumDisplay::drawParameterCurve(juce::Graphics &g,
+                                         ParameterCurve *curve,
+                                         juce::Colour colour, float minVal,
+                                         float maxVal, bool isActive) {
+  if (curve == nullptr)
     return;
 
   auto graphBounds = getGraphBounds();
-  const auto &points = editingCurve->getPoints();
+  const auto &points = curve->getPoints();
 
   // Draw the curve line
-  g.setColour(curveColour);
+  g.setColour(colour);
+
+  // Helper to convert value to Y relative to this curve's range
+  auto valToY = [minVal, maxVal](float val) {
+    return 1.0f - (val - minVal) / (maxVal - minVal);
+  };
 
   if (points.empty()) {
     // No points: draw horizontal line at default value
-    float y = valueToY(editingCurve->getDefaultValue());
+    float y = valToY(curve->getDefaultValue());
     float screenY = graphBounds.getY() + y * graphBounds.getHeight();
     g.drawHorizontalLine(static_cast<int>(screenY), graphBounds.getX(),
                          graphBounds.getRight());
   } else if (points.size() == 1) {
     // One point: horizontal line at that value
-    float y = valueToY(points[0].value);
+    float y = valToY(points[0].value);
     float screenY = graphBounds.getY() + y * graphBounds.getHeight();
     g.drawHorizontalLine(static_cast<int>(screenY), graphBounds.getX(),
                          graphBounds.getRight());
@@ -240,7 +325,7 @@ void SpectrumDisplay::drawCurve(juce::Graphics &g) {
 
     // First segment: horizontal from left edge to first point
     float firstX = frequencyToX(points[0].frequency);
-    float firstY = valueToY(points[0].value);
+    float firstY = valToY(points[0].value);
     float screenX = graphBounds.getX() + firstX * graphBounds.getWidth();
     float screenY = graphBounds.getY() + firstY * graphBounds.getHeight();
 
@@ -250,7 +335,7 @@ void SpectrumDisplay::drawCurve(juce::Graphics &g) {
     // Middle segments
     for (size_t i = 1; i < points.size(); ++i) {
       float x = frequencyToX(points[i].frequency);
-      float y = valueToY(points[i].value);
+      float y = valToY(points[i].value);
       screenX = graphBounds.getX() + x * graphBounds.getWidth();
       screenY = graphBounds.getY() + y * graphBounds.getHeight();
       curvePath.lineTo(screenX, screenY);
@@ -259,31 +344,38 @@ void SpectrumDisplay::drawCurve(juce::Graphics &g) {
     // Last segment: horizontal to right edge
     curvePath.lineTo(graphBounds.getRight(), screenY);
 
-    g.strokePath(curvePath, juce::PathStrokeType(2.0f));
+    g.strokePath(curvePath, juce::PathStrokeType(isActive ? 2.0f : 1.5f));
   }
 
-  // Draw points
-  for (int i = 0; i < static_cast<int>(points.size()); ++i) {
-    float x = frequencyToX(points[i].frequency);
-    float y = valueToY(points[i].value);
-    float screenX = graphBounds.getX() + x * graphBounds.getWidth();
-    float screenY = graphBounds.getY() + y * graphBounds.getHeight();
+  // Draw points only for the active curve
+  if (isActive) {
+    for (int i = 0; i < static_cast<int>(points.size()); ++i) {
+      size_t idx = static_cast<size_t>(i);
+      float x = frequencyToX(points[idx].frequency);
+      float y = valToY(points[idx].value);
+      float screenX = graphBounds.getX() + x * graphBounds.getWidth();
+      float screenY = graphBounds.getY() + y * graphBounds.getHeight();
 
-    float radius = (i == hoveredPointIndex) ? pointHoverRadius : pointRadius;
-    juce::Colour colour =
-        (i == hoveredPointIndex) ? pointHoverColour : pointColour;
+      float radius = (i == hoveredPointIndex) ? pointHoverRadius : pointRadius;
+      juce::Colour pColour =
+          (i == hoveredPointIndex) ? pointHoverColour : pointColour;
 
-    g.setColour(colour);
-    g.fillEllipse(screenX - radius, screenY - radius, radius * 2, radius * 2);
+      g.setColour(pColour);
+      g.fillEllipse(screenX - radius, screenY - radius, radius * 2, radius * 2);
 
-    // Draw outline
-    g.setColour(juce::Colours::black.withAlpha(0.5f));
-    g.drawEllipse(screenX - radius, screenY - radius, radius * 2, radius * 2,
-                  1.5f);
+      // Draw outline
+      g.setColour(juce::Colours::black.withAlpha(0.5f));
+      g.drawEllipse(screenX - radius, screenY - radius, radius * 2, radius * 2,
+                    1.5f);
+    }
   }
 }
 
-void SpectrumDisplay::resized() {}
+void SpectrumDisplay::resized() {
+  auto graphBounds = getGraphBounds().toNearestInt();
+  // Position clear button in top-left of the graph area with 2px margin
+  clearButton.setBounds(graphBounds.getX() + 2, graphBounds.getY() + 2, 24, 24);
+}
 
 //==============================================================================
 juce::Rectangle<float> SpectrumDisplay::getGraphBounds() const {
@@ -331,8 +423,9 @@ int SpectrumDisplay::hitTestPoint(float x, float y) const {
   const auto &points = editingCurve->getPoints();
 
   for (int i = 0; i < static_cast<int>(points.size()); ++i) {
-    float px = frequencyToX(points[i].frequency);
-    float py = valueToY(points[i].value);
+    size_t idx = static_cast<size_t>(i);
+    float px = frequencyToX(points[idx].frequency);
+    float py = valueToY(points[idx].value);
     float screenX = graphBounds.getX() + px * graphBounds.getWidth();
     float screenY = graphBounds.getY() + py * graphBounds.getHeight();
 
@@ -380,6 +473,7 @@ void SpectrumDisplay::mouseDown(const juce::MouseEvent &e) {
     int newIndex = editingCurve->addPoint(frequency, value);
     draggedPointIndex = newIndex;
     isDragging = true;
+    updateClearButtonVisibility();
 
     if (onCurveModified)
       onCurveModified();
@@ -415,11 +509,13 @@ void SpectrumDisplay::mouseDrag(const juce::MouseEvent &e) {
 
   if (draggedPointIndex > 0) {
     // Can't go left past the previous point
-    minAllowedFreq = points[draggedPointIndex - 1].frequency + 1.0f;
+    minAllowedFreq =
+        points[static_cast<size_t>(draggedPointIndex) - 1].frequency + 1.0f;
   }
   if (draggedPointIndex < static_cast<int>(points.size()) - 1) {
     // Can't go right past the next point
-    maxAllowedFreq = points[draggedPointIndex + 1].frequency - 1.0f;
+    maxAllowedFreq =
+        points[static_cast<size_t>(draggedPointIndex) + 1].frequency - 1.0f;
   }
 
   frequency = juce::jlimit(minAllowedFreq, maxAllowedFreq, frequency);
@@ -444,6 +540,7 @@ void SpectrumDisplay::mouseDoubleClick(const juce::MouseEvent &e) {
   if (pointIndex >= 0) {
     editingCurve->removePoint(pointIndex);
     hoveredPointIndex = -1;
+    updateClearButtonVisibility();
 
     if (onCurveModified)
       onCurveModified();

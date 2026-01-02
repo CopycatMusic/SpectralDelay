@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../utils/ParameterCurve.h"
+#include "CustomLookAndFeel.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <vector>
 
@@ -24,6 +25,12 @@ public:
    * Set the curve to edit.
    */
   void setEditingCurve(ParameterCurve *curve, float valueMin, float valueMax);
+
+  /**
+   * Set all available curves for background/ghost display.
+   */
+  void setBackgroundCurves(ParameterCurve *gain, ParameterCurve *feedback,
+                           ParameterCurve *delay, ParameterCurve *phase);
 
   /**
    * Get the curve being edited.
@@ -63,6 +70,14 @@ public:
   }
 
   /**
+   * Set dynamic mode for ghost curve selection.
+   */
+  void setTimeMode(bool isDelay) {
+    useDelayMode = isDelay;
+    repaint();
+  }
+
+  /**
    * Callback when curve points are modified.
    */
   std::function<void()> onCurveModified;
@@ -89,6 +104,11 @@ private:
 
   // Draw curve points and lines
   void drawCurve(juce::Graphics &g);
+
+  // Helper to draw a single curve
+  void drawParameterCurve(juce::Graphics &g, ParameterCurve *curve,
+                          juce::Colour colour, float minVal, float maxVal,
+                          bool isActive);
 
   // Get the graph bounds (excluding axis labels)
   juce::Rectangle<float> getGraphBounds() const;
@@ -122,6 +142,33 @@ private:
   std::vector<float> smoothedData;
   float smoothingFactor = 0.8f;
 
+  // Custom button class for modern graphics
+  class IconButton : public juce::Button {
+  public:
+    IconButton() : Button("Clear") {}
+    void paintButton(juce::Graphics &g, bool isMouseOver,
+                     bool isButtonDown) override {
+      auto bounds = getLocalBounds().toFloat();
+      float alpha = isButtonDown ? 0.6f : (isMouseOver ? 0.4f : 0.25f);
+
+      g.setColour(juce::Colours::black.withAlpha(alpha));
+      g.fillRoundedRectangle(bounds, 8.0f);
+
+      // Draw thin diagonal lines for "X"
+      g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(
+          isMouseOver ? 0.9f : 0.6f));
+      float inset = bounds.getWidth() * 0.3f;
+      g.drawLine(inset, inset, bounds.getWidth() - inset,
+                 bounds.getHeight() - inset, 1.2f);
+      g.drawLine(bounds.getWidth() - inset, inset, inset,
+                 bounds.getHeight() - inset, 1.2f);
+    }
+  };
+
+  // Clear button for points
+  IconButton clearButton;
+  void updateClearButtonVisibility();
+
   // Colors
   juce::Colour backgroundColour;
   juce::Colour gridColour;
@@ -133,6 +180,11 @@ private:
 
   // Curve editing state
   ParameterCurve *editingCurve = nullptr;
+  ParameterCurve *gainCurve = nullptr;
+  ParameterCurve *feedbackCurve = nullptr;
+  ParameterCurve *delayCurve = nullptr;
+  ParameterCurve *phaseCurve = nullptr;
+
   float curveValueMin = 0.0f;
   float curveValueMax = 360.0f;
   int hoveredPointIndex = -1;
@@ -149,6 +201,7 @@ private:
 
   // Bypass state
   bool isBypassed = false;
+  bool useDelayMode = true;
 
   // Axis label settings (right side Y-axis)
   juce::String axisUnit = "";

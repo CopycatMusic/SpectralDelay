@@ -9,7 +9,6 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   gainButton.setRadioGroupId(1);
   gainButton.setClickingTogglesState(true);
-  gainButton.setToggleState(true, juce::dontSendNotification);
   gainButton.onClick = [this]() { selectParameter(0); };
   addAndMakeVisible(gainButton);
 
@@ -20,6 +19,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   delayButton.setRadioGroupId(1);
   delayButton.setClickingTogglesState(true);
+  delayButton.setToggleState(true, juce::dontSendNotification);
   delayButton.onClick = [this]() { selectParameter(2); };
   addAndMakeVisible(delayButton);
 
@@ -264,6 +264,8 @@ void ControlPanel::resized() {
 
   // Clamp middle separator to not go above top section
   middleSeparatorY = std::max(middleSeparatorY, topSectionEndY);
+  // ============ MIDDLE SECTION: Multiply controls (fixed position)
+  // ============
   int middleStartY = middleSeparatorY + margin + spacing;
 
   // ============ BOTTOM SECTION: Global settings (fixed at bottom) ============
@@ -350,7 +352,7 @@ void ControlPanel::resized() {
   delayButton.setBounds(paramRow.removeFromLeft(buttonWidth));
   paramRow.removeFromLeft(spacing);
   feedbackButton.setBounds(paramRow);
-  topY += rowHeight + spacing * 2;
+  topY += rowHeight + spacing;
 
   // Mode/Invert row (variable content based on parameter type)
   juce::Rectangle<int> modeRow(margin, topY, width - margin * 2, rowHeight);
@@ -377,15 +379,14 @@ void ControlPanel::selectParameter(int paramType) {
   feedbackButton.setToggleState(paramType == 1, juce::dontSendNotification);
 
   // Show/hide delay mode button and label based on parameter selection
-  bool showModeToggle = (paramType == 2);
-  delayModeButton.setVisible(showModeToggle);
-  delayModeLabel.setVisible(showModeToggle);
+  // Hidden as requested: default to Delay mode
+  delayModeButton.setVisible(false);
+  delayModeLabel.setVisible(false);
 
-  // Show/hide feedback controls based on parameter selection
   bool showFeedbackControls = (paramType == 1);
   feedbackMultLabel.setVisible(showFeedbackControls);
   feedbackMultSlider.setVisible(showFeedbackControls);
-  feedbackInvertButton.setVisible(showFeedbackControls);
+  feedbackInvertButton.setVisible(false); // Hidden as requested
   feedbackMaxLabel.setVisible(showFeedbackControls);
 
   // Show/hide gain multiply control (Gain = paramType 0)
@@ -396,7 +397,8 @@ void ControlPanel::selectParameter(int paramType) {
 
   // Show/hide delay multiply control (only when Delay mode is active, not
   // Phase)
-  bool showDelayControls = (paramType == 2) && currentDelayMode;
+  bool showDelayControls =
+      (paramType == 2); // Force true as Delay mode is default
   delayMultLabel.setVisible(showDelayControls);
   delayMultSlider.setVisible(showDelayControls);
   delayMaxLabel.setVisible(showDelayControls);

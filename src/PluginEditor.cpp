@@ -23,7 +23,7 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
 
   titleLabel.setText("SPECTRAL DELAY", juce::dontSendNotification);
   titleLabel.setFont(juce::Font(montserratTypeface).withHeight(32.0f));
-  titleLabel.setColour(juce::Label::textColourId,
+   titleLabel.setColour(juce::Label::textColourId,
                        CustomLookAndFeel::getTextPrimary().withAlpha(0.6f));
   titleLabel.setJustificationType(juce::Justification::centredLeft);
   addAndMakeVisible(titleLabel);
@@ -131,6 +131,12 @@ CopyCatSpectralDelayEditor::~CopyCatSpectralDelayEditor() {
 void CopyCatSpectralDelayEditor::updateEditingCurve() {
   auto &engine = processorRef.getEngine();
   int paramType = controlPanel.getCurrentParameterType();
+
+  // Provide all curves for background display
+  spectrumDisplay.setBackgroundCurves(
+      &engine.getGainCurve(), &engine.getFeedbackCurve(),
+      &engine.getDelayCurve(), &engine.getPhaseCurve());
+  spectrumDisplay.setTimeMode(controlPanel.isDelayMode());
 
   if (paramType == 0) {
     // Gain: 0-200%

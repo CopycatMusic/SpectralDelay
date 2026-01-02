@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <juce_core/juce_core.h>
+#include <mutex>
 #include <vector>
 
 //==============================================================================
@@ -40,14 +41,21 @@ public:
   float getDefaultValue() const { return defaultValue; }
 
   /**
-   * Get all points.
+   * Get all points. Note: For thread safety, return a copy of the points
+   * vector.
    */
-  const std::vector<CurvePoint> &getPoints() const { return points; }
+  std::vector<CurvePoint> getPoints() const {
+    std::lock_guard<std::recursive_mutex> lock(curveMutex);
+    return points;
+  }
 
   /**
    * Get number of points.
    */
-  int getNumPoints() const { return static_cast<int>(points.size()); }
+  int getNumPoints() const {
+    std::lock_guard<std::recursive_mutex> lock(curveMutex);
+    return static_cast<int>(points.size());
+  }
 
   /**
    * Add a new point. Points are automatically sorted by frequency.
@@ -105,6 +113,7 @@ public:
   void deserializePoints(const juce::String &data);
 
 private:
+  mutable std::recursive_mutex curveMutex;
   std::vector<CurvePoint> points;
   float defaultValue = 100.0f; // Default for gain (100%), phase would use 0.0f
 

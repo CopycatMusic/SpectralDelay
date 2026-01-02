@@ -29,7 +29,7 @@ CopyCatSpectralDelayProcessor::createParameterLayout() {
 
   // Mix (dry/wet)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "mix", "Mix", juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 50.0f,
+      "mix", "Mix", juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 100.0f,
       juce::String(), juce::AudioProcessorParameter::genericParameter,
       [](float value, int) { return juce::String(value, 0) + "%"; }, nullptr));
 
@@ -133,12 +133,16 @@ void CopyCatSpectralDelayProcessor::processBlock(
   juce::ScopedNoDenormals noDenormals;
 
   // Update mix
-  engine.setMix(*mixParam / 100.0f);
+  if (mixParam) {
+    engine.setMix(*mixParam / 100.0f);
+  }
 
   // Check for FFT size changes
-  int fftSizeIndex = static_cast<int>(*fftSizeParam);
-  int fftSizes[] = {256, 512, 1024, 2048, 4096, 8192};
-  engine.setFFTSize(fftSizes[fftSizeIndex]);
+  if (fftSizeParam) {
+    int fftSizeIndex = static_cast<int>(*fftSizeParam);
+    int fftSizes[] = {256, 512, 1024, 2048, 4096, 8192};
+    engine.setFFTSize(fftSizes[fftSizeIndex]);
+  }
 
   // Update feedback multiplier from automation parameter
   auto *feedbackMultParam = parameters.getRawParameterValue("feedbackMult");
@@ -158,8 +162,11 @@ void CopyCatSpectralDelayProcessor::processBlock(
     engine.setDelayMultiplier(*delayMultParam);
   }
 
-  // Update latency if FFT size changed
-  setLatencySamples(engine.getLatencyInSamples());
+  // Update latency if it changed
+  int newLatency = engine.getLatencyInSamples();
+  if (getLatencySamples() != newLatency) {
+    setLatencySamples(newLatency);
+  }
 
   // Process audio (curves are edited directly via UI)
   engine.process(buffer);

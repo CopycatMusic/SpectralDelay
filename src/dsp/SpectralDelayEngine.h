@@ -2,8 +2,10 @@
 
 #include "../utils/ParameterCurve.h"
 #include "STFTProcessor.h"
+#include <atomic>
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_dsp/juce_dsp.h>
+#include <mutex>
 
 //==============================================================================
 /**
@@ -74,13 +76,13 @@ public:
   /**
    * Get current delay mode.
    */
-  bool isDelayMode() const { return useDelayMode; }
+  bool isDelayMode() const { return useDelayMode.load(); }
 
   /**
    * Set feedback invert mode (phase inversion).
    */
   void setFeedbackInvert(bool invert) { feedbackInvert = invert; }
-  bool isFeedbackInvert() const { return feedbackInvert; }
+  bool isFeedbackInvert() const { return feedbackInvert.load(); }
 
   /**
    * Set feedback multiplier (0-100%).
@@ -116,9 +118,9 @@ public:
 
   const float *getMagnitudeSpectrum() const;
   const float *getInputMagnitudeSpectrum() const;
-  int getNumBins() const;
+  int getNumBins() const { return currentNumBins.load(); }
   int getLatencyInSamples() const;
-  double getSampleRate() const { return currentSampleRate; }
+  double getSampleRate() const { return currentSampleRate.load(); }
 
 private:
   void updatePhaseShifts();
@@ -145,42 +147,42 @@ private:
 
   // Cached phase shifts per bin
   std::vector<float> phaseShifts;
-  bool phaseNeedsUpdate = true;
+  std::atomic<bool> phaseNeedsUpdate{true};
 
   // Parameter curve for gain distribution
   ParameterCurve gainCurve;
 
   // Cached gain values per bin (in percent, 100 = unity gain)
   std::vector<float> gainValues;
-  bool gainNeedsUpdate = true;
+  std::atomic<bool> gainNeedsUpdate{true};
 
   // Parameter curve for feedback distribution
   ParameterCurve feedbackCurve;
 
   // Cached feedback values per bin (0-100%)
   std::vector<float> feedbackValues;
-  bool feedbackNeedsUpdate = true;
+  std::atomic<bool> feedbackNeedsUpdate{true};
 
   // Feedback spectrum buffers (store post-Phase output for next frame)
   std::vector<std::complex<float>> feedbackSpectrumL;
   std::vector<std::complex<float>> feedbackSpectrumR;
 
   // Feedback invert (phase inversion) and multiplier
-  bool feedbackInvert = false;
-  float feedbackMultiplier = 1.0f; // 0.0-1.0 (stored as ratio)
+  std::atomic<bool> feedbackInvert{false};
+  std::atomic<float> feedbackMultiplier{1.0f}; // 0.0-1.0 (stored as ratio)
 
   // Gain multiplier (default 100%)
-  float gainMultiplier = 1.0f;
+  std::atomic<float> gainMultiplier{1.0f};
 
   // Delay multiplier (default 20%)
-  float delayMultiplier = 0.2f;
+  std::atomic<float> delayMultiplier{0.2f};
 
   // Parameter curve for delay distribution
   ParameterCurve delayCurve;
 
   // Cached delay values per bin (in milliseconds)
   std::vector<float> delayValuesMs;
-  bool delayNeedsUpdate = true;
+  std::atomic<bool> delayNeedsUpdate{true};
 
   // Per-bin delay buffers (circular buffers for each bin, each channel)
   // delayBufferL[bin] = circular buffer of complex samples
@@ -200,29 +202,31 @@ private:
       dryDelayR{8192};
 
   // Mix parameters
-  float mixAmount = 0.5f;
+  std::atomic<float> mixAmount{0.5f};
 
   // Current settings
-  double currentSampleRate = 44100.0;
-  int currentFFTSize = 2048;
-  int currentOverlapFactor = 4;
-  int currentHopSize = 512;
-  int currentNumBins = 1025;
+  std::atomic<double> currentSampleRate{44100.0};
+  std::atomic<int> currentFFTSize{2048};
+  std::atomic<int> currentOverlapFactor{4};
+  std::atomic<int> currentHopSize{512};
+  std::atomic<int> currentNumBins{1025};
 
   // For thread safety
   juce::SpinLock paramLock;
-
-  // Input spectrum for visualization (before DSP processing)
-  std::vector<float> inputMagnitudeSpectrum;
-
-  // Delay mode (false = Phase rotation, true = Frame delay)
-  bool useDelayMode = true;
 
   // Output spectrum analyzer (analyzes signal after mix)
   std::unique_ptr<juce::dsp::FFT> outputFFT;
   std::vector<float> outputFFTBuffer;
   std::vector<float> outputWindow;
   std::vector<float> outputMagnitudeSpectrum;
+  std::vector<float> visualizationMagnitudeSpectrum; // Copy for UI thread
+  std::vector<float> inputMagnitudeSpectrum;         // Captures input
+  std::vector<float> visualizationInputSpectrum;     // Copy for UI thread
+  mutable std::mutex spectrumMutex; // Protects visualization spectrums
+
+  // Delay mode (false = Phase rotation, true = Frame delay)
+  std::atomic<bool> useDelayMode{true};
+
   std::vector<float> outputAccumBuffer; // Accumulated samples for FFT
   int outputAccumPos = 0;
 

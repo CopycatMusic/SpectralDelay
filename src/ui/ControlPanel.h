@@ -136,7 +136,7 @@ private:
       delayMultAttachment;
 
   // Current parameter type (0 = Gain, 1 = Feedback, 2 = Delay)
-  int currentParameterType = 0;
+  int currentParameterType = 2;
 
   // Current delay mode (false = Phase, true = Delay)
   bool currentDelayMode = true;

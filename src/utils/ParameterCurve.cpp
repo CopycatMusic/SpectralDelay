@@ -7,6 +7,7 @@ ParameterCurve::~ParameterCurve() {}
 
 //==============================================================================
 int ParameterCurve::addPoint(float frequency, float value) {
+  std::lock_guard<std::recursive_mutex> lock(curveMutex);
   CurvePoint newPoint{frequency, value};
   points.push_back(newPoint);
 
@@ -23,12 +24,14 @@ int ParameterCurve::addPoint(float frequency, float value) {
 }
 
 void ParameterCurve::removePoint(int index) {
+  std::lock_guard<std::recursive_mutex> lock(curveMutex);
   if (index >= 0 && index < static_cast<int>(points.size())) {
     points.erase(points.begin() + index);
   }
 }
 
 void ParameterCurve::movePoint(int index, float frequency, float value) {
+  std::lock_guard<std::recursive_mutex> lock(curveMutex);
   if (index >= 0 && index < static_cast<int>(points.size())) {
     points[index].frequency = frequency;
     points[index].value = value;
@@ -39,16 +42,22 @@ void ParameterCurve::movePoint(int index, float frequency, float value) {
 }
 
 const CurvePoint *ParameterCurve::getPoint(int index) const {
+  std::lock_guard<std::recursive_mutex> lock(curveMutex);
   if (index >= 0 && index < static_cast<int>(points.size())) {
-    return &points[index];
+    return &points[static_cast<size_t>(index)];
   }
   return nullptr;
 }
 
-void ParameterCurve::clearPoints() { points.clear(); }
+void ParameterCurve::clearPoints() {
+  std::lock_guard<std::recursive_mutex> lock(curveMutex);
+  points.clear();
+}
 
 //==============================================================================
 float ParameterCurve::getValueAtFrequency(float frequency) const {
+  std::lock_guard<std::recursive_mutex> lock(curveMutex);
+
   // No points: return default value
   if (points.empty()) {
     return defaultValue;
@@ -75,10 +84,13 @@ float ParameterCurve::getValueAtFrequency(float frequency) const {
   for (size_t i = 0; i < points.size() - 1; ++i) {
     if (frequency >= points[i].frequency &&
         frequency <= points[i + 1].frequency) {
-      // Linear interpolation
-      float t = (frequency - points[i].frequency) /
-                (points[i + 1].frequency - points[i].frequency);
-      return points[i].value + t * (points[i + 1].value - points[i].value);
+      // Linear interpolation - avoid division by zero
+      float freqDiff = points[i + 1].frequency - points[i].frequency;
+      if (freqDiff > 1e-6f) {
+        float t = (frequency - points[i].frequency) / freqDiff;
+        return points[i].value + t * (points[i + 1].value - points[i].value);
+      }
+      return points[i].value;
     }
   }
 
@@ -88,6 +100,7 @@ float ParameterCurve::getValueAtFrequency(float frequency) const {
 
 void ParameterCurve::fillBinValues(float *output, int numBins, float sampleRate,
                                    int fftSize) const {
+  std::lock_guard<std::recursive_mutex> lock(curveMutex);
   for (int i = 0; i < numBins; ++i) {
     float frequency =
         static_cast<float>(i) * sampleRate / static_cast<float>(fftSize);
@@ -97,6 +110,7 @@ void ParameterCurve::fillBinValues(float *output, int numBins, float sampleRate,
 
 void ParameterCurve::getValueRange(float &minValue, float &maxValue,
                                    float /*minFreq*/, float /*maxFreq*/) const {
+  std::lock_guard<std::recursive_mutex> lock(curveMutex);
   if (points.empty()) {
     minValue = defaultValue;
     maxValue = defaultValue;
@@ -114,6 +128,7 @@ void ParameterCurve::getValueRange(float &minValue, float &maxValue,
 
 //==============================================================================
 juce::String ParameterCurve::serializePoints() const {
+  std::lock_guard<std::recursive_mutex> lock(curveMutex);
   juce::String result;
 
   for (size_t i = 0; i < points.size(); ++i) {
@@ -127,6 +142,7 @@ juce::String ParameterCurve::serializePoints() const {
 }
 
 void ParameterCurve::deserializePoints(const juce::String &data) {
+  std::lock_guard<std::recursive_mutex> lock(curveMutex);
   points.clear();
 
   if (data.isEmpty())
