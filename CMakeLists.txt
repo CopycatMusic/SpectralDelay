@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-
+set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
 project(CopyCatSpectralDelay VERSION 1.0.0)
 
 # ============================================================================
@@ -41,6 +41,7 @@ juce_add_plugin(CopyCatSpectralDelay
     PLUGIN_MANUFACTURER_CODE "CpCt"
     PLUGIN_CODE "CCSD"
     FORMATS AU VST3
+    BUNDLE_ID "com.copycat.spectraldelay"
     PRODUCT_NAME "CopyCat Spectral Delay")
 
 # ============================================================================

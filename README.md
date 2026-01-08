@@ -36,30 +36,34 @@
 
 ### Supported Formats & Platforms
 
-| Platform | Architecture | Format |
-|----------|--------------|--------|
-| macOS | Universal Binary (Intel + Apple Silicon) | VST3 |
-| Windows | x64 | VST3 |
-
-> [!NOTE]
-> This plugin is currently **unsigned**. On first launch, you may need to manually allow it in your system security settings.
+| Platform | Architecture | Format | Status |
+|----------|--------------|--------|--------|
+| macOS | Universal Binary (Intel + Apple Silicon) | VST3, AU | ✅ Notarized |
+| Windows | x64 | VST3 | Unsigned |
 
 ### Installation
 
-#### Download
-Download the latest release from [GitHub Releases](https://github.com/CopycatMusic/SpectralDelay/releases).
+#### 🍎 macOS
+1. Download `CopyCat_Spectral_Delay_macOS_v1.0.0.zip`.
+2. Open the `.dmg` file.
+3. Drag the **VST3** and **Components (AU)** files to their respective installation folders shown in the window.
+4. Restart your DAW.
 
-#### Installation Paths
+#### 🪟 Windows
+1. Download `CopyCat_Spectral_Delay_Win_v1.0.0.zip`.
+2. Run the `CopyCat_Spectral_Delay_Win_v1.0.0.exe` installer.
+3. Follow the wizard steps (installed to `Common Files\VST3` by default).
+4. Restart your DAW.
+
+#### 🛠️ Manual Installation (If installers fail)
+If the automated installers do not work, you can manually copy the plugin files:
 
 **macOS:**
-```
-~/Library/Audio/Plug-Ins/VST3/
-```
+- Copy `CopyCat Spectral Delay.vst3` to: `/Library/Audio/Plug-Ins/VST3/`
+- Copy `CopyCat Spectral Delay.component` to: `/Library/Audio/Plug-Ins/Components/`
 
 **Windows:**
-```
-C:\Program Files\Common Files\VST3\
-```
+- Copy the `CopyCat Spectral Delay.vst3` folder to: `C:\Program Files\Common Files\VST3\`
 
 ### Building from Source
 
@@ -163,30 +167,34 @@ This software is provided for personal use only. Redistribution or modification 
 
 ### 支持格式与平台
 
-| 平台 | 架构 | 格式 |
-|------|------|------|
-| macOS | Universal Binary（Intel + Apple Silicon） | VST3 |
-| Windows | x64 | VST3 |
+| 平台 | 架构 | 格式 | 状态 |
+|----------|--------------|--------|--------|
+| macOS | Universal Binary（Intel + Apple Silicon） | VST3, AU | ✅ 已公证 |
+| Windows | x64 | VST3 | 未签名 |
 
-> [!NOTE]
-> 本插件目前**未签名**。首次运行时，可能需要在系统安全设置中手动允许运行。
+### 安装说明
 
-### 安装
+#### 🍎 macOS
+1. 下载 `CopyCat_Spectral_Delay_macOS_v1.0.0.zip`。
+2. 打开 `.dmg` 文件。
+3. 将 **VST3** 和 **Components (AU)** 文件拖动到窗口中显示的对应安装文件夹中。
+4. 重启你的 DAW。
 
-#### 下载
-从 [GitHub Releases](https://github.com/CopycatMusic/SpectralDelay/releases) 下载最新版本。
+#### 🪟 Windows
+1. 下载 `CopyCat_Spectral_Delay_Win_v1.0.0.zip`。
+2. 运行 `CopyCat_Spectral_Delay_Win_v1.0.0.exe` 安装程序名。
+3. 按照向导步骤操作（默认安装到 `Common Files\VST3`）。
+4. 重启你的 DAW。
 
-#### 安装路径
+#### 🛠️ 手动安装（如果安装程序无法运行）
+如果自动安装程序无法工作，你可以手动复制插件文件：
 
-**macOS：**
-```
-~/Library/Audio/Plug-Ins/VST3/
-```
+**macOS:**
+- 将 `CopyCat Spectral Delay.vst3` 复制到：`/Library/Audio/Plug-Ins/VST3/`
+- 将 `CopyCat Spectral Delay.component` 复制到：`/Library/Audio/Plug-Ins/Components/`
 
-**Windows：**
-```
-C:\Program Files\Common Files\VST3\
-```
+**Windows:**
+- 将 `CopyCat Spectral Delay.vst3` 文件夹复制到：`C:\Program Files\Common Files\VST3\`
 
 ### 从源码构建
 
