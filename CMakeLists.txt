@@ -60,6 +60,8 @@ target_sources(CopyCatSpectralDelay
         src/dsp/PerBinDelayBuffer.h
         src/dsp/SpectralDelayEngine.cpp
         src/dsp/SpectralDelayEngine.h
+        src/dsp/LFOEngine.cpp
+        src/dsp/LFOEngine.h
         
         src/ui/SpectrumDisplay.cpp
         src/ui/SpectrumDisplay.h

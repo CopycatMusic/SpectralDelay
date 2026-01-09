@@ -91,6 +91,14 @@ public:
   float getValueAtFrequency(float frequency) const;
 
   /**
+   * Calculate value at a normalized position (0-1 range).
+   * Used for LFO curves where X axis is 0-1 instead of frequency.
+   * @param position Normalized position (0.0 to 1.0)
+   * @return Parameter value at that position
+   */
+  float getValueAtNormalizedPosition(float position) const;
+
+  /**
    * Fill an array with values for each FFT bin.
    */
   void fillBinValues(float *output, int numBins, float sampleRate,

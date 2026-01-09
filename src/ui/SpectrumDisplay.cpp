@@ -173,8 +173,8 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
 
   auto graphBounds = getGraphBounds();
 
-  // Draw spectrum
-  if (currentNumBins > 0 && !magnitudeData.empty()) {
+  // Draw spectrum (only when not in LFO mode)
+  if (!lfoMode && currentNumBins > 0 && !magnitudeData.empty()) {
     float binWidth =
         static_cast<float>(currentSampleRate) / (currentNumBins * 2);
 
@@ -246,6 +246,18 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
   // Draw parameter curve
   drawCurve(g);
 
+  // Draw LFO position indicator (blue vertical line) when in LFO mode
+  if (lfoMode) {
+    float lineX = graphBounds.getX() + lfoPhase * graphBounds.getWidth();
+
+    // Draw a glowing blue line
+    g.setColour(juce::Colour(0x44AADDFF)); // Light blue with alpha
+    g.drawLine(lineX, graphBounds.getY(), lineX, graphBounds.getBottom(), 4.0f);
+
+    g.setColour(juce::Colour(0xFFAADDFF)); // Solid light blue
+    g.drawLine(lineX, graphBounds.getY(), lineX, graphBounds.getBottom(), 2.0f);
+  }
+
   // Draw bypass overlay (dim the display when bypassed)
   if (isBypassed) {
     g.setColour(CustomLookAndFeel::getBackgroundMedium().withAlpha(0.7f));
@@ -263,36 +275,67 @@ void SpectrumDisplay::drawCurve(juce::Graphics &g) {
   juce::Colour ghostColour =
       CustomLookAndFeel::getTextPrimary().withAlpha(0.2f);
 
-  // Gain (if not active)
-  if (gainCurve != nullptr && gainCurve != editingCurve) {
-    drawParameterCurve(g, gainCurve, ghostColour, 0.0f, 200.0f, false);
-  }
+  if (lfoMode) {
+    // LFO mode: show the gray curve for the currently selected parameter type
+    // Pass useFrequencyAxis=true to use logarithmic frequency axis for the
+    // background curve
+    float mod = lfoModulations[currentParameterType];
+    if (currentParameterType == 0 && gainCurve != nullptr) {
+      drawParameterCurve(g, gainCurve, ghostColour, 0.0f, 200.0f, false, true,
+                         mod);
+    } else if (currentParameterType == 1 && feedbackCurve != nullptr) {
+      drawParameterCurve(g, feedbackCurve, ghostColour, 0.0f, 100.0f, false,
+                         true, mod);
+    } else if (currentParameterType == 2) {
+      if (useDelayMode && delayCurve != nullptr) {
+        drawParameterCurve(g, delayCurve, ghostColour, 0.0f, 2000.0f, false,
+                           true, mod);
+      } else if (!useDelayMode && phaseCurve != nullptr) {
+        drawParameterCurve(g, phaseCurve, ghostColour, 0.0f, 360.0f, false,
+                           true, mod);
+      }
+    }
+  } else {
+    // Normal mode: always show all three gray curves
+    // Apply real-time LFO modulation to these background curves for animation
 
-  // Feedback (if not active)
-  if (feedbackCurve != nullptr && feedbackCurve != editingCurve) {
-    drawParameterCurve(g, feedbackCurve, ghostColour, 0.0f, 100.0f, false);
-  }
+    // Gain
+    if (gainCurve != nullptr) {
+      drawParameterCurve(g, gainCurve, ghostColour, 0.0f, 200.0f, false, false,
+                         lfoModulations[0]);
+    }
 
-  // Time (Delay or Phase - only one is shown as ghost based on mode)
-  if (editingCurve != delayCurve && editingCurve != phaseCurve) {
+    // Feedback
+    if (feedbackCurve != nullptr) {
+      drawParameterCurve(g, feedbackCurve, ghostColour, 0.0f, 100.0f, false,
+                         false, lfoModulations[1]);
+    }
+
+    // Time (Delay or Phase based on mode)
     if (useDelayMode && delayCurve != nullptr) {
-      drawParameterCurve(g, delayCurve, ghostColour, 0.0f, 2000.0f, false);
+      drawParameterCurve(g, delayCurve, ghostColour, 0.0f, 2000.0f, false,
+                         false, lfoModulations[2]);
     } else if (!useDelayMode && phaseCurve != nullptr) {
-      drawParameterCurve(g, phaseCurve, ghostColour, 0.0f, 360.0f, false);
+      drawParameterCurve(g, phaseCurve, ghostColour, 0.0f, 360.0f, false, false,
+                         lfoModulations[2]);
     }
   }
 
-  // Finally, draw the active editing curve on top
+  // Finally, draw the active editing curve on top (in both modes)
+  // The editing curve is "static" (what the user is drawing), so
+  // modulationFactor is 1.0f
   if (editingCurve != nullptr) {
     drawParameterCurve(g, editingCurve, curveColour, curveValueMin,
-                       curveValueMax, true);
+                       curveValueMax, true, false, 1.0f);
   }
 }
 
 void SpectrumDisplay::drawParameterCurve(juce::Graphics &g,
                                          ParameterCurve *curve,
                                          juce::Colour colour, float minVal,
-                                         float maxVal, bool isActive) {
+                                         float maxVal, bool isActive,
+                                         bool useFrequencyAxis,
+                                         float modulationFactor) {
   if (curve == nullptr)
     return;
 
@@ -302,9 +345,26 @@ void SpectrumDisplay::drawParameterCurve(juce::Graphics &g,
   // Draw the curve line
   g.setColour(colour);
 
+  // Helper to convert frequency to X coordinate
+  // If useFrequencyAxis is true, always use logarithmic frequency axis
+  // Otherwise, use the mode-dependent frequencyToX()
+  auto freqToX = [this, useFrequencyAxis](float frequency) {
+    if (useFrequencyAxis || !lfoMode) {
+      // Use logarithmic frequency axis
+      float logMin = std::log10(minFreq);
+      float logMax = std::log10(maxFreq);
+      float logFreq = std::log10(std::max(frequency, minFreq));
+      return (logFreq - logMin) / (logMax - logMin);
+    }
+    // LFO mode with linear axis
+    return juce::jlimit(0.0f, 1.0f, frequency);
+  };
+
   // Helper to convert value to Y relative to this curve's range
-  auto valToY = [minVal, maxVal](float val) {
-    return 1.0f - (val - minVal) / (maxVal - minVal);
+  // Apply modulationFactor to the value before mapping to Y
+  auto valToY = [minVal, maxVal, modulationFactor](float val) {
+    float modulatedVal = val * modulationFactor;
+    return 1.0f - (modulatedVal - minVal) / (maxVal - minVal);
   };
 
   if (points.empty()) {
@@ -324,7 +384,7 @@ void SpectrumDisplay::drawParameterCurve(juce::Graphics &g,
     juce::Path curvePath;
 
     // First segment: horizontal from left edge to first point
-    float firstX = frequencyToX(points[0].frequency);
+    float firstX = freqToX(points[0].frequency);
     float firstY = valToY(points[0].value);
     float screenX = graphBounds.getX() + firstX * graphBounds.getWidth();
     float screenY = graphBounds.getY() + firstY * graphBounds.getHeight();
@@ -334,7 +394,7 @@ void SpectrumDisplay::drawParameterCurve(juce::Graphics &g,
 
     // Middle segments
     for (size_t i = 1; i < points.size(); ++i) {
-      float x = frequencyToX(points[i].frequency);
+      float x = freqToX(points[i].frequency);
       float y = valToY(points[i].value);
       screenX = graphBounds.getX() + x * graphBounds.getWidth();
       screenY = graphBounds.getY() + y * graphBounds.getHeight();
@@ -351,7 +411,7 @@ void SpectrumDisplay::drawParameterCurve(juce::Graphics &g,
   if (isActive) {
     for (int i = 0; i < static_cast<int>(points.size()); ++i) {
       size_t idx = static_cast<size_t>(i);
-      float x = frequencyToX(points[idx].frequency);
+      float x = freqToX(points[idx].frequency);
       float y = valToY(points[idx].value);
       float screenX = graphBounds.getX() + x * graphBounds.getWidth();
       float screenY = graphBounds.getY() + y * graphBounds.getHeight();
@@ -386,6 +446,11 @@ juce::Rectangle<float> SpectrumDisplay::getGraphBounds() const {
 
 //==============================================================================
 float SpectrumDisplay::frequencyToX(float frequency) const {
+  if (lfoMode) {
+    // LFO mode: linear 0-1 axis
+    return juce::jlimit(0.0f, 1.0f, frequency);
+  }
+  // Normal mode: logarithmic frequency axis
   float logMin = std::log10(minFreq);
   float logMax = std::log10(maxFreq);
   float logFreq = std::log10(std::max(frequency, minFreq));
@@ -399,6 +464,11 @@ float SpectrumDisplay::magnitudeToY(float magnitude) const {
 }
 
 float SpectrumDisplay::xToFrequency(float x) const {
+  if (lfoMode) {
+    // LFO mode: linear 0-1 axis
+    return juce::jlimit(0.0f, 1.0f, x);
+  }
+  // Normal mode: logarithmic frequency axis
   float logMin = std::log10(minFreq);
   float logMax = std::log10(maxFreq);
   float logFreq = logMin + x * (logMax - logMin);
@@ -504,18 +574,22 @@ void SpectrumDisplay::mouseDrag(const juce::MouseEvent &e) {
   float value = yToValue(normY);
 
   // Clamp frequency so it doesn't cross neighboring points
-  float minAllowedFreq = minFreq;
-  float maxAllowedFreq = maxFreq;
+  // Use appropriate range based on mode (LFO: 0-1, normal: Hz)
+  float minAllowedFreq = lfoMode ? 0.0f : minFreq;
+  float maxAllowedFreq = lfoMode ? 1.0f : maxFreq;
+  float freqOffset = lfoMode ? 0.001f : 1.0f; // Small offset for LFO mode
 
   if (draggedPointIndex > 0) {
     // Can't go left past the previous point
     minAllowedFreq =
-        points[static_cast<size_t>(draggedPointIndex) - 1].frequency + 1.0f;
+        points[static_cast<size_t>(draggedPointIndex) - 1].frequency +
+        freqOffset;
   }
   if (draggedPointIndex < static_cast<int>(points.size()) - 1) {
     // Can't go right past the next point
     maxAllowedFreq =
-        points[static_cast<size_t>(draggedPointIndex) + 1].frequency - 1.0f;
+        points[static_cast<size_t>(draggedPointIndex) + 1].frequency -
+        freqOffset;
   }
 
   frequency = juce::jlimit(minAllowedFreq, maxAllowedFreq, frequency);

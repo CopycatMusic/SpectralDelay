@@ -144,23 +144,34 @@ void CopyCatSpectralDelayProcessor::processBlock(
     engine.setFFTSize(fftSizes[fftSizeIndex]);
   }
 
-  // Update feedback multiplier from automation parameter
+  // Prepare LFO engine with sample rate if not already done
+  if (lfoEngine.getSampleRate() != getSampleRate()) {
+    lfoEngine.prepare(getSampleRate());
+  }
+
+  // Advance LFO phases by buffer size
+  lfoEngine.advance(buffer.getNumSamples());
+
+  // Get base multipliers from automation parameters
   auto *feedbackMultParam = parameters.getRawParameterValue("feedbackMult");
-  if (feedbackMultParam) {
-    engine.setFeedbackMultiplier(*feedbackMultParam);
-  }
-
-  // Update gain multiplier from automation parameter
   auto *gainMultParam = parameters.getRawParameterValue("gainMult");
-  if (gainMultParam) {
-    engine.setGainMultiplier(*gainMultParam);
-  }
-
-  // Update delay multiplier from automation parameter
   auto *delayMultParam = parameters.getRawParameterValue("delayMult");
-  if (delayMultParam) {
-    engine.setDelayMultiplier(*delayMultParam);
-  }
+
+  float feedbackMult = feedbackMultParam ? feedbackMultParam->load() : 100.0f;
+  float gainMult = gainMultParam ? gainMultParam->load() : 100.0f;
+  float delayMult = delayMultParam ? delayMultParam->load() : 20.0f;
+
+  // Apply LFO modulation to multipliers
+  // LFO returns a value 0.0-1.0, representing the modulation factor
+  float gainLfoMod = lfoEngine.getModulationValue(LFOEngine::Parameter::Gain);
+  float feedbackLfoMod =
+      lfoEngine.getModulationValue(LFOEngine::Parameter::Feedback);
+  float delayLfoMod = lfoEngine.getModulationValue(LFOEngine::Parameter::Time);
+
+  // Final multipliers = base * LFO modulation
+  engine.setGainMultiplier(gainMult * gainLfoMod);
+  engine.setFeedbackMultiplier(feedbackMult * feedbackLfoMod);
+  engine.setDelayMultiplier(delayMult * delayLfoMod);
 
   // Update latency if it changed
   int newLatency = engine.getLatencyInSamples();

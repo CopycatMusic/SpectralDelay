@@ -39,6 +39,15 @@ public:
   // Callback when feedback invert changes
   std::function<void(bool)> onFeedbackInvertChanged;
 
+  // Callback when LFO mode changes
+  std::function<void(bool)> onLfoModeChanged;
+
+  // Callback when LFO amount changes (for current parameter)
+  std::function<void(int, float)> onLfoAmountChanged; // (paramType, amount)
+
+  // Callback when LFO speed changes (for current parameter)
+  std::function<void(int, float)> onLfoSpeedChanged; // (paramType, speedMs)
+
   // Callback when feedback multiplier changes
   std::function<void(float)> onFeedbackMultiplierChanged;
 
@@ -72,6 +81,13 @@ public:
 
   // Select parameter type (for restoring from saved state)
   void selectParameter(int paramType);
+
+  // Set LFO mode UI state
+  void setLfoMode(bool isLfoMode);
+  bool isLfoMode() const { return currentLfoMode; }
+
+  // Update LFO sliders with current values from engine
+  void updateLfoSliders(float amount, float speedMs);
 
 private:
   void comboBoxChanged(juce::ComboBox *comboBox) override;
@@ -140,6 +156,18 @@ private:
 
   // Current delay mode (false = Phase, true = Delay)
   bool currentDelayMode = true;
+
+  // LFO mode state
+  bool currentLfoMode = false;
+
+  // LFO button
+  juce::TextButton lfoButton{"LFO"};
+
+  // LFO controls (shown when LFO mode is active)
+  juce::Label lfoAmountLabel;
+  juce::Slider lfoAmountSlider;
+  juce::Label lfoSpeedLabel;
+  juce::Slider lfoSpeedSlider;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ControlPanel)
 };

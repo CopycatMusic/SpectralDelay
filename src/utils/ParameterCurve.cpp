@@ -98,6 +98,49 @@ float ParameterCurve::getValueAtFrequency(float frequency) const {
   return defaultValue;
 }
 
+float ParameterCurve::getValueAtNormalizedPosition(float position) const {
+  std::lock_guard<std::recursive_mutex> lock(curveMutex);
+
+  // No points: return default value
+  if (points.empty()) {
+    return defaultValue;
+  }
+
+  // One point: constant mode
+  if (points.size() == 1) {
+    return points[0].value;
+  }
+
+  // For LFO curves, points use normalized 0-1 X axis (stored as "frequency")
+  // Clamp position to [0, 1]
+  position = std::max(0.0f, std::min(1.0f, position));
+
+  // Before first point: use first point's value
+  if (position <= points.front().frequency) {
+    return points.front().value;
+  }
+
+  // After last point: use last point's value
+  if (position >= points.back().frequency) {
+    return points.back().value;
+  }
+
+  // Find surrounding points and interpolate
+  for (size_t i = 0; i < points.size() - 1; ++i) {
+    if (position >= points[i].frequency &&
+        position <= points[i + 1].frequency) {
+      float posDiff = points[i + 1].frequency - points[i].frequency;
+      if (posDiff > 1e-6f) {
+        float t = (position - points[i].frequency) / posDiff;
+        return points[i].value + t * (points[i + 1].value - points[i].value);
+      }
+      return points[i].value;
+    }
+  }
+
+  return defaultValue;
+}
+
 void ParameterCurve::fillBinValues(float *output, int numBins, float sampleRate,
                                    int fftSize) const {
   std::lock_guard<std::recursive_mutex> lock(curveMutex);

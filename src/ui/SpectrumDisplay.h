@@ -78,6 +78,45 @@ public:
   }
 
   /**
+   * Set LFO mode - changes display to show LFO curve with normalized X axis.
+   */
+  void setLfoMode(bool isLfo) {
+    lfoMode = isLfo;
+    repaint();
+  }
+
+  bool isLfoMode() const { return lfoMode; }
+
+  /**
+   * Set current LFO phase for position indicator (0.0 to 1.0).
+   */
+  void setLfoPhase(float phase) {
+    lfoPhase = phase;
+    if (lfoMode)
+      repaint(); // Only repaint if in LFO mode
+  }
+
+  /**
+   * Set current parameter type for LFO mode gray curve display.
+   * 0 = Gain, 1 = Feedback, 2 = Time
+   */
+  void setCurrentParameterType(int paramType) {
+    currentParameterType = paramType;
+    if (lfoMode)
+      repaint();
+  }
+
+  /**
+   * Set LFO modulation multiplier for a parameter to enable UI animation.
+   * 0 = Gain, 1 = Feedback, 2 = Time
+   */
+  void setLfoModulation(int paramType, float value) {
+    if (paramType >= 0 && paramType < 3) {
+      lfoModulations[paramType] = value;
+    }
+  }
+
+  /**
    * Callback when curve points are modified.
    */
   std::function<void()> onCurveModified;
@@ -106,9 +145,12 @@ private:
   void drawCurve(juce::Graphics &g);
 
   // Helper to draw a single curve
+  // useFrequencyAxis: if true, use logarithmic frequency axis even in LFO mode
+  // modulationFactor: scales the Y value for animation
   void drawParameterCurve(juce::Graphics &g, ParameterCurve *curve,
                           juce::Colour colour, float minVal, float maxVal,
-                          bool isActive);
+                          bool isActive, bool useFrequencyAxis = false,
+                          float modulationFactor = 1.0f);
 
   // Get the graph bounds (excluding axis labels)
   juce::Rectangle<float> getGraphBounds() const;
@@ -202,6 +244,10 @@ private:
   // Bypass state
   bool isBypassed = false;
   bool useDelayMode = true;
+  bool lfoMode = false;
+  float lfoPhase = 0.0f;        // Current LFO position (0.0 to 1.0)
+  int currentParameterType = 2; // 0=Gain, 1=Feedback, 2=Time (default Time)
+  float lfoModulations[3] = {1.0f, 1.0f, 1.0f}; // Current multipliers
 
   // Axis label settings (right side Y-axis)
   juce::String axisUnit = "";

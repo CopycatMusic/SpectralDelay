@@ -1,5 +1,6 @@
 #pragma once
 
+#include "dsp/LFOEngine.h"
 #include "dsp/SpectralDelayEngine.h"
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
@@ -58,6 +59,7 @@ private:
   //==============================================================================
   juce::AudioProcessorValueTreeState parameters;
   SpectralDelayEngine engine;
+  LFOEngine lfoEngine;
 
   // Parameter pointers for quick access
   std::atomic<float> *fftSizeParam = nullptr;
@@ -67,6 +69,7 @@ private:
   int uiParameterType = 2;       // 0=Gain, 1=Feedback, 2=Time
   bool uiDisplayModeBar = false; // false=Line, true=Bar
   bool uiShowInputSpectrum = false;
+  bool uiLfoMode = false; // false=Normal, true=LFO editing mode
 
 public:
   // UI state accessors
@@ -76,6 +79,12 @@ public:
   void setUIDisplayModeBar(bool bar) { uiDisplayModeBar = bar; }
   bool getUIShowInputSpectrum() const { return uiShowInputSpectrum; }
   void setUIShowInputSpectrum(bool input) { uiShowInputSpectrum = input; }
+  bool getUILfoMode() const { return uiLfoMode; }
+  void setUILfoMode(bool lfoMode) { uiLfoMode = lfoMode; }
+
+  // LFO Engine access for UI
+  LFOEngine &getLfoEngine() { return lfoEngine; }
+  const LFOEngine &getLfoEngine() const { return lfoEngine; }
 
 private:
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CopyCatSpectralDelayProcessor)

@@ -23,7 +23,7 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
 
   titleLabel.setText("SPECTRAL DELAY", juce::dontSendNotification);
   titleLabel.setFont(juce::Font(montserratTypeface).withHeight(32.0f));
-   titleLabel.setColour(juce::Label::textColourId,
+  titleLabel.setColour(juce::Label::textColourId,
                        CustomLookAndFeel::getTextPrimary().withAlpha(0.6f));
   titleLabel.setJustificationType(juce::Justification::centredLeft);
   addAndMakeVisible(titleLabel);
@@ -97,6 +97,26 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
     processorRef.getEngine().setFeedbackMultiplier(mult);
   };
 
+  // Connect LFO mode toggle
+  controlPanel.onLfoModeChanged = [this](bool isLfo) {
+    processorRef.setUILfoMode(isLfo);
+    updateEditingCurve();
+  };
+
+  // Connect LFO amount change
+  controlPanel.onLfoAmountChanged = [this](int paramType, float amount) {
+    auto &lfoEngine = processorRef.getLfoEngine();
+    LFOEngine::Parameter param = static_cast<LFOEngine::Parameter>(paramType);
+    lfoEngine.setAmount(param, amount);
+  };
+
+  // Connect LFO speed change
+  controlPanel.onLfoSpeedChanged = [this](int paramType, float speedMs) {
+    auto &lfoEngine = processorRef.getLfoEngine();
+    LFOEngine::Parameter param = static_cast<LFOEngine::Parameter>(paramType);
+    lfoEngine.setSpeed(param, speedMs);
+  };
+
   // Sync UI with current engine state (for restoring saved state)
   controlPanel.setDelayMode(processorRef.getEngine().isDelayMode());
   controlPanel.setFeedbackInvert(processorRef.getEngine().isFeedbackInvert());
@@ -130,26 +150,48 @@ CopyCatSpectralDelayEditor::~CopyCatSpectralDelayEditor() {
 //==============================================================================
 void CopyCatSpectralDelayEditor::updateEditingCurve() {
   auto &engine = processorRef.getEngine();
+  auto &lfoEngine = processorRef.getLfoEngine();
   int paramType = controlPanel.getCurrentParameterType();
+  bool isLfoMode = controlPanel.isLfoMode();
 
-  // Provide all curves for background display
-  spectrumDisplay.setBackgroundCurves(
-      &engine.getGainCurve(), &engine.getFeedbackCurve(),
-      &engine.getDelayCurve(), &engine.getPhaseCurve());
-  spectrumDisplay.setTimeMode(controlPanel.isDelayMode());
+  // Always update the current parameter type for gray curve display
+  spectrumDisplay.setCurrentParameterType(paramType);
 
-  if (paramType == 0) {
-    // Gain: 0-200%
-    spectrumDisplay.setEditingCurve(&engine.getGainCurve(), 0.0f, 200.0f);
-  } else if (paramType == 1) {
-    // Feedback: 0-100%
-    spectrumDisplay.setEditingCurve(&engine.getFeedbackCurve(), 0.0f, 100.0f);
+  if (isLfoMode) {
+    // LFO mode: edit LFO curves (not SpectralDelayEngine curves)
+    // LFO curves use X axis as 0-1 normalized position
+    LFOEngine::Parameter param = static_cast<LFOEngine::Parameter>(paramType);
+    spectrumDisplay.setBackgroundCurves(
+        &engine.getGainCurve(), &engine.getFeedbackCurve(),
+        &engine.getDelayCurve(), &engine.getPhaseCurve());
+    spectrumDisplay.setEditingCurve(&lfoEngine.getCurve(param), 0.0f, 100.0f);
+    spectrumDisplay.setLfoMode(true);
+    spectrumDisplay.setTimeMode(controlPanel.isDelayMode());
+
+    // Update LFO sliders with current parameter's values
+    controlPanel.updateLfoSliders(lfoEngine.getAmount(param),
+                                  lfoEngine.getSpeed(param));
   } else {
-    // Delay: switch between Phase curve (0-360) and Delay curve (0-2000ms)
-    if (controlPanel.isDelayMode()) {
-      spectrumDisplay.setEditingCurve(&engine.getDelayCurve(), 0.0f, 2000.0f);
+    // Normal mode: edit SpectralDelayEngine curves
+    spectrumDisplay.setLfoMode(false);
+    spectrumDisplay.setBackgroundCurves(
+        &engine.getGainCurve(), &engine.getFeedbackCurve(),
+        &engine.getDelayCurve(), &engine.getPhaseCurve());
+    spectrumDisplay.setTimeMode(controlPanel.isDelayMode());
+
+    if (paramType == 0) {
+      // Gain: 0-200%
+      spectrumDisplay.setEditingCurve(&engine.getGainCurve(), 0.0f, 200.0f);
+    } else if (paramType == 1) {
+      // Feedback: 0-100%
+      spectrumDisplay.setEditingCurve(&engine.getFeedbackCurve(), 0.0f, 100.0f);
     } else {
-      spectrumDisplay.setEditingCurve(&engine.getPhaseCurve(), 0.0f, 360.0f);
+      // Delay: switch between Phase curve (0-360) and Delay curve (0-2000ms)
+      if (controlPanel.isDelayMode()) {
+        spectrumDisplay.setEditingCurve(&engine.getDelayCurve(), 0.0f, 2000.0f);
+      } else {
+        spectrumDisplay.setEditingCurve(&engine.getPhaseCurve(), 0.0f, 360.0f);
+      }
     }
   }
 
@@ -263,8 +305,28 @@ void CopyCatSpectralDelayEditor::timerCallback() {
   spectrumDisplay.setSpectralData(spectrumData, engine.getNumBins(),
                                   engine.getSampleRate());
 
+  // Update LFO state in UI (phase and modulation values for animation)
+  auto &lfoEngine = processorRef.getLfoEngine();
+
+  // Set modulation values for all parameters to enable animation of gray lines
+  spectrumDisplay.setLfoModulation(
+      0, lfoEngine.getModulationValue(LFOEngine::Parameter::Gain));
+  spectrumDisplay.setLfoModulation(
+      1, lfoEngine.getModulationValue(LFOEngine::Parameter::Feedback));
+  spectrumDisplay.setLfoModulation(
+      2, lfoEngine.getModulationValue(LFOEngine::Parameter::Time));
+
   // Update axis label (in case multiply slider changed)
   updateAxisLabel();
+
+  // Update LFO phase display when in LFO mode
+  if (controlPanel.isLfoMode()) {
+    int paramType = controlPanel.getCurrentParameterType();
+    LFOEngine::Parameter param = static_cast<LFOEngine::Parameter>(paramType);
+
+    // Read the current phase from the engine (advanced by processBlock)
+    spectrumDisplay.setLfoPhase(lfoEngine.getPhase(param));
+  }
 
   // Trigger repaint
   spectrumDisplay.repaint();

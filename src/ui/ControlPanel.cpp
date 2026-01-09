@@ -187,6 +187,70 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
     }
   };
   addAndMakeVisible(spectrumSourceButton);
+
+  // LFO mode button (at the top of control panel)
+  lfoButton.setClickingTogglesState(true);
+  lfoButton.onClick = [this]() {
+    currentLfoMode = lfoButton.getToggleState();
+    // Show/hide LFO controls based on mode
+    lfoAmountLabel.setVisible(currentLfoMode);
+    lfoAmountSlider.setVisible(currentLfoMode);
+    lfoSpeedLabel.setVisible(currentLfoMode);
+    lfoSpeedSlider.setVisible(currentLfoMode);
+    // Hide normal Multiply controls in LFO mode
+    gainMultLabel.setVisible(!currentLfoMode && currentParameterType == 0);
+    gainMultSlider.setVisible(!currentLfoMode && currentParameterType == 0);
+    gainMaxLabel.setVisible(!currentLfoMode && currentParameterType == 0);
+    feedbackMultLabel.setVisible(!currentLfoMode && currentParameterType == 1);
+    feedbackMultSlider.setVisible(!currentLfoMode && currentParameterType == 1);
+    feedbackMaxLabel.setVisible(!currentLfoMode && currentParameterType == 1);
+    delayMultLabel.setVisible(!currentLfoMode && currentParameterType == 2);
+    delayMultSlider.setVisible(!currentLfoMode && currentParameterType == 2);
+    delayMaxLabel.setVisible(!currentLfoMode && currentParameterType == 2);
+    resized();
+    if (onLfoModeChanged) {
+      onLfoModeChanged(currentLfoMode);
+    }
+  };
+  addAndMakeVisible(lfoButton);
+
+  // LFO Amount slider (0-100%)
+  lfoAmountLabel.setText("LFO Amount:", juce::dontSendNotification);
+  lfoAmountLabel.setColour(juce::Label::textColourId,
+                           CustomLookAndFeel::getTextPrimary());
+  addChildComponent(lfoAmountLabel);
+
+  lfoAmountSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+  lfoAmountSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+  lfoAmountSlider.setRange(0.0, 100.0, 1.0);
+  lfoAmountSlider.setValue(0.0); // Default 0%
+  lfoAmountSlider.setTextValueSuffix("%");
+  lfoAmountSlider.onValueChange = [this]() {
+    if (onLfoAmountChanged) {
+      onLfoAmountChanged(currentParameterType,
+                         static_cast<float>(lfoAmountSlider.getValue()));
+    }
+  };
+  addChildComponent(lfoAmountSlider);
+
+  // LFO Speed slider (100-2000ms)
+  lfoSpeedLabel.setText("LFO Speed:", juce::dontSendNotification);
+  lfoSpeedLabel.setColour(juce::Label::textColourId,
+                          CustomLookAndFeel::getTextPrimary());
+  addChildComponent(lfoSpeedLabel);
+
+  lfoSpeedSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+  lfoSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+  lfoSpeedSlider.setRange(100.0, 2000.0, 1.0);
+  lfoSpeedSlider.setValue(500.0); // Default 500ms
+  lfoSpeedSlider.setTextValueSuffix("ms");
+  lfoSpeedSlider.onValueChange = [this]() {
+    if (onLfoSpeedChanged) {
+      onLfoSpeedChanged(currentParameterType,
+                        static_cast<float>(lfoSpeedSlider.getValue()));
+    }
+  };
+  addChildComponent(lfoSpeedSlider);
 }
 
 ControlPanel::~ControlPanel() { mixSlider.removeListener(this); }
@@ -203,37 +267,17 @@ void ControlPanel::paint(juce::Graphics &g) {
   int spacing = 8;
   int margin = 10;
 
-  // Top section needs: param buttons (1 row) + mode row (1 row) + spacing
-  int topSectionMinHeight = (2 * rowHeight) + (2 * spacing) + margin;
-  int topSectionEndY = topSectionMinHeight;
-
   // Bottom section: FFT, Display, Mix (4 rows)
   int globalRowsCount = 4;
   int globalSectionHeight =
       (globalRowsCount * rowHeight) + (globalRowsCount * spacing) + margin;
   int bottomSeparatorY = getHeight() - globalSectionHeight - margin;
 
-  // Middle section: Multiply label + slider + MAX (3 rows)
-  int middleRowsCount = 3;
-  int middleSectionHeight =
-      (middleRowsCount * rowHeight) + (middleRowsCount * spacing) + margin;
-  int middleSeparatorY = bottomSeparatorY - middleSectionHeight - margin;
-
-  // Clamp middle separator to not go above top section
-  middleSeparatorY = std::max(middleSeparatorY, topSectionEndY);
-
   g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.2f));
 
-  // Draw separator above middle section (centered in the gap)
-  int middleLineY = middleSeparatorY + margin;
-  g.fillRect(margin, middleLineY, getWidth() - margin * 2, 1);
-
-  // Draw separator above bottom section (centered in the gap, only if there's
-  // room)
-  if (bottomSeparatorY > middleSeparatorY + middleSectionHeight) {
-    int bottomLineY = bottomSeparatorY + margin;
-    g.fillRect(margin, bottomLineY, getWidth() - margin * 2, 1);
-  }
+  // Draw separator above bottom section
+  int bottomLineY = bottomSeparatorY + margin;
+  g.fillRect(margin, bottomLineY, getWidth() - margin * 2, 1);
 }
 
 void ControlPanel::resized() {
@@ -245,30 +289,12 @@ void ControlPanel::resized() {
   int width = getWidth();
   int height = getHeight();
 
-  // ============ Calculate section boundaries ============
-  // Top section needs: param buttons (1 row) + mode row (1 row) + spacing
-  int topSectionMinHeight = (2 * rowHeight) + (2 * spacing) + margin;
-  int topSectionEndY = topSectionMinHeight;
-
+  // ============ BOTTOM SECTION: Fixed at bottom ============
   // Bottom section: FFT, Display, Mix (4 rows)
   int globalRowsCount = 4;
   int globalSectionHeight =
       (globalRowsCount * rowHeight) + (globalRowsCount * spacing) + margin;
   int bottomSeparatorY = height - globalSectionHeight - margin;
-
-  // Middle section: Multiply label + slider + MAX (3 rows)
-  int middleRowsCount = 3;
-  int middleSectionHeight =
-      (middleRowsCount * rowHeight) + (middleRowsCount * spacing) + margin;
-  int middleSeparatorY = bottomSeparatorY - middleSectionHeight - margin;
-
-  // Clamp middle separator to not go above top section
-  middleSeparatorY = std::max(middleSeparatorY, topSectionEndY);
-  // ============ MIDDLE SECTION: Multiply controls (fixed position)
-  // ============
-  int middleStartY = middleSeparatorY + margin + spacing;
-
-  // ============ BOTTOM SECTION: Global settings (fixed at bottom) ============
   int bottomY = bottomSeparatorY + margin + spacing;
 
   // FFT Size row
@@ -303,70 +329,99 @@ void ControlPanel::resized() {
                                     rowHeight);
   mixSlider.setBounds(mixSliderRow);
 
-  // ============ MIDDLE SECTION: Multiply controls (fixed position)
-  // ============
-  int midY = middleStartY;
+  // ============ TOP SECTION: Auto-arrange from top ============
+  int currentY = margin;
 
-  // Multiply label (show whichever is active)
-  juce::Rectangle<int> multLabelRow(margin, midY, width - margin * 2,
-                                    rowHeight);
-  if (currentParameterType == 0) {
-    gainMultLabel.setBounds(multLabelRow);
-  } else if (currentParameterType == 1) {
-    feedbackMultLabel.setBounds(multLabelRow);
-  } else if (currentParameterType == 2 && currentDelayMode) {
-    delayMultLabel.setBounds(multLabelRow);
-  }
-  midY += rowHeight + spacing;
+  // Row 1: LFO button
+  juce::Rectangle<int> lfoRow(margin, currentY, width - margin * 2, rowHeight);
+  lfoButton.setBounds(lfoRow);
+  currentY += rowHeight + spacing;
 
-  // Multiply slider
-  juce::Rectangle<int> multSliderRow(margin, midY, width - margin * 2,
-                                     rowHeight);
-  if (currentParameterType == 0) {
-    gainMultSlider.setBounds(multSliderRow);
-  } else if (currentParameterType == 1) {
-    feedbackMultSlider.setBounds(multSliderRow);
-  } else if (currentParameterType == 2 && currentDelayMode) {
-    delayMultSlider.setBounds(multSliderRow);
-  }
-  midY += rowHeight + spacing;
-
-  // MAX label
-  juce::Rectangle<int> maxLabelRow(margin, midY, width - margin * 2, rowHeight);
-  if (currentParameterType == 0) {
-    gainMaxLabel.setBounds(maxLabelRow);
-  } else if (currentParameterType == 1) {
-    feedbackMaxLabel.setBounds(maxLabelRow);
-  } else if (currentParameterType == 2 && currentDelayMode) {
-    delayMaxLabel.setBounds(maxLabelRow);
-  }
-
-  // ============ TOP SECTION: Parameter controls ============
-  int topY = margin;
-
-  // Parameter selector buttons row
-  juce::Rectangle<int> paramRow(margin, topY, width - margin * 2, rowHeight);
+  // Row 2: Parameter selector buttons (Gain, Time, Feedback)
+  juce::Rectangle<int> paramRow(margin, currentY, width - margin * 2,
+                                rowHeight);
   int buttonWidth = (paramRow.getWidth() - spacing * 2) / 3;
   gainButton.setBounds(paramRow.removeFromLeft(buttonWidth));
   paramRow.removeFromLeft(spacing);
   delayButton.setBounds(paramRow.removeFromLeft(buttonWidth));
   paramRow.removeFromLeft(spacing);
   feedbackButton.setBounds(paramRow);
-  topY += rowHeight + spacing;
+  currentY += rowHeight + spacing;
 
-  // Mode/Invert row (variable content based on parameter type)
-  juce::Rectangle<int> modeRow(margin, topY, width - margin * 2, rowHeight);
-
-  if (currentParameterType == 2) {
-    // Time: show delay mode toggle
+  // Row 3: Mode/Invert row (optional, based on parameter type)
+  // Only Time parameter has a mode row (but it's hidden by default)
+  if (currentParameterType == 2 && delayModeButton.isVisible()) {
+    juce::Rectangle<int> modeRow(margin, currentY, width - margin * 2,
+                                 rowHeight);
     delayModeLabel.setBounds(modeRow.removeFromLeft(labelWidth));
     modeRow.removeFromLeft(spacing);
     delayModeButton.setBounds(modeRow);
-  } else if (currentParameterType == 1) {
-    // Feedback: show invert button
-    feedbackInvertButton.setBounds(modeRow);
+    currentY += rowHeight + spacing;
   }
-  // Gain: nothing extra in the mode row
+  // Feedback invert button is hidden, so no row for it
+
+  // ============ MULTIPLY CONTROLS or LFO CONTROLS ============
+  if (currentLfoMode) {
+    // LFO mode: show Amount and Speed sliders
+    // LFO Amount label
+    juce::Rectangle<int> lfoAmountLabelRow(margin, currentY, width - margin * 2,
+                                           rowHeight);
+    lfoAmountLabel.setBounds(lfoAmountLabelRow);
+    currentY += rowHeight + spacing;
+
+    // LFO Amount slider
+    juce::Rectangle<int> lfoAmountSliderRow(margin, currentY,
+                                            width - margin * 2, rowHeight);
+    lfoAmountSlider.setBounds(lfoAmountSliderRow);
+    currentY += rowHeight + spacing;
+
+    // LFO Speed label
+    juce::Rectangle<int> lfoSpeedLabelRow(margin, currentY, width - margin * 2,
+                                          rowHeight);
+    lfoSpeedLabel.setBounds(lfoSpeedLabelRow);
+    currentY += rowHeight + spacing;
+
+    // LFO Speed slider
+    juce::Rectangle<int> lfoSpeedSliderRow(margin, currentY, width - margin * 2,
+                                           rowHeight);
+    lfoSpeedSlider.setBounds(lfoSpeedSliderRow);
+  } else {
+    // Normal mode: show Multiply controls
+    // Multiply label
+    juce::Rectangle<int> multLabelRow(margin, currentY, width - margin * 2,
+                                      rowHeight);
+    if (currentParameterType == 0) {
+      gainMultLabel.setBounds(multLabelRow);
+    } else if (currentParameterType == 1) {
+      feedbackMultLabel.setBounds(multLabelRow);
+    } else if (currentParameterType == 2) {
+      delayMultLabel.setBounds(multLabelRow);
+    }
+    currentY += rowHeight + spacing;
+
+    // Multiply slider
+    juce::Rectangle<int> multSliderRow(margin, currentY, width - margin * 2,
+                                       rowHeight);
+    if (currentParameterType == 0) {
+      gainMultSlider.setBounds(multSliderRow);
+    } else if (currentParameterType == 1) {
+      feedbackMultSlider.setBounds(multSliderRow);
+    } else if (currentParameterType == 2) {
+      delayMultSlider.setBounds(multSliderRow);
+    }
+    currentY += rowHeight + spacing;
+
+    // MAX label
+    juce::Rectangle<int> maxLabelRow(margin, currentY, width - margin * 2,
+                                     rowHeight);
+    if (currentParameterType == 0) {
+      gainMaxLabel.setBounds(maxLabelRow);
+    } else if (currentParameterType == 1) {
+      feedbackMaxLabel.setBounds(maxLabelRow);
+    } else if (currentParameterType == 2) {
+      delayMaxLabel.setBounds(maxLabelRow);
+    }
+  }
 }
 
 //==============================================================================
@@ -383,25 +438,30 @@ void ControlPanel::selectParameter(int paramType) {
   delayModeButton.setVisible(false);
   delayModeLabel.setVisible(false);
 
-  bool showFeedbackControls = (paramType == 1);
+  bool showFeedbackControls = (paramType == 1) && !currentLfoMode;
   feedbackMultLabel.setVisible(showFeedbackControls);
   feedbackMultSlider.setVisible(showFeedbackControls);
   feedbackInvertButton.setVisible(false); // Hidden as requested
   feedbackMaxLabel.setVisible(showFeedbackControls);
 
   // Show/hide gain multiply control (Gain = paramType 0)
-  bool showGainControls = (paramType == 0);
+  bool showGainControls = (paramType == 0) && !currentLfoMode;
   gainMultLabel.setVisible(showGainControls);
   gainMultSlider.setVisible(showGainControls);
   gainMaxLabel.setVisible(showGainControls);
 
   // Show/hide delay multiply control (only when Delay mode is active, not
   // Phase)
-  bool showDelayControls =
-      (paramType == 2); // Force true as Delay mode is default
+  bool showDelayControls = (paramType == 2) && !currentLfoMode;
   delayMultLabel.setVisible(showDelayControls);
   delayMultSlider.setVisible(showDelayControls);
   delayMaxLabel.setVisible(showDelayControls);
+
+  // Show/hide LFO controls based on LFO mode
+  lfoAmountLabel.setVisible(currentLfoMode);
+  lfoAmountSlider.setVisible(currentLfoMode);
+  lfoSpeedLabel.setVisible(currentLfoMode);
+  lfoSpeedSlider.setVisible(currentLfoMode);
 
   updateMaxLabels(); // Update MAX label values
   resized();         // Update layout
@@ -440,4 +500,37 @@ void ControlPanel::updateMaxLabels() {
   delayMaxLabel.setText("MAX: " + juce::String(static_cast<int>(delayMax)) +
                             "ms",
                         juce::dontSendNotification);
+}
+
+void ControlPanel::setLfoMode(bool isLfoMode) {
+  currentLfoMode = isLfoMode;
+  lfoButton.setToggleState(isLfoMode, juce::dontSendNotification);
+
+  // Show/hide LFO controls
+  lfoAmountLabel.setVisible(isLfoMode);
+  lfoAmountSlider.setVisible(isLfoMode);
+  lfoSpeedLabel.setVisible(isLfoMode);
+  lfoSpeedSlider.setVisible(isLfoMode);
+
+  // Hide normal Multiply controls in LFO mode
+  if (isLfoMode) {
+    gainMultLabel.setVisible(false);
+    gainMultSlider.setVisible(false);
+    gainMaxLabel.setVisible(false);
+    feedbackMultLabel.setVisible(false);
+    feedbackMultSlider.setVisible(false);
+    feedbackMaxLabel.setVisible(false);
+    delayMultLabel.setVisible(false);
+    delayMultSlider.setVisible(false);
+    delayMaxLabel.setVisible(false);
+  } else {
+    selectParameter(currentParameterType); // Restore normal visibility
+  }
+
+  resized();
+}
+
+void ControlPanel::updateLfoSliders(float amount, float speedMs) {
+  lfoAmountSlider.setValue(amount, juce::dontSendNotification);
+  lfoSpeedSlider.setValue(speedMs, juce::dontSendNotification);
 }
