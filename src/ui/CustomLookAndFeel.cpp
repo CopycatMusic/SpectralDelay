@@ -45,52 +45,89 @@ void CustomLookAndFeel::drawRotarySlider(juce::Graphics &g, int x, int y,
                                          float rotaryStartAngle,
                                          float rotaryEndAngle,
                                          juce::Slider &slider) {
-  auto bounds = juce::Rectangle<int>(x, y, width, height).toFloat().reduced(8);
+  auto bounds = juce::Rectangle<int>(x, y, width, height).toFloat().reduced(2);
   auto radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) / 2.0f;
   auto centreX = bounds.getCentreX();
   auto centreY = bounds.getCentreY();
-  auto rx = centreX - radius;
-  auto ry = centreY - radius;
-  auto rw = radius * 2.0f;
+
+  // Calculate current angle
   auto angle =
       rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
 
-  // Background arc
+  // 1. Background Track (Darker arc)
+  // ----------------------------------------------------
+  float trackWidth = 5.0f;
   juce::Path bgArc;
-  bgArc.addCentredArc(centreX, centreY, radius - 4, radius - 4, 0.0f,
-                      rotaryStartAngle, rotaryEndAngle, true);
-  g.setColour(backgroundMedium);
-  g.strokePath(bgArc, juce::PathStrokeType(8.0f, juce::PathStrokeType::curved,
-                                           juce::PathStrokeType::rounded));
+  bgArc.addCentredArc(centreX, centreY, radius - trackWidth / 2,
+                      radius - trackWidth / 2, 0.0f, rotaryStartAngle,
+                      rotaryEndAngle, true);
 
-  // Value arc
-  juce::Path valueArc;
-  valueArc.addCentredArc(centreX, centreY, radius - 4, radius - 4, 0.0f,
-                         rotaryStartAngle, angle, true);
-
-  // Gradient for value arc
-  juce::ColourGradient gradient(accentPrimary, centreX - radius, centreY,
-                                accentSecondary, centreX + radius, centreY,
-                                false);
-  g.setGradientFill(gradient);
-  g.strokePath(valueArc,
-               juce::PathStrokeType(8.0f, juce::PathStrokeType::curved,
+  g.setColour(backgroundDark.darker(0.3f));
+  g.strokePath(bgArc,
+               juce::PathStrokeType(trackWidth, juce::PathStrokeType::curved,
                                     juce::PathStrokeType::rounded));
 
-  // Thumb
-  juce::Path thumb;
-  auto thumbWidth = 4.0f;
-  auto thumbLength = radius * 0.5f;
-  thumb.addRoundedRectangle(-thumbWidth / 2, -thumbLength - 4, thumbWidth,
-                            thumbLength, 2.0f);
+  // 2. Value Arc (Solid Color - No Gradient)
+  // ----------------------------------------------------
+  if (slider.isEnabled()) {
+    juce::Path valueArc;
+    valueArc.addCentredArc(centreX, centreY, radius - trackWidth / 2,
+                           radius - trackWidth / 2, 0.0f, rotaryStartAngle,
+                           angle, true);
 
-  g.setColour(textPrimary);
-  g.fillPath(thumb, juce::AffineTransform::rotation(angle).translated(centreX,
-                                                                      centreY));
+    // Use solid accent color instead of gradient
+    g.setColour(accentPrimary);
+    g.strokePath(valueArc,
+                 juce::PathStrokeType(trackWidth, juce::PathStrokeType::curved,
+                                      juce::PathStrokeType::rounded));
+  }
 
-  // Center dot
-  g.setColour(accentPrimary);
-  g.fillEllipse(centreX - 4, centreY - 4, 8, 8);
+  // 3. Knob Body (The central rotating part)
+  // ----------------------------------------------------
+  float knobRadius = radius - trackWidth - 3.0f; // Leave a small gap
+
+  // Drop shadow for the knob body
+  if (knobRadius > 0) {
+    juce::Path knobPath;
+    knobPath.addEllipse(centreX - knobRadius, centreY - knobRadius,
+                        knobRadius * 2.0f, knobRadius * 2.0f);
+
+    // Subtle shadow
+    juce::DropShadow shadow(juce::Colours::black.withAlpha(0.6f), 5, {0, 2});
+    shadow.drawForPath(g, knobPath);
+
+    // Knob gradient (subtle top-down lighting for 3D effect)
+    juce::ColourGradient knobGradient(
+        backgroundMedium.brighter(0.08f), centreX, centreY - knobRadius,
+        backgroundMedium.darker(0.3f), centreX, centreY + knobRadius, false);
+
+    g.setGradientFill(knobGradient);
+    g.fillEllipse(centreX - knobRadius, centreY - knobRadius, knobRadius * 2.0f,
+                  knobRadius * 2.0f);
+
+    // Inner bezel (thin ring reflection)
+    g.setColour(textPrimary.withAlpha(0.08f));
+    g.drawEllipse(centreX - knobRadius, centreY - knobRadius, knobRadius * 2.0f,
+                  knobRadius * 2.0f, 1.0f);
+  }
+
+  // 4. Pointer / Indicator
+  // ----------------------------------------------------
+  if (knobRadius > 5.0f) {
+    juce::Path p;
+    float pointerLength = knobRadius * 0.75f;
+    float pointerThickness = 3.5f;
+
+    p.addRoundedRectangle(-pointerThickness * 0.5f, -pointerLength,
+                          pointerThickness, pointerLength, 1.5f);
+
+    p.applyTransform(
+        juce::AffineTransform::rotation(angle).translated(centreX, centreY));
+
+    // Draw pointer (glowing effect)
+    g.setColour(accentPrimary);
+    g.fillPath(p);
+  }
 }
 
 void CustomLookAndFeel::drawLinearSlider(juce::Graphics &g, int x, int y,

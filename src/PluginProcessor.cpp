@@ -21,11 +21,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout
 CopyCatSpectralDelayProcessor::createParameterLayout() {
   std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-  // FFT Size: indices for 256, 512, 1024, 2048, 4096, 8192
+  // FFT Size: indices for 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384,
+  // 32768
   params.push_back(std::make_unique<juce::AudioParameterChoice>(
       "fftSize", "FFT Size",
-      juce::StringArray{"256", "512", "1024", "2048", "4096", "8192"},
-      3)); // Default: 2048
+      juce::StringArray{"32", "64", "128", "256", "512", "1024", "2048", "4096",
+                        "8192", "16384", "32768"},
+      6)); // Default: 2048 (index 6)
 
   // Mix (dry/wet)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
@@ -104,7 +106,8 @@ void CopyCatSpectralDelayProcessor::prepareToPlay(double sampleRate,
 
   // Convert FFT size index to actual size
   int fftSizeIndex = static_cast<int>(*fftSizeParam);
-  int fftSizes[] = {256, 512, 1024, 2048, 4096, 8192};
+  int fftSizes[] = {32,   64,   128,  256,   512,  1024,
+                    2048, 4096, 8192, 16384, 32768};
   engine.setFFTSize(fftSizes[fftSizeIndex]);
 
   // Set fixed overlap factor (4x)
@@ -140,7 +143,8 @@ void CopyCatSpectralDelayProcessor::processBlock(
   // Check for FFT size changes
   if (fftSizeParam) {
     int fftSizeIndex = static_cast<int>(*fftSizeParam);
-    int fftSizes[] = {256, 512, 1024, 2048, 4096, 8192};
+    int fftSizes[] = {32,   64,   128,  256,   512,  1024,
+                      2048, 4096, 8192, 16384, 32768};
     engine.setFFTSize(fftSizes[fftSizeIndex]);
   }
 
@@ -215,6 +219,35 @@ void CopyCatSpectralDelayProcessor::getStateInformation(
   // Save feedback invert state
   xml->setAttribute("feedbackInvert", engine.isFeedbackInvert());
 
+  // Save LFO state for each parameter type
+  // Gain LFO
+  xml->setAttribute("lfoGainAmount", static_cast<double>(lfoEngine.getAmount(
+                                         LFOEngine::Parameter::Gain)));
+  xml->setAttribute("lfoGainSpeed", static_cast<double>(lfoEngine.getSpeed(
+                                        LFOEngine::Parameter::Gain)));
+  xml->setAttribute(
+      "lfoGainCurve",
+      lfoEngine.getCurve(LFOEngine::Parameter::Gain).serializePoints());
+
+  // Feedback LFO
+  xml->setAttribute(
+      "lfoFeedbackAmount",
+      static_cast<double>(lfoEngine.getAmount(LFOEngine::Parameter::Feedback)));
+  xml->setAttribute("lfoFeedbackSpeed", static_cast<double>(lfoEngine.getSpeed(
+                                            LFOEngine::Parameter::Feedback)));
+  xml->setAttribute(
+      "lfoFeedbackCurve",
+      lfoEngine.getCurve(LFOEngine::Parameter::Feedback).serializePoints());
+
+  // Time LFO
+  xml->setAttribute("lfoTimeAmount", static_cast<double>(lfoEngine.getAmount(
+                                         LFOEngine::Parameter::Time)));
+  xml->setAttribute("lfoTimeSpeed", static_cast<double>(lfoEngine.getSpeed(
+                                        LFOEngine::Parameter::Time)));
+  xml->setAttribute(
+      "lfoTimeCurve",
+      lfoEngine.getCurve(LFOEngine::Parameter::Time).serializePoints());
+
   copyXmlToBinary(*xml, destData);
 }
 
@@ -274,6 +307,55 @@ void CopyCatSpectralDelayProcessor::setStateInformation(const void *data,
     if (xmlState->hasAttribute("feedbackInvert")) {
       engine.setFeedbackInvert(
           xmlState->getBoolAttribute("feedbackInvert", false));
+    }
+
+    // Restore LFO state for each parameter type
+    // Gain LFO
+    if (xmlState->hasAttribute("lfoGainAmount")) {
+      lfoEngine.setAmount(LFOEngine::Parameter::Gain,
+                          static_cast<float>(xmlState->getDoubleAttribute(
+                              "lfoGainAmount", 0.0)));
+    }
+    if (xmlState->hasAttribute("lfoGainSpeed")) {
+      lfoEngine.setSpeed(LFOEngine::Parameter::Gain,
+                         static_cast<float>(xmlState->getDoubleAttribute(
+                             "lfoGainSpeed", 500.0)));
+    }
+    if (xmlState->hasAttribute("lfoGainCurve")) {
+      lfoEngine.getCurve(LFOEngine::Parameter::Gain)
+          .deserializePoints(xmlState->getStringAttribute("lfoGainCurve"));
+    }
+
+    // Feedback LFO
+    if (xmlState->hasAttribute("lfoFeedbackAmount")) {
+      lfoEngine.setAmount(LFOEngine::Parameter::Feedback,
+                          static_cast<float>(xmlState->getDoubleAttribute(
+                              "lfoFeedbackAmount", 0.0)));
+    }
+    if (xmlState->hasAttribute("lfoFeedbackSpeed")) {
+      lfoEngine.setSpeed(LFOEngine::Parameter::Feedback,
+                         static_cast<float>(xmlState->getDoubleAttribute(
+                             "lfoFeedbackSpeed", 500.0)));
+    }
+    if (xmlState->hasAttribute("lfoFeedbackCurve")) {
+      lfoEngine.getCurve(LFOEngine::Parameter::Feedback)
+          .deserializePoints(xmlState->getStringAttribute("lfoFeedbackCurve"));
+    }
+
+    // Time LFO
+    if (xmlState->hasAttribute("lfoTimeAmount")) {
+      lfoEngine.setAmount(LFOEngine::Parameter::Time,
+                          static_cast<float>(xmlState->getDoubleAttribute(
+                              "lfoTimeAmount", 0.0)));
+    }
+    if (xmlState->hasAttribute("lfoTimeSpeed")) {
+      lfoEngine.setSpeed(LFOEngine::Parameter::Time,
+                         static_cast<float>(xmlState->getDoubleAttribute(
+                             "lfoTimeSpeed", 500.0)));
+    }
+    if (xmlState->hasAttribute("lfoTimeCurve")) {
+      lfoEngine.getCurve(LFOEngine::Parameter::Time)
+          .deserializePoints(xmlState->getStringAttribute("lfoTimeCurve"));
     }
   }
 }

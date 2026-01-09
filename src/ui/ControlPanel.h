@@ -105,8 +105,8 @@ private:
 
   // FFT settings
   juce::Label fftSizeLabel;
-  juce::ComboBox fftSizeSelector;
-  std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>
+  juce::Slider fftSizeSelector;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       fftSizeAttachment;
 
   // Mix control

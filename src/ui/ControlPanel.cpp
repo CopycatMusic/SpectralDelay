@@ -59,13 +59,14 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addChildComponent(delayModeLabel); // Initially hidden
 
   // Feedback controls - initially hidden
-  feedbackMultLabel.setText("Multiply:", juce::dontSendNotification);
+  feedbackMultLabel.setText("Multiply", juce::dontSendNotification);
+  feedbackMultLabel.setJustificationType(juce::Justification::centred);
   feedbackMultLabel.setColour(juce::Label::textColourId,
                               CustomLookAndFeel::getTextPrimary());
   addChildComponent(feedbackMultLabel);
 
-  feedbackMultSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-  feedbackMultSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+  feedbackMultSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+  feedbackMultSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
   feedbackMultSlider.onValueChange = [this]() { updateMaxLabels(); };
   addChildComponent(feedbackMultSlider);
   feedbackMultAttachment =
@@ -75,6 +76,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   // Feedback MAX label
   feedbackMaxLabel.setColour(juce::Label::textColourId,
                              CustomLookAndFeel::getTextPrimary());
+  feedbackMaxLabel.setJustificationType(juce::Justification::centred);
   addChildComponent(feedbackMaxLabel);
 
   feedbackInvertButton.setClickingTogglesState(true);
@@ -86,13 +88,14 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addChildComponent(feedbackInvertButton);
 
   // Gain multiply control - initially hidden
-  gainMultLabel.setText("Multiply:", juce::dontSendNotification);
+  gainMultLabel.setText("Multiply", juce::dontSendNotification);
+  gainMultLabel.setJustificationType(juce::Justification::centred);
   gainMultLabel.setColour(juce::Label::textColourId,
                           CustomLookAndFeel::getTextPrimary());
   addChildComponent(gainMultLabel);
 
-  gainMultSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-  gainMultSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+  gainMultSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+  gainMultSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
   gainMultSlider.onValueChange = [this]() { updateMaxLabels(); };
   addChildComponent(gainMultSlider);
   gainMultAttachment =
@@ -102,16 +105,18 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   // Gain MAX label
   gainMaxLabel.setColour(juce::Label::textColourId,
                          CustomLookAndFeel::getTextPrimary());
+  gainMaxLabel.setJustificationType(juce::Justification::centred);
   addChildComponent(gainMaxLabel);
 
   // Delay multiply control - initially hidden
-  delayMultLabel.setText("Multiply:", juce::dontSendNotification);
+  delayMultLabel.setText("Multiply", juce::dontSendNotification);
+  delayMultLabel.setJustificationType(juce::Justification::centred);
   delayMultLabel.setColour(juce::Label::textColourId,
                            CustomLookAndFeel::getTextPrimary());
   addChildComponent(delayMultLabel);
 
-  delayMultSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-  delayMultSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+  delayMultSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+  delayMultSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
   delayMultSlider.onValueChange = [this]() { updateMaxLabels(); };
   addChildComponent(delayMultSlider);
   delayMultAttachment =
@@ -121,33 +126,44 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   // Delay MAX label
   delayMaxLabel.setColour(juce::Label::textColourId,
                           CustomLookAndFeel::getTextPrimary());
+  delayMaxLabel.setJustificationType(juce::Justification::centred);
   addChildComponent(delayMaxLabel);
 
-  // FFT settings
-  fftSizeLabel.setText("FFT Size:", juce::dontSendNotification);
+  // FFT settings (now a knob)
+  fftSizeLabel.setText("FFT Size", juce::dontSendNotification);
+  fftSizeLabel.setJustificationType(juce::Justification::centred);
   fftSizeLabel.setColour(juce::Label::textColourId,
                          CustomLookAndFeel::getTextPrimary());
   addAndMakeVisible(fftSizeLabel);
 
-  fftSizeSelector.addItem("256", 1);
-  fftSizeSelector.addItem("512", 2);
-  fftSizeSelector.addItem("1024", 3);
-  fftSizeSelector.addItem("2048", 4);
-  fftSizeSelector.addItem("4096", 5);
-  fftSizeSelector.addItem("8192", 6);
+  fftSizeSelector.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+  fftSizeSelector.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+  // Range 0-10 corresponds to 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192,
+  // 16384, 32768
+  fftSizeSelector.setRange(0.0, 10.0, 1.0);
+  // Custom text display for FFT sizes
+  fftSizeSelector.textFromValueFunction = [](double value) {
+    int index = static_cast<int>(value);
+    int size = 32; // Start from 32
+    for (int i = 0; i < index; ++i)
+      size *= 2;
+    return juce::String(size);
+  };
   addAndMakeVisible(fftSizeSelector);
+
   fftSizeAttachment =
-      std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+      std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           parameters, "fftSize", fftSizeSelector);
 
-  // Mix control (horizontal slider style)
-  mixLabel.setText("Mix:", juce::dontSendNotification);
+  // Mix control
+  mixLabel.setText("Mix", juce::dontSendNotification);
+  mixLabel.setJustificationType(juce::Justification::centred);
   mixLabel.setColour(juce::Label::textColourId,
                      CustomLookAndFeel::getTextPrimary());
   addAndMakeVisible(mixLabel);
 
-  mixSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-  mixSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+  mixSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+  mixSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
   mixSlider.addListener(this);
   addAndMakeVisible(mixSlider);
   mixAttachment =
@@ -215,15 +231,16 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addAndMakeVisible(lfoButton);
 
   // LFO Amount slider (0-100%)
-  lfoAmountLabel.setText("LFO Amount:", juce::dontSendNotification);
+  lfoAmountLabel.setText("Amount", juce::dontSendNotification);
+  lfoAmountLabel.setJustificationType(juce::Justification::centred);
   lfoAmountLabel.setColour(juce::Label::textColourId,
                            CustomLookAndFeel::getTextPrimary());
   addChildComponent(lfoAmountLabel);
 
-  lfoAmountSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-  lfoAmountSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+  lfoAmountSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+  lfoAmountSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
   lfoAmountSlider.setRange(0.0, 100.0, 1.0);
-  lfoAmountSlider.setValue(0.0); // Default 0%
+  lfoAmountSlider.setValue(100.0); // Default 100%
   lfoAmountSlider.setTextValueSuffix("%");
   lfoAmountSlider.onValueChange = [this]() {
     if (onLfoAmountChanged) {
@@ -234,13 +251,14 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addChildComponent(lfoAmountSlider);
 
   // LFO Speed slider (100-2000ms)
-  lfoSpeedLabel.setText("LFO Speed:", juce::dontSendNotification);
+  lfoSpeedLabel.setText("Speed", juce::dontSendNotification);
+  lfoSpeedLabel.setJustificationType(juce::Justification::centred);
   lfoSpeedLabel.setColour(juce::Label::textColourId,
                           CustomLookAndFeel::getTextPrimary());
   addChildComponent(lfoSpeedLabel);
 
-  lfoSpeedSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-  lfoSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
+  lfoSpeedSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+  lfoSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
   lfoSpeedSlider.setRange(100.0, 2000.0, 1.0);
   lfoSpeedSlider.setValue(500.0); // Default 500ms
   lfoSpeedSlider.setTextValueSuffix("ms");
@@ -267,10 +285,11 @@ void ControlPanel::paint(juce::Graphics &g) {
   int spacing = 8;
   int margin = 10;
 
-  // Bottom section: FFT, Display, Mix (4 rows)
-  int globalRowsCount = 4;
+  // Bottom section: FFT & Mix (Knob Height) + Display (Row Height)
+  // Mix and FFT are same row now
+  int knobHeight = 90; // Approx height for knob + label + text
   int globalSectionHeight =
-      (globalRowsCount * rowHeight) + (globalRowsCount * spacing) + margin;
+      knobHeight + (rowHeight + spacing) + (spacing * 2) + margin;
   int bottomSeparatorY = getHeight() - globalSectionHeight - margin;
 
   g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.2f));
@@ -285,26 +304,49 @@ void ControlPanel::resized() {
   int labelWidth = 80;
   int spacing = 8;
   int margin = 10;
+  int knobSize = 80; // Size of the rotary knob area
 
   int width = getWidth();
   int height = getHeight();
 
   // ============ BOTTOM SECTION: Fixed at bottom ============
-  // Bottom section: FFT, Display, Mix (4 rows)
-  int globalRowsCount = 4;
-  int globalSectionHeight =
-      (globalRowsCount * rowHeight) + (globalRowsCount * spacing) + margin;
-  int bottomSeparatorY = height - globalSectionHeight - margin;
-  int bottomY = bottomSeparatorY + margin + spacing;
 
-  // FFT Size row
-  juce::Rectangle<int> fftRow(margin, bottomY, width - margin * 2, rowHeight);
-  fftSizeLabel.setBounds(fftRow.removeFromLeft(labelWidth));
-  fftRow.removeFromLeft(spacing);
-  fftSizeSelector.setBounds(fftRow);
-  bottomY += rowHeight + spacing;
+  // Mix and FFT are 20 (Label) + 80 (Knob) + spacing
+  int knobSectionHeight = 20 + knobSize;
 
   // Display row
+  int displayRowHeight = rowHeight + spacing;
+
+  int bottomY =
+      height - margin - displayRowHeight - margin - knobSectionHeight - spacing;
+
+  // --- Labels Row for FFT and Mix ---
+  juce::Rectangle<int> labelsRow(margin, bottomY, width - margin * 2, 20);
+
+  // FFT Label (Left half)
+  juce::Rectangle<int> fftLabelArea =
+      labelsRow.removeFromLeft((width - margin * 2) / 2);
+  fftSizeLabel.setBounds(fftLabelArea);
+
+  // Mix Label (Right half)
+  mixLabel.setBounds(labelsRow);
+
+  bottomY += 20;
+
+  // --- Knobs Row for FFT and Mix ---
+  int halfWidth = (width - margin * 2) / 2;
+
+  // FFT Knob (Left Center)
+  fftSizeSelector.setBounds(margin + halfWidth / 2 - knobSize / 2, bottomY,
+                            knobSize, knobSize);
+
+  // Mix Knob (Right Center)
+  mixSlider.setBounds(margin + halfWidth + halfWidth / 2 - knobSize / 2,
+                      bottomY, knobSize, knobSize);
+
+  bottomY += knobSize + margin + spacing;
+
+  // --- Display Row ---
   juce::Rectangle<int> displayRow(margin, bottomY, width - margin * 2,
                                   rowHeight);
   displayModeLabel.setBounds(displayRow.removeFromLeft(labelWidth));
@@ -314,20 +356,8 @@ void ControlPanel::resized() {
   displayModeButton.setBounds(displayRow.removeFromLeft(singleButtonWidth));
   displayRow.removeFromLeft(spacing);
   spectrumSourceButton.setBounds(displayRow);
-  bottomY += rowHeight + spacing;
 
   spectrumSourceLabel.setVisible(false);
-
-  // Mix label row
-  juce::Rectangle<int> mixLabelRow(margin, bottomY, width - margin * 2,
-                                   rowHeight);
-  mixLabel.setBounds(mixLabelRow);
-  bottomY += rowHeight + spacing;
-
-  // Mix slider row
-  juce::Rectangle<int> mixSliderRow(margin, bottomY, width - margin * 2,
-                                    rowHeight);
-  mixSlider.setBounds(mixSliderRow);
 
   // ============ TOP SECTION: Auto-arrange from top ============
   int currentY = margin;
@@ -349,7 +379,6 @@ void ControlPanel::resized() {
   currentY += rowHeight + spacing;
 
   // Row 3: Mode/Invert row (optional, based on parameter type)
-  // Only Time parameter has a mode row (but it's hidden by default)
   if (currentParameterType == 2 && delayModeButton.isVisible()) {
     juce::Rectangle<int> modeRow(margin, currentY, width - margin * 2,
                                  rowHeight);
@@ -358,69 +387,78 @@ void ControlPanel::resized() {
     delayModeButton.setBounds(modeRow);
     currentY += rowHeight + spacing;
   }
-  // Feedback invert button is hidden, so no row for it
+
+  // Spacer
+  currentY += spacing;
 
   // ============ MULTIPLY CONTROLS or LFO CONTROLS ============
   if (currentLfoMode) {
-    // LFO mode: show Amount and Speed sliders
-    // LFO Amount label
-    juce::Rectangle<int> lfoAmountLabelRow(margin, currentY, width - margin * 2,
-                                           rowHeight);
-    lfoAmountLabel.setBounds(lfoAmountLabelRow);
-    currentY += rowHeight + spacing;
+    // LFO mode: show Amount and Speed knobs SIDE BY SIDE
 
-    // LFO Amount slider
-    juce::Rectangle<int> lfoAmountSliderRow(margin, currentY,
-                                            width - margin * 2, rowHeight);
-    lfoAmountSlider.setBounds(lfoAmountSliderRow);
-    currentY += rowHeight + spacing;
+    // Labels row
+    juce::Rectangle<int> lfoLabelsRow(margin, currentY, width - margin * 2, 20);
+    int halfWidthLfo = (width - margin * 2 - spacing) / 2;
 
-    // LFO Speed label
-    juce::Rectangle<int> lfoSpeedLabelRow(margin, currentY, width - margin * 2,
-                                          rowHeight);
-    lfoSpeedLabel.setBounds(lfoSpeedLabelRow);
-    currentY += rowHeight + spacing;
+    juce::Rectangle<int> speedArea = lfoLabelsRow.removeFromLeft(halfWidthLfo);
+    lfoSpeedLabel.setBounds(speedArea);
 
-    // LFO Speed slider
-    juce::Rectangle<int> lfoSpeedSliderRow(margin, currentY, width - margin * 2,
-                                           rowHeight);
-    lfoSpeedSlider.setBounds(lfoSpeedSliderRow);
+    lfoLabelsRow.removeFromLeft(spacing);
+    juce::Rectangle<int> amountArea = lfoLabelsRow;
+    lfoAmountLabel.setBounds(amountArea);
+
+    currentY += 20;
+
+    // Knobs row
+    juce::Rectangle<int> lfoKnobsRow(margin, currentY, width - margin * 2,
+                                     knobSize);
+
+    // Speed Knob
+    lfoSpeedSlider.setBounds(margin + halfWidthLfo / 2 - knobSize / 2, currentY,
+                             knobSize, knobSize);
+
+    // Amount Knob
+    lfoAmountSlider.setBounds(width - margin - halfWidthLfo / 2 - knobSize / 2,
+                              currentY, knobSize, knobSize);
+
   } else {
-    // Normal mode: show Multiply controls
+    // Normal mode: show Multiply knob (CENTERED)
+
     // Multiply label
-    juce::Rectangle<int> multLabelRow(margin, currentY, width - margin * 2,
-                                      rowHeight);
-    if (currentParameterType == 0) {
+    juce::Rectangle<int> multLabelRow(margin, currentY, width - margin * 2, 20);
+
+    if (currentParameterType == 0)
       gainMultLabel.setBounds(multLabelRow);
-    } else if (currentParameterType == 1) {
+    else if (currentParameterType == 1)
       feedbackMultLabel.setBounds(multLabelRow);
-    } else if (currentParameterType == 2) {
+    else if (currentParameterType == 2)
       delayMultLabel.setBounds(multLabelRow);
-    }
-    currentY += rowHeight + spacing;
 
-    // Multiply slider
-    juce::Rectangle<int> multSliderRow(margin, currentY, width - margin * 2,
-                                       rowHeight);
-    if (currentParameterType == 0) {
-      gainMultSlider.setBounds(multSliderRow);
-    } else if (currentParameterType == 1) {
-      feedbackMultSlider.setBounds(multSliderRow);
-    } else if (currentParameterType == 2) {
-      delayMultSlider.setBounds(multSliderRow);
-    }
-    currentY += rowHeight + spacing;
+    currentY += 20; // Label height
 
-    // MAX label
-    juce::Rectangle<int> maxLabelRow(margin, currentY, width - margin * 2,
-                                     rowHeight);
-    if (currentParameterType == 0) {
+    // Multiply knob
+    juce::Rectangle<int> knobRow(margin, currentY, width - margin * 2,
+                                 knobSize);
+    int knobX = (width - knobSize) / 2; // Center X
+
+    if (currentParameterType == 0)
+      gainMultSlider.setBounds(knobX, currentY, knobSize, knobSize);
+    else if (currentParameterType == 1)
+      feedbackMultSlider.setBounds(knobX, currentY, knobSize, knobSize);
+    else if (currentParameterType == 2)
+      delayMultSlider.setBounds(knobX, currentY, knobSize, knobSize);
+
+    currentY += knobSize;
+
+    // MAX label (Below knob) - HIDDEN
+    /*
+    juce::Rectangle<int> maxLabelRow(margin, currentY, width - margin * 2, 20);
+    if (currentParameterType == 0)
       gainMaxLabel.setBounds(maxLabelRow);
-    } else if (currentParameterType == 1) {
+    else if (currentParameterType == 1)
       feedbackMaxLabel.setBounds(maxLabelRow);
-    } else if (currentParameterType == 2) {
+    else if (currentParameterType == 2)
       delayMaxLabel.setBounds(maxLabelRow);
-    }
+    */
   }
 }
 
