@@ -65,6 +65,15 @@ private:
   std::atomic<float> *fftSizeParam = nullptr;
   std::atomic<float> *mixParam = nullptr;
 
+  // Smoothed multiplier values (prevents clicks from abrupt parameter changes)
+  // Using linear smoothing with ~10ms smoothing time
+  juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>
+      smoothedGainMult;
+  juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>
+      smoothedFeedbackMult;
+  juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>
+      smoothedDelayMult;
+
   // UI state storage (for DAW recall)
   int uiParameterType = 2;       // 0=Gain, 1=Feedback, 2=Time
   bool uiDisplayModeBar = false; // false=Line, true=Bar

@@ -115,6 +115,25 @@ void CopyCatSpectralDelayProcessor::prepareToPlay(double sampleRate,
 
   // Report latency to host
   setLatencySamples(engine.getLatencyInSamples());
+
+  // Initialize parameter smoothers with 10ms smoothing time
+  // This prevents clicks from abrupt parameter changes
+  constexpr float smoothingTimeSeconds = 0.01f; // 10ms
+  smoothedGainMult.reset(sampleRate, smoothingTimeSeconds);
+  smoothedFeedbackMult.reset(sampleRate, smoothingTimeSeconds);
+  smoothedDelayMult.reset(sampleRate, smoothingTimeSeconds);
+
+  // Set initial values (no smoothing on first set)
+  auto *gainMultParam = parameters.getRawParameterValue("gainMult");
+  auto *feedbackMultParam = parameters.getRawParameterValue("feedbackMult");
+  auto *delayMultParam = parameters.getRawParameterValue("delayMult");
+
+  smoothedGainMult.setCurrentAndTargetValue(
+      gainMultParam ? gainMultParam->load() : 100.0f);
+  smoothedFeedbackMult.setCurrentAndTargetValue(
+      feedbackMultParam ? feedbackMultParam->load() : 100.0f);
+  smoothedDelayMult.setCurrentAndTargetValue(
+      delayMultParam ? delayMultParam->load() : 20.0f);
 }
 
 void CopyCatSpectralDelayProcessor::releaseResources() { engine.reset(); }
@@ -135,6 +154,8 @@ void CopyCatSpectralDelayProcessor::processBlock(
     juce::AudioBuffer<float> &buffer, juce::MidiBuffer & /*midiMessages*/) {
   juce::ScopedNoDenormals noDenormals;
 
+  int numSamples = buffer.getNumSamples();
+
   // Update mix
   if (mixParam) {
     engine.setMix(*mixParam / 100.0f);
@@ -154,7 +175,7 @@ void CopyCatSpectralDelayProcessor::processBlock(
   }
 
   // Advance LFO phases by buffer size
-  lfoEngine.advance(buffer.getNumSamples());
+  lfoEngine.advance(numSamples);
 
   // Get base multipliers from automation parameters
   auto *feedbackMultParam = parameters.getRawParameterValue("feedbackMult");
@@ -166,16 +187,49 @@ void CopyCatSpectralDelayProcessor::processBlock(
   float delayMult = delayMultParam ? delayMultParam->load() : 20.0f;
 
   // Apply LFO modulation to multipliers
-  // LFO returns a value 0.0-1.0, representing the modulation factor
-  float gainLfoMod = lfoEngine.getModulationValue(LFOEngine::Parameter::Gain);
-  float feedbackLfoMod =
-      lfoEngine.getModulationValue(LFOEngine::Parameter::Feedback);
-  float delayLfoMod = lfoEngine.getModulationValue(LFOEngine::Parameter::Time);
+  // Use frame-averaged modulation to prevent aliasing with large FFT sizes
+  float gainLfoRaw = lfoEngine.getFrameAveragedModulation(
+      LFOEngine::Parameter::Gain, numSamples);
+  float feedbackLfoRaw = lfoEngine.getFrameAveragedModulation(
+      LFOEngine::Parameter::Feedback, numSamples);
+  float delayLfoRaw = lfoEngine.getFrameAveragedModulation(
+      LFOEngine::Parameter::Time, numSamples);
 
-  // Final multipliers = base * LFO modulation
-  engine.setGainMultiplier(gainMult * gainLfoMod);
-  engine.setFeedbackMultiplier(feedbackMult * feedbackLfoMod);
-  engine.setDelayMultiplier(delayMult * delayLfoMod);
+  // Apply user-controlled LFO smoothing (0-100ms per parameter)
+  lfoEngine.updateSmoothedModulation(LFOEngine::Parameter::Gain, gainLfoRaw,
+                                     numSamples);
+  lfoEngine.updateSmoothedModulation(LFOEngine::Parameter::Feedback,
+                                     feedbackLfoRaw, numSamples);
+  lfoEngine.updateSmoothedModulation(LFOEngine::Parameter::Time, delayLfoRaw,
+                                     numSamples);
+
+  // Get smoothed LFO modulation values
+  float gainLfoMod =
+      lfoEngine.getSmoothedModulationValue(LFOEngine::Parameter::Gain);
+  float feedbackLfoMod =
+      lfoEngine.getSmoothedModulationValue(LFOEngine::Parameter::Feedback);
+  float delayLfoMod =
+      lfoEngine.getSmoothedModulationValue(LFOEngine::Parameter::Time);
+
+  // Calculate final target values (base * LFO modulation)
+  float targetGainMult = gainMult * gainLfoMod;
+  float targetFeedbackMult = feedbackMult * feedbackLfoMod;
+  float targetDelayMult = delayMult * delayLfoMod;
+
+  // Set target values for system smoothers (10ms fixed, prevents clicks)
+  smoothedGainMult.setTargetValue(targetGainMult);
+  smoothedFeedbackMult.setTargetValue(targetFeedbackMult);
+  smoothedDelayMult.setTargetValue(targetDelayMult);
+
+  // Advance smoothers by numSamples and get current smoothed values
+  smoothedGainMult.skip(numSamples);
+  smoothedFeedbackMult.skip(numSamples);
+  smoothedDelayMult.skip(numSamples);
+
+  // Apply smoothed multipliers to engine
+  engine.setGainMultiplier(smoothedGainMult.getCurrentValue());
+  engine.setFeedbackMultiplier(smoothedFeedbackMult.getCurrentValue());
+  engine.setDelayMultiplier(smoothedDelayMult.getCurrentValue());
 
   // Update latency if it changed
   int newLatency = engine.getLatencyInSamples();
@@ -225,6 +279,8 @@ void CopyCatSpectralDelayProcessor::getStateInformation(
                                          LFOEngine::Parameter::Gain)));
   xml->setAttribute("lfoGainSpeed", static_cast<double>(lfoEngine.getSpeed(
                                         LFOEngine::Parameter::Gain)));
+  xml->setAttribute("lfoGainSmooth", static_cast<double>(lfoEngine.getSmooth(
+                                         LFOEngine::Parameter::Gain)));
   xml->setAttribute(
       "lfoGainCurve",
       lfoEngine.getCurve(LFOEngine::Parameter::Gain).serializePoints());
@@ -236,6 +292,9 @@ void CopyCatSpectralDelayProcessor::getStateInformation(
   xml->setAttribute("lfoFeedbackSpeed", static_cast<double>(lfoEngine.getSpeed(
                                             LFOEngine::Parameter::Feedback)));
   xml->setAttribute(
+      "lfoFeedbackSmooth",
+      static_cast<double>(lfoEngine.getSmooth(LFOEngine::Parameter::Feedback)));
+  xml->setAttribute(
       "lfoFeedbackCurve",
       lfoEngine.getCurve(LFOEngine::Parameter::Feedback).serializePoints());
 
@@ -244,6 +303,8 @@ void CopyCatSpectralDelayProcessor::getStateInformation(
                                          LFOEngine::Parameter::Time)));
   xml->setAttribute("lfoTimeSpeed", static_cast<double>(lfoEngine.getSpeed(
                                         LFOEngine::Parameter::Time)));
+  xml->setAttribute("lfoTimeSmooth", static_cast<double>(lfoEngine.getSmooth(
+                                         LFOEngine::Parameter::Time)));
   xml->setAttribute(
       "lfoTimeCurve",
       lfoEngine.getCurve(LFOEngine::Parameter::Time).serializePoints());
@@ -321,6 +382,11 @@ void CopyCatSpectralDelayProcessor::setStateInformation(const void *data,
                          static_cast<float>(xmlState->getDoubleAttribute(
                              "lfoGainSpeed", 500.0)));
     }
+    if (xmlState->hasAttribute("lfoGainSmooth")) {
+      lfoEngine.setSmooth(LFOEngine::Parameter::Gain,
+                          static_cast<float>(xmlState->getDoubleAttribute(
+                              "lfoGainSmooth", 0.0)));
+    }
     if (xmlState->hasAttribute("lfoGainCurve")) {
       lfoEngine.getCurve(LFOEngine::Parameter::Gain)
           .deserializePoints(xmlState->getStringAttribute("lfoGainCurve"));
@@ -337,6 +403,11 @@ void CopyCatSpectralDelayProcessor::setStateInformation(const void *data,
                          static_cast<float>(xmlState->getDoubleAttribute(
                              "lfoFeedbackSpeed", 500.0)));
     }
+    if (xmlState->hasAttribute("lfoFeedbackSmooth")) {
+      lfoEngine.setSmooth(LFOEngine::Parameter::Feedback,
+                          static_cast<float>(xmlState->getDoubleAttribute(
+                              "lfoFeedbackSmooth", 0.0)));
+    }
     if (xmlState->hasAttribute("lfoFeedbackCurve")) {
       lfoEngine.getCurve(LFOEngine::Parameter::Feedback)
           .deserializePoints(xmlState->getStringAttribute("lfoFeedbackCurve"));
@@ -352,6 +423,11 @@ void CopyCatSpectralDelayProcessor::setStateInformation(const void *data,
       lfoEngine.setSpeed(LFOEngine::Parameter::Time,
                          static_cast<float>(xmlState->getDoubleAttribute(
                              "lfoTimeSpeed", 500.0)));
+    }
+    if (xmlState->hasAttribute("lfoTimeSmooth")) {
+      lfoEngine.setSmooth(LFOEngine::Parameter::Time,
+                          static_cast<float>(xmlState->getDoubleAttribute(
+                              "lfoTimeSmooth", 0.0)));
     }
     if (xmlState->hasAttribute("lfoTimeCurve")) {
       lfoEngine.getCurve(LFOEngine::Parameter::Time)

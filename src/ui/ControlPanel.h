@@ -48,6 +48,9 @@ public:
   // Callback when LFO speed changes (for current parameter)
   std::function<void(int, float)> onLfoSpeedChanged; // (paramType, speedMs)
 
+  // Callback when LFO smooth changes (for current parameter)
+  std::function<void(int, float)> onLfoSmoothChanged; // (paramType, smoothMs)
+
   // Callback when feedback multiplier changes
   std::function<void(float)> onFeedbackMultiplierChanged;
 
@@ -87,7 +90,7 @@ public:
   bool isLfoMode() const { return currentLfoMode; }
 
   // Update LFO sliders with current values from engine
-  void updateLfoSliders(float amount, float speedMs);
+  void updateLfoSliders(float amount, float speedMs, float smoothMs);
 
 private:
   void comboBoxChanged(juce::ComboBox *comboBox) override;
@@ -100,7 +103,7 @@ private:
   // Parameter selector buttons
   juce::Label parameterLabel;
   juce::TextButton gainButton{"Gain"};
-  juce::TextButton delayButton{"Time"};
+  juce::TextButton delayButton{"Delay"};
   juce::TextButton feedbackButton{"Feedback"};
 
   // FFT settings
@@ -168,6 +171,8 @@ private:
   juce::Slider lfoAmountSlider;
   juce::Label lfoSpeedLabel;
   juce::Slider lfoSpeedSlider;
+  juce::Label lfoSmoothLabel;
+  juce::Slider lfoSmoothSlider;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ControlPanel)
 };

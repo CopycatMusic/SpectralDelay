@@ -165,11 +165,11 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
 
   // Background
   g.setColour(backgroundColour);
-  g.fillRoundedRectangle(bounds, 8.0f);
+  g.fillRect(bounds);
 
   // Border
   g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.1f));
-  g.drawRoundedRectangle(bounds.reduced(0.5f), 8.0f, 1.0f);
+  g.drawRect(bounds.reduced(0.5f), 1.0f);
 
   auto graphBounds = getGraphBounds();
 
@@ -261,7 +261,7 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
   // Draw bypass overlay (dim the display when bypassed)
   if (isBypassed) {
     g.setColour(CustomLookAndFeel::getBackgroundMedium().withAlpha(0.7f));
-    g.fillRoundedRectangle(bounds, 8.0f);
+    g.fillRect(bounds);
 
     // Draw "BYPASSED" text
     g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.5f));
@@ -273,7 +273,7 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
 void SpectrumDisplay::drawCurve(juce::Graphics &g) {
   // Draw background curves in gray
   juce::Colour ghostColour =
-      CustomLookAndFeel::getTextPrimary().withAlpha(0.2f);
+      CustomLookAndFeel::getTextPrimary().withAlpha(0.5f);
 
   if (lfoMode) {
     // LFO mode: show the gray curve for the currently selected parameter type
@@ -371,14 +371,14 @@ void SpectrumDisplay::drawParameterCurve(juce::Graphics &g,
     // No points: draw horizontal line at default value
     float y = valToY(curve->getDefaultValue());
     float screenY = graphBounds.getY() + y * graphBounds.getHeight();
-    g.drawHorizontalLine(static_cast<int>(screenY), graphBounds.getX(),
-                         graphBounds.getRight());
+    g.drawLine(graphBounds.getX(), screenY, graphBounds.getRight(), screenY,
+               isActive ? 3.0f : 2.5f);
   } else if (points.size() == 1) {
     // One point: horizontal line at that value
     float y = valToY(points[0].value);
     float screenY = graphBounds.getY() + y * graphBounds.getHeight();
-    g.drawHorizontalLine(static_cast<int>(screenY), graphBounds.getX(),
-                         graphBounds.getRight());
+    g.drawLine(graphBounds.getX(), screenY, graphBounds.getRight(), screenY,
+               isActive ? 3.0f : 2.5f);
   } else {
     // Multiple points: draw polyline
     juce::Path curvePath;
@@ -404,7 +404,7 @@ void SpectrumDisplay::drawParameterCurve(juce::Graphics &g,
     // Last segment: horizontal to right edge
     curvePath.lineTo(graphBounds.getRight(), screenY);
 
-    g.strokePath(curvePath, juce::PathStrokeType(isActive ? 2.0f : 1.5f));
+    g.strokePath(curvePath, juce::PathStrokeType(isActive ? 3.0f : 2.5f));
   }
 
   // Draw points only for the active curve

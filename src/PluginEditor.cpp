@@ -117,12 +117,20 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
     lfoEngine.setSpeed(param, speedMs);
   };
 
+  // Connect LFO smooth change
+  controlPanel.onLfoSmoothChanged = [this](int paramType, float smoothMs) {
+    auto &lfoEngine = processorRef.getLfoEngine();
+    LFOEngine::Parameter param = static_cast<LFOEngine::Parameter>(paramType);
+    lfoEngine.setSmooth(param, smoothMs);
+  };
+
   // Sync UI with current engine state (for restoring saved state)
   controlPanel.setDelayMode(processorRef.getEngine().isDelayMode());
   controlPanel.setFeedbackInvert(processorRef.getEngine().isFeedbackInvert());
 
   // Restore UI state from Processor (for DAW recall)
   controlPanel.selectParameter(processorRef.getUIParameterType());
+  controlPanel.setLfoMode(processorRef.getUILfoMode());
   controlPanel.setDisplayMode(processorRef.getUIDisplayModeBar());
   controlPanel.setShowInputSpectrum(processorRef.getUIShowInputSpectrum());
   spectrumDisplay.setDisplayMode(processorRef.getUIDisplayModeBar()
@@ -170,7 +178,8 @@ void CopyCatSpectralDelayEditor::updateEditingCurve() {
 
     // Update LFO sliders with current parameter's values
     controlPanel.updateLfoSliders(lfoEngine.getAmount(param),
-                                  lfoEngine.getSpeed(param));
+                                  lfoEngine.getSpeed(param),
+                                  lfoEngine.getSmooth(param));
   } else {
     // Normal mode: edit SpectralDelayEngine curves
     spectrumDisplay.setLfoMode(false);
@@ -238,12 +247,7 @@ void CopyCatSpectralDelayEditor::paint(juce::Graphics &g) {
   g.setGradientFill(gradient);
   g.fillAll();
 
-  // Divider line between left and right panels
-  auto bounds = getLocalBounds();
-  int dividerX = static_cast<int>(bounds.getWidth() * 0.70f);
-  g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.2f));
-  g.drawVerticalLine(dividerX, 40.0f,
-                     static_cast<float>(bounds.getHeight() - 10));
+  // No divider line - panels manage their own borders
 }
 
 void CopyCatSpectralDelayEditor::resized() {
@@ -260,15 +264,15 @@ void CopyCatSpectralDelayEditor::resized() {
       titleLabelArea.removeFromLeft(brandWidth + 8)); // 8px space after COPYCAT
   titleLabel.setBounds(titleLabelArea);
 
-  // Split remaining area (70% spectrum, 30% controls)
-  int spectrumWidth = static_cast<int>(bounds.getWidth() * 0.70f);
+  // Split remaining area: right side is fixed 290px
+  int spectrumWidth = bounds.getWidth() - 290;
 
   // Left side: Spectrum display with curve editing
-  auto leftArea = bounds.removeFromLeft(spectrumWidth).reduced(10);
+  auto leftArea = bounds.removeFromLeft(spectrumWidth);
   spectrumDisplay.setBounds(leftArea);
 
-  // Right side: Control panel
-  auto rightArea = bounds.reduced(10);
+  // Right side: Control panel (takes the remaining 290px)
+  auto rightArea = bounds;
   controlPanel.setBounds(rightArea);
 }
 

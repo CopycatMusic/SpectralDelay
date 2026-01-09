@@ -4,7 +4,14 @@ LFOEngine::LFOEngine() { initializeDefaultCurves(); }
 
 LFOEngine::~LFOEngine() {}
 
-void LFOEngine::prepare(double newSampleRate) { sampleRate = newSampleRate; }
+void LFOEngine::prepare(double newSampleRate) {
+  sampleRate = newSampleRate;
+  // Reinitialize smoothers with new sample rate
+  for (int i = 0; i < kNumParams; ++i) {
+    float smoothSeconds = smoothMs[i] / 1000.0f;
+    smoothedOutputs[i].reset(sampleRate, smoothSeconds);
+  }
+}
 
 void LFOEngine::reset() {
   for (int i = 0; i < kNumParams; ++i) {
@@ -57,6 +64,56 @@ float LFOEngine::getPhase(Parameter param) const {
   return phases[idx];
 }
 
+float LFOEngine::getFrameAveragedModulation(Parameter param,
+                                            int numSamples) const {
+  int idx = static_cast<int>(param);
+  if (idx < 0 || idx >= kNumParams)
+    return 1.0f;
+
+  float amount = amounts[idx] / 100.0f; // Convert to 0-1 range
+  if (amount <= 0.0f)
+    return 1.0f; // No modulation
+
+  if (numSamples <= 0 || speeds[idx] <= 0.0f)
+    return getModulationValue(param); // Fallback to single sample
+
+  // Calculate phase increment per sample
+  float frequency = 1000.0f / speeds[idx];
+  float phaseIncrementPerSample = static_cast<float>(frequency / sampleRate);
+
+  // Determine how many sub-samples to use for integration
+  // Use at least 8 samples but cap at numSamples to avoid excessive computation
+  // More samples = more accurate average but more CPU
+  int integrationSamples =
+      juce::jmin(numSamples, juce::jmax(8, numSamples / 64));
+
+  float sum = 0.0f;
+  float tempPhase = phases[idx];
+  float stepSize =
+      static_cast<float>(numSamples) / static_cast<float>(integrationSamples);
+
+  for (int i = 0; i < integrationSamples; ++i) {
+    // Calculate phase at this sub-sample point
+    int sampleOffset = static_cast<int>(i * stepSize);
+    float samplePhase = tempPhase + phaseIncrementPerSample * sampleOffset;
+
+    // Wrap phase to [0, 1)
+    while (samplePhase >= 1.0f)
+      samplePhase -= 1.0f;
+
+    // Get curve value at this phase
+    float curveValue =
+        curves[idx].getValueAtNormalizedPosition(samplePhase) / 100.0f;
+    sum += curveValue;
+  }
+
+  // Calculate average
+  float averageCurve = sum / static_cast<float>(integrationSamples);
+
+  // Apply amount: blend between 1.0 (no mod) and curve value
+  return 1.0f - amount + (amount * averageCurve);
+}
+
 void LFOEngine::setAmount(Parameter param, float amount) {
   int idx = static_cast<int>(param);
   if (idx >= 0 && idx < kNumParams) {
@@ -85,6 +142,41 @@ float LFOEngine::getSpeed(Parameter param) const {
   return speeds[idx];
 }
 
+void LFOEngine::setSmooth(Parameter param, float smooth) {
+  int idx = static_cast<int>(param);
+  if (idx >= 0 && idx < kNumParams) {
+    smoothMs[idx] = juce::jlimit(0.0f, 100.0f, smooth);
+    // Update smoother time constant
+    float smoothSeconds = smoothMs[idx] / 1000.0f;
+    smoothedOutputs[idx].reset(sampleRate, smoothSeconds);
+  }
+}
+
+float LFOEngine::getSmooth(Parameter param) const {
+  int idx = static_cast<int>(param);
+  if (idx < 0 || idx >= kNumParams)
+    return 0.0f;
+  return smoothMs[idx];
+}
+
+void LFOEngine::updateSmoothedModulation(Parameter param, float targetValue,
+                                         int numSamples) {
+  int idx = static_cast<int>(param);
+  if (idx < 0 || idx >= kNumParams)
+    return;
+
+  smoothedOutputs[idx].setTargetValue(targetValue);
+  smoothedOutputs[idx].skip(numSamples);
+}
+
+float LFOEngine::getSmoothedModulationValue(Parameter param) const {
+  int idx = static_cast<int>(param);
+  if (idx < 0 || idx >= kNumParams)
+    return 1.0f;
+
+  return smoothedOutputs[idx].getCurrentValue();
+}
+
 ParameterCurve &LFOEngine::getCurve(Parameter param) {
   int idx = static_cast<int>(param);
   if (idx < 0 || idx >= kNumParams)
@@ -105,5 +197,8 @@ void LFOEngine::initializeDefaultCurves() {
   for (int i = 0; i < kNumParams; ++i) {
     curves[i].clearPoints();
     curves[i].setDefaultValue(100.0f);
+    // Initialize smoothers with default sample rate and no smoothing
+    smoothedOutputs[i].reset(sampleRate, 0.0);
+    smoothedOutputs[i].setCurrentAndTargetValue(1.0f);
   }
 }

@@ -35,10 +35,20 @@ public:
   void advance(int numSamples);
 
   /**
-   * Get the current modulation value for a parameter.
+   * Get the current modulation value for a parameter (single point sample).
    * @return Value between 0.0 and 1.0 based on curve and amount
    */
   float getModulationValue(Parameter param) const;
+
+  /**
+   * Get frame-averaged modulation value for a parameter.
+   * This integrates the LFO curve over numSamples to prevent aliasing
+   * when the frame rate is lower than the LFO frequency.
+   * @param param The parameter to get modulation for
+   * @param numSamples The number of samples in the frame (hop size)
+   * @return Value between 0.0 and 1.0 representing average modulation
+   */
+  float getFrameAveragedModulation(Parameter param, int numSamples) const;
 
   /**
    * Get the current phase (0.0 to 1.0) for a parameter's LFO.
@@ -51,6 +61,23 @@ public:
 
   void setSpeed(Parameter param, float speedMs); // 100-2000ms
   float getSpeed(Parameter param) const;
+
+  void setSmooth(Parameter param, float smoothMs); // 0-100ms
+  float getSmooth(Parameter param) const;
+
+  /**
+   * Get the smoothed modulation value for a parameter.
+   * This applies user-controlled smoothing to the LFO output.
+   * Call this after getFrameAveragedModulation to get the final smoothed value.
+   */
+  float getSmoothedModulationValue(Parameter param) const;
+
+  /**
+   * Update the smoother target and advance by numSamples.
+   * Should be called in processBlock with the frame-averaged LFO value.
+   */
+  void updateSmoothedModulation(Parameter param, float targetValue,
+                                int numSamples);
 
   ParameterCurve &getCurve(Parameter param);
   const ParameterCurve &getCurve(Parameter param) const;
@@ -74,6 +101,11 @@ private:
   float phases[kNumParams] = {0.0f, 0.0f, 0.0f};
   float amounts[kNumParams] = {0.0f, 0.0f, 0.0f};      // Default 0%
   float speeds[kNumParams] = {500.0f, 500.0f, 500.0f}; // Default 500ms
+  float smoothMs[kNumParams] = {0.0f, 0.0f, 0.0f}; // Default 0ms (no smooth)
+
+  // Smoothed LFO output values
+  mutable juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>
+      smoothedOutputs[kNumParams];
 
   ParameterCurve curves[kNumParams];
 

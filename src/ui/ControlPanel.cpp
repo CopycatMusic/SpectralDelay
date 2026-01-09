@@ -172,6 +172,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   // Display mode toggle
   displayModeLabel.setText("Display:", juce::dontSendNotification);
+  displayModeLabel.setJustificationType(juce::Justification::left);
   displayModeLabel.setColour(juce::Label::textColourId,
                              CustomLookAndFeel::getTextPrimary());
   addAndMakeVisible(displayModeLabel);
@@ -207,23 +208,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   // LFO mode button (at the top of control panel)
   lfoButton.setClickingTogglesState(true);
   lfoButton.onClick = [this]() {
-    currentLfoMode = lfoButton.getToggleState();
-    // Show/hide LFO controls based on mode
-    lfoAmountLabel.setVisible(currentLfoMode);
-    lfoAmountSlider.setVisible(currentLfoMode);
-    lfoSpeedLabel.setVisible(currentLfoMode);
-    lfoSpeedSlider.setVisible(currentLfoMode);
-    // Hide normal Multiply controls in LFO mode
-    gainMultLabel.setVisible(!currentLfoMode && currentParameterType == 0);
-    gainMultSlider.setVisible(!currentLfoMode && currentParameterType == 0);
-    gainMaxLabel.setVisible(!currentLfoMode && currentParameterType == 0);
-    feedbackMultLabel.setVisible(!currentLfoMode && currentParameterType == 1);
-    feedbackMultSlider.setVisible(!currentLfoMode && currentParameterType == 1);
-    feedbackMaxLabel.setVisible(!currentLfoMode && currentParameterType == 1);
-    delayMultLabel.setVisible(!currentLfoMode && currentParameterType == 2);
-    delayMultSlider.setVisible(!currentLfoMode && currentParameterType == 2);
-    delayMaxLabel.setVisible(!currentLfoMode && currentParameterType == 2);
-    resized();
+    setLfoMode(lfoButton.getToggleState());
     if (onLfoModeChanged) {
       onLfoModeChanged(currentLfoMode);
     }
@@ -238,7 +223,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addChildComponent(lfoAmountLabel);
 
   lfoAmountSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  lfoAmountSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+  lfoAmountSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 20);
   lfoAmountSlider.setRange(0.0, 100.0, 1.0);
   lfoAmountSlider.setValue(100.0); // Default 100%
   lfoAmountSlider.setTextValueSuffix("%");
@@ -251,14 +236,14 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addChildComponent(lfoAmountSlider);
 
   // LFO Speed slider (100-2000ms)
-  lfoSpeedLabel.setText("Speed", juce::dontSendNotification);
+  lfoSpeedLabel.setText("Time", juce::dontSendNotification);
   lfoSpeedLabel.setJustificationType(juce::Justification::centred);
   lfoSpeedLabel.setColour(juce::Label::textColourId,
                           CustomLookAndFeel::getTextPrimary());
   addChildComponent(lfoSpeedLabel);
 
   lfoSpeedSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  lfoSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+  lfoSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 20);
   lfoSpeedSlider.setRange(100.0, 2000.0, 1.0);
   lfoSpeedSlider.setValue(500.0); // Default 500ms
   lfoSpeedSlider.setTextValueSuffix("ms");
@@ -269,6 +254,26 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
     }
   };
   addChildComponent(lfoSpeedSlider);
+
+  // LFO Smooth slider (0-100ms, displayed as 0-100%)
+  lfoSmoothLabel.setText("Smooth", juce::dontSendNotification);
+  lfoSmoothLabel.setJustificationType(juce::Justification::centred);
+  lfoSmoothLabel.setColour(juce::Label::textColourId,
+                           CustomLookAndFeel::getTextPrimary());
+  addChildComponent(lfoSmoothLabel);
+
+  lfoSmoothSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+  lfoSmoothSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 20);
+  lfoSmoothSlider.setRange(0.0, 100.0, 1.0);
+  lfoSmoothSlider.setValue(0.0); // Default 0ms (no smooth)
+  lfoSmoothSlider.setTextValueSuffix("%");
+  lfoSmoothSlider.onValueChange = [this]() {
+    if (onLfoSmoothChanged) {
+      onLfoSmoothChanged(currentParameterType,
+                         static_cast<float>(lfoSmoothSlider.getValue()));
+    }
+  };
+  addChildComponent(lfoSmoothSlider);
 }
 
 ControlPanel::~ControlPanel() { mixSlider.removeListener(this); }
@@ -320,6 +325,19 @@ void ControlPanel::resized() {
   int bottomY =
       height - margin - displayRowHeight - margin - knobSectionHeight - spacing;
 
+  // --- Display Row ---
+  juce::Rectangle<int> displayRow(margin, bottomY, width - margin * 2,
+                                  rowHeight);
+  displayModeLabel.setBounds(displayRow.removeFromLeft(labelWidth));
+  displayRow.removeFromLeft(spacing);
+  int buttonAreaWidth = displayRow.getWidth();
+  int singleButtonWidth = (buttonAreaWidth - spacing) / 2;
+  displayModeButton.setBounds(displayRow.removeFromLeft(singleButtonWidth));
+  displayRow.removeFromLeft(spacing);
+  spectrumSourceButton.setBounds(displayRow);
+
+  bottomY += displayRowHeight + margin;
+
   // --- Labels Row for FFT and Mix ---
   juce::Rectangle<int> labelsRow(margin, bottomY, width - margin * 2, 20);
 
@@ -345,17 +363,6 @@ void ControlPanel::resized() {
                       bottomY, knobSize, knobSize);
 
   bottomY += knobSize + margin + spacing;
-
-  // --- Display Row ---
-  juce::Rectangle<int> displayRow(margin, bottomY, width - margin * 2,
-                                  rowHeight);
-  displayModeLabel.setBounds(displayRow.removeFromLeft(labelWidth));
-  displayRow.removeFromLeft(spacing);
-  int buttonAreaWidth = displayRow.getWidth();
-  int singleButtonWidth = (buttonAreaWidth - spacing) / 2;
-  displayModeButton.setBounds(displayRow.removeFromLeft(singleButtonWidth));
-  displayRow.removeFromLeft(spacing);
-  spectrumSourceButton.setBounds(displayRow);
 
   spectrumSourceLabel.setVisible(false);
 
@@ -393,35 +400,35 @@ void ControlPanel::resized() {
 
   // ============ MULTIPLY CONTROLS or LFO CONTROLS ============
   if (currentLfoMode) {
-    // LFO mode: show Amount and Speed knobs SIDE BY SIDE
+    // LFO mode: Time, Amount, Smooth aligned with Gain, Delay, Feedback buttons
+    int smallKnobSize = 65;
+    int textBoxHeight = 20;
+    int knobWithTextHeight = smallKnobSize + textBoxHeight;
+    int lfoRowSpacing = 12;
+    int labelHeight = 20; // Assuming label height is 20px
+
+    // Align knob centers with button centers (Each button is 90px wide)
+    int speedX = margin + 45 - (smallKnobSize / 2);
+    int amountX = margin + 90 + 45 - (smallKnobSize / 2);
+    int smoothX = margin + 180 + 45 - (smallKnobSize / 2);
 
     // Labels row
-    juce::Rectangle<int> lfoLabelsRow(margin, currentY, width - margin * 2, 20);
-    int halfWidthLfo = (width - margin * 2 - spacing) / 2;
+    lfoSpeedLabel.setBounds(speedX, currentY, smallKnobSize, labelHeight);
+    lfoAmountLabel.setBounds(amountX, currentY, smallKnobSize, labelHeight);
+    lfoSmoothLabel.setBounds(smoothX, currentY, smallKnobSize, labelHeight);
 
-    juce::Rectangle<int> speedArea = lfoLabelsRow.removeFromLeft(halfWidthLfo);
-    lfoSpeedLabel.setBounds(speedArea);
-
-    lfoLabelsRow.removeFromLeft(spacing);
-    juce::Rectangle<int> amountArea = lfoLabelsRow;
-    lfoAmountLabel.setBounds(amountArea);
-
-    currentY += 20;
+    currentY += labelHeight + 2;
 
     // Knobs row
-    juce::Rectangle<int> lfoKnobsRow(margin, currentY, width - margin * 2,
-                                     knobSize);
+    lfoSpeedSlider.setBounds(speedX, currentY, smallKnobSize,
+                             knobWithTextHeight);
+    lfoAmountSlider.setBounds(amountX, currentY, smallKnobSize,
+                              knobWithTextHeight);
+    lfoSmoothSlider.setBounds(smoothX, currentY, smallKnobSize,
+                              knobWithTextHeight);
 
-    // Speed Knob
-    lfoSpeedSlider.setBounds(margin + halfWidthLfo / 2 - knobSize / 2, currentY,
-                             knobSize, knobSize);
-
-    // Amount Knob
-    lfoAmountSlider.setBounds(width - margin - halfWidthLfo / 2 - knobSize / 2,
-                              currentY, knobSize, knobSize);
-
-  } else {
-    // Normal mode: show Multiply knob (CENTERED)
+    currentY += knobWithTextHeight + lfoRowSpacing;
+  } else { // Normal mode: show Multiply knob (CENTERED)
 
     // Multiply label
     juce::Rectangle<int> multLabelRow(margin, currentY, width - margin * 2, 20);
@@ -500,6 +507,8 @@ void ControlPanel::selectParameter(int paramType) {
   lfoAmountSlider.setVisible(currentLfoMode);
   lfoSpeedLabel.setVisible(currentLfoMode);
   lfoSpeedSlider.setVisible(currentLfoMode);
+  lfoSmoothLabel.setVisible(currentLfoMode);
+  lfoSmoothSlider.setVisible(currentLfoMode);
 
   updateMaxLabels(); // Update MAX label values
   resized();         // Update layout
@@ -549,6 +558,8 @@ void ControlPanel::setLfoMode(bool isLfoMode) {
   lfoAmountSlider.setVisible(isLfoMode);
   lfoSpeedLabel.setVisible(isLfoMode);
   lfoSpeedSlider.setVisible(isLfoMode);
+  lfoSmoothLabel.setVisible(isLfoMode);
+  lfoSmoothSlider.setVisible(isLfoMode);
 
   // Hide normal Multiply controls in LFO mode
   if (isLfoMode) {
@@ -568,7 +579,9 @@ void ControlPanel::setLfoMode(bool isLfoMode) {
   resized();
 }
 
-void ControlPanel::updateLfoSliders(float amount, float speedMs) {
+void ControlPanel::updateLfoSliders(float amount, float speedMs,
+                                    float smoothMs) {
   lfoAmountSlider.setValue(amount, juce::dontSendNotification);
   lfoSpeedSlider.setValue(speedMs, juce::dontSendNotification);
+  lfoSmoothSlider.setValue(smoothMs, juce::dontSendNotification);
 }
