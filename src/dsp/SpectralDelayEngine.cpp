@@ -167,7 +167,8 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
           inputMagnitudeSpectrum[static_cast<size_t>(bin)] =
               std::abs(spectrum[bin]) * normFactor;
         }
-        // DSP flow: Gain -> (+Feedback) -> [Phase or Delay] -> (storeFeedback)
+        // DSP flow: Gain -> (+Feedback) -> [Phase or Delay] -> Stereo ->
+        // (storeFeedback)
         applyGainModulation(spectrum, numBins);
         applyFeedback(spectrum, numBins, feedbackSpectrumL);
 
@@ -177,6 +178,9 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
         } else {
           applyPhaseModulation(spectrum, numBins);
         }
+
+        // Apply stereo width (left channel)
+        applyStereoWidthChannel(spectrum, numBins, true);
 
         storeFeedback(spectrum, numBins, feedbackSpectrumL);
       });
@@ -188,6 +192,7 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
                          [this](std::complex<float> *spectrum, int numBins) {
                            // Captured input magnitude spectrum (shared from L)
                            // DSP flow: Gain -> (+Feedback) -> [Phase or Delay]
+                           // -> Stereo
                            applyGainModulation(spectrum, numBins);
                            applyFeedback(spectrum, numBins, feedbackSpectrumR);
 
@@ -198,8 +203,12 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
                              applyPhaseModulation(spectrum, numBins);
                            }
 
+                           // Apply stereo width (right channel)
+                           applyStereoWidthChannel(spectrum, numBins, false);
+
                            storeFeedback(spectrum, numBins, feedbackSpectrumR);
                          });
+
   // With STFT disabled, buffer already contains the input signal
   // which will be used as the \"wet\" signal in the mix below
 
@@ -545,11 +554,13 @@ void SpectralDelayEngine::applyDelay(
   // Calculate hop time in ms - defensive check for zero sample rate or hop size
   float sr = static_cast<float>(currentSampleRate.load());
   float hop = static_cast<float>(currentHopSize.load());
+  int fftSize = currentFFTSize.load();
 
-  if (sr <= 0.0f || hop <= 0.0f)
+  if (sr <= 0.0f || hop <= 0.0f || fftSize <= 0)
     return;
 
   float hopTimeMs = (hop / sr) * 1000.0f;
+  bool useHighPrecision = highPrecisionDelay.load();
 
   for (int bin = 0;
        bin < numBins && bin < static_cast<int>(delayValuesMs.size()) &&
@@ -559,11 +570,17 @@ void SpectralDelayEngine::applyDelay(
     // Calculate delay in frames (apply multiplier)
     float delayMs =
         delayValuesMs[static_cast<size_t>(bin)] * delayMultiplier.load();
-    int delayFrames = static_cast<int>(delayMs / hopTimeMs);
+    float delayFramesFloat = delayMs / hopTimeMs;
+
+    // Separate integer and fractional parts
+    int delayFramesInt = static_cast<int>(delayFramesFloat);
+    float fractionalFrames =
+        delayFramesFloat - static_cast<float>(delayFramesInt);
 
     // Clamp to buffer size
-    if (delayFrames >= maxDelaySamples) {
-      delayFrames = maxDelaySamples - 1;
+    if (delayFramesInt >= maxDelaySamples) {
+      delayFramesInt = maxDelaySamples - 1;
+      fractionalFrames = 0.0f; // No fractional part if clamped
     }
 
     // Get write position for this bin
@@ -575,10 +592,96 @@ void SpectralDelayEngine::applyDelay(
     delayBuffer[binIdx][static_cast<size_t>(wp)] = spectrum[bin];
 
     // Read delayed value (circular buffer)
-    int readPos = (wp - delayFrames + bufferSize) % bufferSize;
-    spectrum[bin] = delayBuffer[binIdx][static_cast<size_t>(readPos)];
+    int readPos = (wp - delayFramesInt + bufferSize) % bufferSize;
+    std::complex<float> delayedSample =
+        delayBuffer[binIdx][static_cast<size_t>(readPos)];
+
+    // High precision mode: apply phase rotation for fractional frame
+    // compensation
+    if (useHighPrecision && fractionalFrames > 0.0001f) {
+      // Calculate frequency for this bin
+      float binFreq =
+          static_cast<float>(bin) * sr / static_cast<float>(fftSize);
+
+      // Calculate time offset for fractional frames (in seconds)
+      float fractionalDelaySec = fractionalFrames * hop / sr;
+
+      // Phase offset: φ = -2π × f × Δt
+      float phaseOffset =
+          -2.0f * juce::MathConstants<float>::pi * binFreq * fractionalDelaySec;
+
+      // Apply phase rotation
+      std::complex<float> rotator(std::cos(phaseOffset), std::sin(phaseOffset));
+      delayedSample *= rotator;
+    }
+
+    spectrum[bin] = delayedSample;
 
     // Advance write position
     writePos[binIdx] = (wp + 1) % bufferSize;
+  }
+}
+
+// ==============================================================================
+float SpectralDelayEngine::getPhaseOffset(int binIndex) const {
+  // Golden ratio based pseudo-random hash
+  // Produces deterministic values in range -1 to +1 for each bin
+  const float goldenRatio = 0.618033988749895f;
+  float hash = std::fmod(static_cast<float>(binIndex) * goldenRatio, 1.0f);
+  return hash * 2.0f - 1.0f;
+}
+
+void SpectralDelayEngine::applyStereoWidth(std::complex<float> *spectrumL,
+                                           std::complex<float> *spectrumR,
+                                           int numBins) {
+  // This version is for single-channel processing with isLeftChannel flag
+  // spectrumR is ignored when processing per-channel
+}
+
+// Per-channel stereo width application
+void SpectralDelayEngine::applyStereoWidthChannel(std::complex<float> *spectrum,
+                                                  int numBins,
+                                                  bool isLeftChannel) {
+  float amount = stereoAmount.load();
+  if (amount <= 0.0f)
+    return;
+
+  float lowCutFreq = stereoLowCut.load();
+  const float transitionWidth = 100.0f;  // Hz for smooth transition
+  const float maxPhaseShift = 1.047198f; // π/3 radians = 60 degrees
+
+  // Left channel gets negative phase shift, right gets positive
+  float channelSign = isLeftChannel ? -1.0f : 1.0f;
+
+  for (int bin = 1; bin < numBins; ++bin) {
+    float freq = binToFrequency(bin);
+
+    // Skip bins below low cut frequency
+    if (freq < lowCutFreq)
+      continue;
+
+    // Calculate smooth transition factor
+    float factor = 1.0f;
+    if (freq < lowCutFreq + transitionWidth) {
+      // Smoothstep transition
+      float t = (freq - lowCutFreq) / transitionWidth;
+      factor = t * t * (3.0f - 2.0f * t);
+    }
+
+    // Get pseudo-random phase offset for this bin (-1 to +1)
+    float randomOffset = getPhaseOffset(bin);
+
+    // Calculate final phase shift (with channel sign)
+    float phaseShift =
+        randomOffset * amount * factor * maxPhaseShift * channelSign;
+
+    // Apply phase rotation using complex multiplication
+    float cosVal = std::cos(phaseShift);
+    float sinVal = std::sin(phaseShift);
+
+    float real = spectrum[bin].real();
+    float imag = spectrum[bin].imag();
+    spectrum[bin] = std::complex<float>(real * cosVal - imag * sinVal,
+                                        real * sinVal + imag * cosVal);
   }
 }

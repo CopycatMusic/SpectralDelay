@@ -130,6 +130,44 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   delayMaxLabel.setJustificationType(juce::Justification::centred);
   addChildComponent(delayMaxLabel);
 
+  // Stereo width control - only visible for Time/Delay parameter
+  stereoLabel.setText("Stereo", juce::dontSendNotification);
+  stereoLabel.setJustificationType(juce::Justification::centred);
+  stereoLabel.setColour(juce::Label::textColourId,
+                        CustomLookAndFeel::getTextPrimary());
+  addChildComponent(stereoLabel);
+
+  stereoSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+  stereoSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 20);
+  stereoSlider.setRange(0.0, 100.0, 1.0);
+  stereoSlider.setValue(0.0);
+  stereoSlider.setTextValueSuffix("%");
+  stereoSlider.onValueChange = [this]() {
+    if (onStereoChanged) {
+      onStereoChanged(static_cast<float>(stereoSlider.getValue()));
+    }
+  };
+  addChildComponent(stereoSlider);
+
+  // Stereo Low Cut control
+  stereoLowCutLabel.setText("Low Cut", juce::dontSendNotification);
+  stereoLowCutLabel.setJustificationType(juce::Justification::centred);
+  stereoLowCutLabel.setColour(juce::Label::textColourId,
+                              CustomLookAndFeel::getTextPrimary());
+  addChildComponent(stereoLowCutLabel);
+
+  stereoLowCutSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+  stereoLowCutSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 20);
+  stereoLowCutSlider.setRange(20.0, 500.0, 1.0);
+  stereoLowCutSlider.setValue(150.0);
+  stereoLowCutSlider.setTextValueSuffix("Hz");
+  stereoLowCutSlider.onValueChange = [this]() {
+    if (onStereoLowCutChanged) {
+      onStereoLowCutChanged(static_cast<float>(stereoLowCutSlider.getValue()));
+    }
+  };
+  addChildComponent(stereoLowCutSlider);
+
   // FFT settings (now a knob)
   fftSizeLabel.setText("FFT Size", juce::dontSendNotification);
   fftSizeLabel.setJustificationType(juce::Justification::centred);
@@ -170,6 +208,17 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   mixAttachment =
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           parameters, "mix", mixSlider);
+
+  // High precision delay mode button
+  hiResButton.setClickingTogglesState(true);
+  hiResButton.setColour(juce::TextButton::buttonOnColourId,
+                        CustomLookAndFeel::getAccentPrimary());
+  hiResButton.onClick = [this]() {
+    if (onHighPrecisionDelayChanged) {
+      onHighPrecisionDelayChanged(hiResButton.getToggleState());
+    }
+  };
+  addAndMakeVisible(hiResButton);
 
   // Display mode toggle
   displayModeLabel.setText("Display:", juce::dontSendNotification);
@@ -441,7 +490,16 @@ void ControlPanel::resized() {
   displayRow.removeFromLeft(spacing);
   spectrumSourceButton.setBounds(displayRow);
 
-  bottomY += displayRowHeight + margin;
+  bottomY += displayRowHeight + spacing;
+
+  // --- HiRes Button Row ---
+  int hiResButtonWidth = 80;
+  juce::Rectangle<int> hiResRow(margin +
+                                    (width - margin * 2 - hiResButtonWidth) / 2,
+                                bottomY, hiResButtonWidth, rowHeight);
+  hiResButton.setBounds(hiResRow);
+
+  bottomY += rowHeight + spacing;
 
   // --- Labels Row for FFT and Mix ---
   juce::Rectangle<int> labelsRow(margin, bottomY, width - margin * 2, 20);
@@ -597,6 +655,33 @@ void ControlPanel::resized() {
 
     currentY += knobSize;
 
+    // Stereo controls row (only for Time/Delay parameter)
+    if (currentParameterType == 2 && stereoSlider.isVisible()) {
+      int smallKnobSize = 65;
+      int textBoxHeight = 20;
+      int knobWithTextHeight = smallKnobSize + textBoxHeight;
+      int labelHeight = 20;
+
+      currentY += spacing;
+
+      // Two knobs side by side: Stereo and Low Cut
+      int stereoX = margin + (width - margin * 2) / 4 - smallKnobSize / 2;
+      int lowCutX = margin + 3 * (width - margin * 2) / 4 - smallKnobSize / 2;
+
+      // Labels
+      stereoLabel.setBounds(stereoX, currentY, smallKnobSize, labelHeight);
+      stereoLowCutLabel.setBounds(lowCutX, currentY, smallKnobSize,
+                                  labelHeight);
+      currentY += labelHeight + 2;
+
+      // Knobs
+      stereoSlider.setBounds(stereoX, currentY, smallKnobSize,
+                             knobWithTextHeight);
+      stereoLowCutSlider.setBounds(lowCutX, currentY, smallKnobSize,
+                                   knobWithTextHeight);
+      currentY += knobWithTextHeight;
+    }
+
     // MAX label (Below knob) - HIDDEN
     /*
     juce::Rectangle<int> maxLabelRow(margin, currentY, width - margin * 2, 20);
@@ -642,6 +727,13 @@ void ControlPanel::selectParameter(int paramType) {
   delayMultLabel.setVisible(showDelayControls);
   delayMultSlider.setVisible(showDelayControls);
   delayMaxLabel.setVisible(showDelayControls);
+
+  // Show/hide stereo width controls (only for Time/Delay parameter)
+  bool showStereoControls = (paramType == 2) && !currentLfoMode;
+  stereoLabel.setVisible(showStereoControls);
+  stereoSlider.setVisible(showStereoControls);
+  stereoLowCutLabel.setVisible(showStereoControls);
+  stereoLowCutSlider.setVisible(showStereoControls);
 
   // Show/hide LFO controls based on LFO mode
   lfoAmountLabel.setVisible(currentLfoMode);

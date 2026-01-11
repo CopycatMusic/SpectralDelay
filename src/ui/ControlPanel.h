@@ -65,6 +65,13 @@ public:
   // Callback when feedback multiplier changes
   std::function<void(float)> onFeedbackMultiplierChanged;
 
+  // Callback when stereo width changes
+  std::function<void(float)> onStereoChanged;       // 0-100%
+  std::function<void(float)> onStereoLowCutChanged; // Hz
+
+  // Callback when high precision delay mode changes
+  std::function<void(bool)> onHighPrecisionDelayChanged;
+
   // Get currently active LFO mode (false = Free/Time, true = Beat)
   bool isLfoBeatMode() const { return false; /* Need to store or query */ }
 
@@ -78,6 +85,12 @@ public:
     delayModeButton.setToggleState(!isDelay, juce::dontSendNotification);
     delayModeButton.setButtonText(isDelay ? "Delay" : "Phase");
   }
+
+  // Set high precision delay mode UI state (for restoring from saved state)
+  void setHighPrecisionDelay(bool enabled) {
+    hiResButton.setToggleState(enabled, juce::dontSendNotification);
+  }
+  bool isHighPrecisionDelay() const { return hiResButton.getToggleState(); }
 
   // Set display mode UI state (for restoring from saved state)
   void setDisplayMode(bool isBar) {
@@ -139,6 +152,9 @@ private:
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       mixAttachment;
 
+  // High precision delay mode button
+  juce::TextButton hiResButton{"HiRes"};
+
   // Display mode toggle
   juce::Label displayModeLabel;
   juce::TextButton displayModeButton;
@@ -174,6 +190,12 @@ private:
   juce::Label delayMaxLabel; // Shows "MAX: xxxms"
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       delayMultAttachment;
+
+  // Stereo width controls (for Time/Delay parameter)
+  juce::Label stereoLabel;
+  juce::Slider stereoSlider;
+  juce::Label stereoLowCutLabel;
+  juce::Slider stereoLowCutSlider;
 
   // Current parameter type (0 = Gain, 1 = Feedback, 2 = Delay)
   int currentParameterType = 2;

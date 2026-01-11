@@ -103,6 +103,25 @@ public:
   float getDelayMultiplier() const { return delayMultiplier * 100.0f; }
 
   /**
+   * Set stereo width amount (0-100%).
+   */
+  void setStereoAmount(float amount) { stereoAmount = amount / 100.0f; }
+  float getStereoAmount() const { return stereoAmount * 100.0f; }
+
+  /**
+   * Set stereo low cut frequency (Hz).
+   */
+  void setStereoLowCut(float freq) { stereoLowCut = freq; }
+  float getStereoLowCut() const { return stereoLowCut; }
+
+  /**
+   * Set high precision delay mode (uses phase interpolation for sub-frame
+   * accuracy).
+   */
+  void setHighPrecisionDelay(bool enabled) { highPrecisionDelay = enabled; }
+  bool isHighPrecisionDelay() const { return highPrecisionDelay.load(); }
+
+  /**
    * Set dry/wet mix (0.0 = fully dry, 1.0 = fully wet).
    */
   void setMix(float dryWet);
@@ -137,6 +156,11 @@ private:
                   std::vector<int> &writePos);
   void storeFeedback(std::complex<float> *spectrum, int numBins,
                      std::vector<std::complex<float>> &feedbackBuffer);
+  void applyStereoWidth(std::complex<float> *spectrumL,
+                        std::complex<float> *spectrumR, int numBins);
+  void applyStereoWidthChannel(std::complex<float> *spectrum, int numBins,
+                               bool isLeftChannel);
+  float getPhaseOffset(int binIndex) const;
 
   // STFT processors for each channel
   STFTProcessor stftProcessorL;
@@ -176,6 +200,13 @@ private:
 
   // Delay multiplier (default 20%)
   std::atomic<float> delayMultiplier{0.2f};
+
+  // Stereo width parameters
+  std::atomic<float> stereoAmount{0.0f};   // 0.0-1.0 (stored as ratio)
+  std::atomic<float> stereoLowCut{150.0f}; // Hz
+
+  // High precision delay mode (uses phase interpolation for sub-frame accuracy)
+  std::atomic<bool> highPrecisionDelay{false};
 
   // Parameter curve for delay distribution
   ParameterCurve delayCurve;

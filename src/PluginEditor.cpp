@@ -148,9 +148,24 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
     spectrumDisplay.setLfoVGrid(divisions);
   };
 
+  // Connect stereo width controls
+  controlPanel.onStereoChanged = [this](float amount) {
+    processorRef.getEngine().setStereoAmount(amount);
+  };
+  controlPanel.onStereoLowCutChanged = [this](float freq) {
+    processorRef.getEngine().setStereoLowCut(freq);
+  };
+
+  // Connect high precision delay mode
+  controlPanel.onHighPrecisionDelayChanged = [this](bool enabled) {
+    processorRef.getEngine().setHighPrecisionDelay(enabled);
+  };
+
   // Sync UI with current engine state (for restoring saved state)
   controlPanel.setDelayMode(processorRef.getEngine().isDelayMode());
   controlPanel.setFeedbackInvert(processorRef.getEngine().isFeedbackInvert());
+  controlPanel.setHighPrecisionDelay(
+      processorRef.getEngine().isHighPrecisionDelay());
 
   // Restore UI state from Processor (for DAW recall)
   controlPanel.selectParameter(processorRef.getUIParameterType());

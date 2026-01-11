@@ -277,6 +277,15 @@ void CopyCatSpectralDelayProcessor::getStateInformation(
   // Save feedback invert state
   xml->setAttribute("feedbackInvert", engine.isFeedbackInvert());
 
+  // Save high precision delay mode
+  xml->setAttribute("highPrecisionDelay", engine.isHighPrecisionDelay());
+
+  // Save stereo width parameters
+  xml->setAttribute("stereoAmount",
+                    static_cast<double>(engine.getStereoAmount()));
+  xml->setAttribute("stereoLowCut",
+                    static_cast<double>(engine.getStereoLowCut()));
+
   // Save LFO state for each parameter type
   // Gain LFO
   xml->setAttribute("lfoGainAmount", static_cast<double>(lfoEngine.getAmount(
@@ -384,6 +393,22 @@ void CopyCatSpectralDelayProcessor::setStateInformation(const void *data,
     if (xmlState->hasAttribute("feedbackInvert")) {
       engine.setFeedbackInvert(
           xmlState->getBoolAttribute("feedbackInvert", false));
+    }
+
+    // Restore high precision delay mode
+    if (xmlState->hasAttribute("highPrecisionDelay")) {
+      engine.setHighPrecisionDelay(
+          xmlState->getBoolAttribute("highPrecisionDelay", false));
+    }
+
+    // Restore stereo width parameters
+    if (xmlState->hasAttribute("stereoAmount")) {
+      engine.setStereoAmount(static_cast<float>(
+          xmlState->getDoubleAttribute("stereoAmount", 0.0)));
+    }
+    if (xmlState->hasAttribute("stereoLowCut")) {
+      engine.setStereoLowCut(static_cast<float>(
+          xmlState->getDoubleAttribute("stereoLowCut", 150.0)));
     }
 
     // Restore LFO state for each parameter type
