@@ -242,7 +242,7 @@ float LFOEngine::getSpeed(Parameter param) const {
 void LFOEngine::setSmooth(Parameter param, float smooth) {
   int idx = static_cast<int>(param);
   if (idx >= 0 && idx < kNumParams) {
-    smoothMs[idx] = juce::jlimit(0.0f, 100.0f, smooth);
+    smoothMs[idx] = juce::jlimit(0.0f, 200.0f, smooth);
     float smoothSeconds = smoothMs[idx] / 1000.0f;
     smoothedOutputs[idx].reset(sampleRate, smoothSeconds);
   }

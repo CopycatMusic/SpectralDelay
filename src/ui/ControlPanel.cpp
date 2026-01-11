@@ -315,9 +315,9 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   lfoSmoothSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   lfoSmoothSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 20);
-  lfoSmoothSlider.setRange(0.0, 100.0, 1.0);
+  lfoSmoothSlider.setRange(0.0, 200.0, 1.0);
   lfoSmoothSlider.setValue(0.0); // Default 0ms (no smooth)
-  lfoSmoothSlider.setTextValueSuffix("%");
+  lfoSmoothSlider.setTextValueSuffix("ms");
   lfoSmoothSlider.onValueChange = [this]() {
     if (onLfoSmoothChanged) {
       onLfoSmoothChanged(currentParameterType,
