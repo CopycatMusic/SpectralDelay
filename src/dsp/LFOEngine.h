@@ -16,6 +16,7 @@ class LFOEngine {
 public:
   // Must match ControlPanel parameter type order: 0=Gain, 1=Feedback, 2=Time
   enum class Parameter { Gain = 0, Feedback = 1, Time = 2, Count = 3 };
+  enum class SyncMode { Time = 0, Note, Triplet, Dotted };
 
   LFOEngine();
   ~LFOEngine();
@@ -97,8 +98,8 @@ public:
   void initializeDefaultCurves();
 
   // Mode setters/getters
-  void setBeatMode(Parameter param, bool isBeat);
-  bool getBeatMode(Parameter param) const;
+  void setSyncMode(Parameter param, SyncMode mode);
+  SyncMode getSyncMode(Parameter param) const;
 
   void setSynced(Parameter param, bool isSynced);
   bool getSynced(Parameter param) const;
@@ -106,12 +107,12 @@ public:
   /**
    * Get the duration of a beat subdivision in milliseconds.
    */
-  static float getBeatDurationMs(int beatIndex, double bpm);
+  static float getBeatDurationMs(int beatIndex, double bpm, SyncMode mode);
 
   /**
    * Get the string representation of a beat subdivision index.
    */
-  static juce::String getBeatString(int beatIndex);
+  static juce::String getBeatString(int beatIndex, SyncMode mode);
 
 private:
   static constexpr int kNumParams = static_cast<int>(Parameter::Count);
@@ -127,7 +128,8 @@ private:
   float speeds[kNumParams] = {500.0f, 500.0f, 500.0f}; // Default 500ms
   float smoothMs[kNumParams] = {0.0f, 0.0f, 0.0f}; // Default 0ms (no smooth)
 
-  bool isBeatMode[kNumParams] = {false, false, false};
+  SyncMode syncModes[kNumParams] = {SyncMode::Time, SyncMode::Time,
+                                    SyncMode::Time};
   bool isSynced[kNumParams] = {false, false, false};
 
   // Smoothed LFO output values

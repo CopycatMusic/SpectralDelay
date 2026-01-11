@@ -67,7 +67,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addChildComponent(feedbackMultLabel);
 
   feedbackMultSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  feedbackMultSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+  feedbackMultSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 15);
   feedbackMultSlider.onValueChange = [this]() { updateMaxLabels(); };
   addChildComponent(feedbackMultSlider);
   feedbackMultAttachment =
@@ -96,7 +96,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addChildComponent(gainMultLabel);
 
   gainMultSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  gainMultSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+  gainMultSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 15);
   gainMultSlider.onValueChange = [this]() { updateMaxLabels(); };
   addChildComponent(gainMultSlider);
   gainMultAttachment =
@@ -109,6 +109,20 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   gainMaxLabel.setJustificationType(juce::Justification::centred);
   addChildComponent(gainMaxLabel);
 
+  // Gain Pre/Post button - initially hidden
+  gainPostButton.setClickingTogglesState(true);
+  gainPostButton.setButtonText("Pre");
+  gainPostButton.setColour(juce::TextButton::buttonOnColourId,
+                           CustomLookAndFeel::getAccentPrimary());
+  gainPostButton.onClick = [this]() {
+    bool isPost = gainPostButton.getToggleState();
+    gainPostButton.setButtonText(isPost ? "Post" : "Pre");
+    if (onGainPostModeChanged) {
+      onGainPostModeChanged(isPost);
+    }
+  };
+  addAndMakeVisible(gainPostButton);
+
   // Delay multiply control - initially hidden
   delayMultLabel.setText("Multiply", juce::dontSendNotification);
   delayMultLabel.setJustificationType(juce::Justification::centred);
@@ -117,7 +131,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addChildComponent(delayMultLabel);
 
   delayMultSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  delayMultSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+  delayMultSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 15);
   delayMultSlider.onValueChange = [this]() { updateMaxLabels(); };
   addChildComponent(delayMultSlider);
   delayMultAttachment =
@@ -138,7 +152,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addChildComponent(stereoLabel);
 
   stereoSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  stereoSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 20);
+  stereoSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
   stereoSlider.setRange(0.0, 100.0, 1.0);
   stereoSlider.setValue(0.0);
   stereoSlider.setTextValueSuffix("%");
@@ -157,7 +171,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addChildComponent(stereoLowCutLabel);
 
   stereoLowCutSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  stereoLowCutSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 20);
+  stereoLowCutSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
   stereoLowCutSlider.setRange(20.0, 500.0, 1.0);
   stereoLowCutSlider.setValue(150.0);
   stereoLowCutSlider.setTextValueSuffix("Hz");
@@ -176,7 +190,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addAndMakeVisible(fftSizeLabel);
 
   fftSizeSelector.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  fftSizeSelector.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+  fftSizeSelector.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 15);
   // Range 0-9 corresponds to 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192,
   // 16384
   fftSizeSelector.setRange(0.0, 9.0, 1.0);
@@ -202,7 +216,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addAndMakeVisible(mixLabel);
 
   mixSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  mixSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+  mixSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 15);
   mixSlider.addListener(this);
   addAndMakeVisible(mixSlider);
   mixAttachment =
@@ -274,7 +288,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addAndMakeVisible(lfoAmountLabel);
 
   lfoAmountSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  lfoAmountSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 20);
+  lfoAmountSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
   lfoAmountSlider.setRange(0.0, 100.0, 1.0);
   lfoAmountSlider.setValue(100.0); // Default 100%
   lfoAmountSlider.setTextValueSuffix("%");
@@ -294,7 +308,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addAndMakeVisible(lfoSpeedLabel);
 
   lfoSpeedSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  lfoSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 20);
+  lfoSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
   lfoSpeedSlider.setRange(100.0, 2000.0, 1.0);
   lfoSpeedSlider.setValue(500.0); // Default 500ms
   lfoSpeedSlider.setTextValueSuffix("ms");
@@ -314,7 +328,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addAndMakeVisible(lfoSmoothLabel);
 
   lfoSmoothSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  lfoSmoothSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 20);
+  lfoSmoothSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
   lfoSmoothSlider.setRange(0.0, 200.0, 1.0);
   lfoSmoothSlider.setValue(0.0); // Default 0ms (no smooth)
   lfoSmoothSlider.setTextValueSuffix("ms");
@@ -326,14 +340,24 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   };
   addAndMakeVisible(lfoSmoothSlider);
 
-  // LFO Beat/Time toggle button
-  lfoBeatModeButton.setClickingTogglesState(true);
+  // LFO Mode toggle button (Cycles through Time, Note, Triplet, Dotted)
+  lfoBeatModeButton.setClickingTogglesState(
+      false); // We'll handle state manually
   lfoBeatModeButton.onClick = [this]() {
-    bool isBeat = lfoBeatModeButton.getToggleState();
-    lfoBeatModeButton.setButtonText(isBeat ? "Beat" : "Time");
-    updateLfoSpeedSliderSettings(isBeat);
-    if (onLfoBeatModeChanged) {
-      onLfoBeatModeChanged(currentParameterType, isBeat);
+    SyncMode currentMode = SyncMode::Time;
+    if (onGetLfoSyncMode) {
+      currentMode = onGetLfoSyncMode(currentParameterType);
+    }
+
+    // Cycle: Time (0) -> Note (1) -> Triplet (2) -> Dotted (3) -> Time (0)
+    int nextModeInt = (static_cast<int>(currentMode) + 1) % 4;
+    SyncMode nextMode = static_cast<SyncMode>(nextModeInt);
+
+    lfoBeatModeButton.setButtonText(getSyncModeString(nextMode));
+    updateLfoSpeedSliderSettings(nextMode);
+
+    if (onLfoSyncModeChanged) {
+      onLfoSyncModeChanged(currentParameterType, nextMode);
     }
   };
   addAndMakeVisible(lfoBeatModeButton);
@@ -357,30 +381,34 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
                           CustomLookAndFeel::getTextPrimary());
   addAndMakeVisible(lfoHGridLabel);
 
-  // Grid values: 0 = off, 2-64 = grid divisions
-  // Slider uses actual values, allowing any value 2-64 to be typed
+  // Grid values: index 0-8 maps to discrete values: 0, 2, 3, 4, 6, 8, 12, 16,
+  // 32
+  static const int gridValues[] = {0, 2, 3, 4, 6, 8, 12, 16, 32};
+  static const int numGridValues = 9;
+
   lfoHGridSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  lfoHGridSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 40, 20);
-  lfoHGridSlider.setRange(0.0, 32.0, 1.0); // Direct value range
+  lfoHGridSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 40, 15);
+  lfoHGridSlider.setRange(0.0, numGridValues - 1, 1.0); // Index-based range
   lfoHGridSlider.setValue(0.0);
-  lfoHGridSlider.setSkewFactorFromMidPoint(
-      8.0); // Make lower values easier to select
   lfoHGridSlider.textFromValueFunction = [](double value) {
-    int v = static_cast<int>(value);
-    if (v < 2)
-      return juce::String("0");
-    return juce::String(v);
+    static const int gv[] = {0, 2, 3, 4, 6, 8, 12, 16, 32};
+    int idx = juce::jlimit(0, 8, static_cast<int>(value));
+    return juce::String(gv[idx]);
   };
   lfoHGridSlider.valueFromTextFunction = [](const juce::String &text) {
+    static const int gv[] = {0, 2, 3, 4, 6, 8, 12, 16, 32};
     int val = text.getIntValue();
-    if (val < 2)
-      return 0.0;
-    return static_cast<double>(juce::jlimit(2, 64, val));
+    // Find the closest index
+    for (int i = 0; i < 9; ++i) {
+      if (gv[i] == val)
+        return static_cast<double>(i);
+    }
+    return 0.0;
   };
   lfoHGridSlider.onValueChange = [this]() {
-    int value = static_cast<int>(lfoHGridSlider.getValue());
-    if (value == 1)
-      value = 0; // Treat 1 as off
+    static const int gv[] = {0, 2, 3, 4, 6, 8, 12, 16, 32};
+    int idx = static_cast<int>(lfoHGridSlider.getValue());
+    int value = gv[juce::jlimit(0, 8, idx)];
     if (onLfoHGridChanged) {
       onLfoHGridChanged(value);
     }
@@ -395,26 +423,27 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addAndMakeVisible(lfoVGridLabel);
 
   lfoVGridSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  lfoVGridSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 40, 20);
-  lfoVGridSlider.setRange(0.0, 32.0, 1.0); // Direct value range
+  lfoVGridSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 40, 15);
+  lfoVGridSlider.setRange(0.0, numGridValues - 1, 1.0); // Index-based range
   lfoVGridSlider.setValue(0.0);
-  lfoVGridSlider.setSkewFactorFromMidPoint(8.0);
   lfoVGridSlider.textFromValueFunction = [](double value) {
-    int v = static_cast<int>(value);
-    if (v < 2)
-      return juce::String("0");
-    return juce::String(v);
+    static const int gv[] = {0, 2, 3, 4, 6, 8, 12, 16, 32};
+    int idx = juce::jlimit(0, 8, static_cast<int>(value));
+    return juce::String(gv[idx]);
   };
   lfoVGridSlider.valueFromTextFunction = [](const juce::String &text) {
+    static const int gv[] = {0, 2, 3, 4, 6, 8, 12, 16, 32};
     int val = text.getIntValue();
-    if (val < 2)
-      return 0.0;
-    return static_cast<double>(juce::jlimit(2, 64, val));
+    for (int i = 0; i < 9; ++i) {
+      if (gv[i] == val)
+        return static_cast<double>(i);
+    }
+    return 0.0;
   };
   lfoVGridSlider.onValueChange = [this]() {
-    int value = static_cast<int>(lfoVGridSlider.getValue());
-    if (value == 1)
-      value = 0; // Treat 1 as off
+    static const int gv[] = {0, 2, 3, 4, 6, 8, 12, 16, 32};
+    int idx = static_cast<int>(lfoVGridSlider.getValue());
+    int value = gv[juce::jlimit(0, 8, idx)];
     if (onLfoVGridChanged) {
       onLfoVGridChanged(value);
     }
@@ -432,205 +461,173 @@ void ControlPanel::paint(juce::Graphics &g) {
   g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.1f));
   g.drawRect(getLocalBounds(), 1);
 
-  int rowHeight = 25;
-  int spacing = 5;
-  int margin = 10;
-
   g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.2f));
 
   // Draw separator below parameter selector row (LFO button +
-  // Gain/Delay/Feedback) Top section = margin + LFO row + spacing + param row +
-  // spacing
-  int topSectionEndY = margin + rowHeight + spacing + rowHeight + spacing;
-  g.fillRect(margin, topSectionEndY, getWidth() - margin * 2, 1);
+  // Gain/Delay/Feedback) Top section = UIConstants::kMargin + LFO row + UIConstants::kSpacing + param row
+  // + UIConstants::kSpacing
+  int topSectionEndY = UIConstants::kMargin + UIConstants::kRowHeight + UIConstants::kSpacing + UIConstants::kRowHeight + UIConstants::kSpacing;
+  g.fillRect(UIConstants::kMargin, topSectionEndY, getWidth() - UIConstants::kMargin * 2, 1);
 
   // Draw separator above the bottom section only when not in LFO mode
   // (bottom section is hidden in LFO mode)
   if (!currentLfoMode) {
-    int knobSize = 80;
-    int displayRowHeight = rowHeight + spacing;
-    int knobSectionHeight = 20 + knobSize;
+    int displayRowHeight = UIConstants::kRowHeight + UIConstants::kSpacing;
+    int knobSectionHeight = UIConstants::kLabelHeight + UIConstants::kSmallKnobSize;
 
-    int bottomSectionStartY = getHeight() - margin - displayRowHeight - margin -
-                              knobSectionHeight - spacing;
-    int lineY = bottomSectionStartY - (margin / 2);
-    g.fillRect(margin, lineY, getWidth() - margin * 2, 1);
+    int bottomSectionStartY = getHeight() - UIConstants::kMargin - displayRowHeight -
+                              UIConstants::kMargin - knobSectionHeight - UIConstants::kSpacing;
+    int lineY = bottomSectionStartY - (UIConstants::kMargin / 2);
+    g.fillRect(UIConstants::kMargin, lineY, getWidth() - UIConstants::kMargin * 2, 1);
   }
 }
 
 void ControlPanel::resized() {
-  int rowHeight = 25;
-  int labelWidth = 80;
-  int spacing = 5;
-  int margin = 10;
-  int knobSize = 80; // Size of the rotary knob area
-
   int width = getWidth();
   int height = getHeight();
 
   // ============ BOTTOM SECTION: Fixed at bottom ============
 
-  // Mix and FFT are 20 (Label) + 80 (Knob) + spacing
-  int knobSectionHeight = 20 + knobSize;
+  // Mix and FFT: UIConstants::kLabelHeight + UIConstants::kSmallKnobSize + UIConstants::kSpacing
+  int knobSectionHeight = UIConstants::kLabelHeight + UIConstants::kSmallKnobSize;
 
   // Display row
-  int displayRowHeight = rowHeight + spacing;
+  int displayRowHeight = UIConstants::kRowHeight + UIConstants::kSpacing;
 
-  int bottomY =
-      height - margin - displayRowHeight - margin - knobSectionHeight - spacing;
+  int bottomY = height - UIConstants::kMargin - displayRowHeight - UIConstants::kMargin -
+                knobSectionHeight - UIConstants::kSpacing;
 
-  // --- Display Row ---
-  juce::Rectangle<int> displayRow(margin, bottomY, width - margin * 2,
-                                  rowHeight);
-  displayModeLabel.setBounds(displayRow.removeFromLeft(labelWidth));
-  displayRow.removeFromLeft(spacing);
+  // --- Display Row: Line/Bar and HiRes on the same row ---
+  juce::Rectangle<int> displayRow(UIConstants::kMargin, bottomY, width - UIConstants::kMargin * 2,
+                                  UIConstants::kRowHeight);
   int buttonAreaWidth = displayRow.getWidth();
-  int singleButtonWidth = (buttonAreaWidth - spacing) / 2;
+  int singleButtonWidth = (buttonAreaWidth - UIConstants::kSpacing) / 2;
   displayModeButton.setBounds(displayRow.removeFromLeft(singleButtonWidth));
-  displayRow.removeFromLeft(spacing);
-  spectrumSourceButton.setBounds(displayRow);
+  displayRow.removeFromLeft(UIConstants::kSpacing);
+  hiResButton.setBounds(displayRow);
 
-  bottomY += displayRowHeight + spacing;
-
-  // --- HiRes Button Row ---
-  int hiResButtonWidth = 80;
-  juce::Rectangle<int> hiResRow(margin +
-                                    (width - margin * 2 - hiResButtonWidth) / 2,
-                                bottomY, hiResButtonWidth, rowHeight);
-  hiResButton.setBounds(hiResRow);
-
-  bottomY += rowHeight + spacing;
+  bottomY += displayRowHeight + UIConstants::kSpacing;
 
   // --- Labels Row for FFT and Mix ---
-  juce::Rectangle<int> labelsRow(margin, bottomY, width - margin * 2, 20);
+  juce::Rectangle<int> labelsRow(UIConstants::kMargin, bottomY, width - UIConstants::kMargin * 2,
+                                 UIConstants::kLabelHeight);
 
   // FFT Label (Left half)
   juce::Rectangle<int> fftLabelArea =
-      labelsRow.removeFromLeft((width - margin * 2) / 2);
+      labelsRow.removeFromLeft((width - UIConstants::kMargin * 2) / 2);
   fftSizeLabel.setBounds(fftLabelArea);
 
   // Mix Label (Right half)
   mixLabel.setBounds(labelsRow);
 
-  bottomY += 20;
+  bottomY += UIConstants::kLabelHeight;
 
   // --- Knobs Row for FFT and Mix ---
-  int halfWidth = (width - margin * 2) / 2;
+  int halfWidth = (width - UIConstants::kMargin * 2) / 2;
 
   // FFT Knob (Left Center)
-  fftSizeSelector.setBounds(margin + halfWidth / 2 - knobSize / 2, bottomY,
-                            knobSize, knobSize);
+  fftSizeSelector.setBounds(UIConstants::kMargin + halfWidth / 2 - UIConstants::kSmallKnobSize / 2,
+                            bottomY, UIConstants::kSmallKnobSize, UIConstants::kSmallKnobSize);
 
   // Mix Knob (Right Center)
-  mixSlider.setBounds(margin + halfWidth + halfWidth / 2 - knobSize / 2,
-                      bottomY, knobSize, knobSize);
+  mixSlider.setBounds(UIConstants::kMargin + halfWidth + halfWidth / 2 - UIConstants::kSmallKnobSize / 2,
+                      bottomY, UIConstants::kSmallKnobSize, UIConstants::kSmallKnobSize);
 
-  bottomY += knobSize + margin + spacing;
+  bottomY += UIConstants::kSmallKnobSize + UIConstants::kMargin + UIConstants::kSpacing;
 
   spectrumSourceLabel.setVisible(false);
 
   // ============ TOP SECTION: Auto-arrange from top ============
-  int currentY = margin;
+  int currentY = UIConstants::kMargin;
 
   // Row 1: LFO button
-  juce::Rectangle<int> lfoRow(margin, currentY, width - margin * 2, rowHeight);
+  juce::Rectangle<int> lfoRow(UIConstants::kMargin, currentY, width - UIConstants::kMargin * 2,
+                              UIConstants::kRowHeight);
   lfoButton.setBounds(lfoRow);
-  currentY += rowHeight + spacing;
+  currentY += UIConstants::kRowHeight + UIConstants::kSpacing;
 
   // Row 2: Parameter selector buttons (Gain, Time, Feedback)
-  juce::Rectangle<int> paramRow(margin, currentY, width - margin * 2,
-                                rowHeight);
-  int buttonWidth = (paramRow.getWidth() - spacing * 2) / 3;
+  juce::Rectangle<int> paramRow(UIConstants::kMargin, currentY, width - UIConstants::kMargin * 2,
+                                UIConstants::kRowHeight);
+  int buttonWidth = (paramRow.getWidth() - UIConstants::kSpacing * 2) / 3;
   gainButton.setBounds(paramRow.removeFromLeft(buttonWidth));
-  paramRow.removeFromLeft(spacing);
+  paramRow.removeFromLeft(UIConstants::kSpacing);
   delayButton.setBounds(paramRow.removeFromLeft(buttonWidth));
-  paramRow.removeFromLeft(spacing);
+  paramRow.removeFromLeft(UIConstants::kSpacing);
   feedbackButton.setBounds(paramRow);
-  currentY += rowHeight + spacing;
+  currentY += UIConstants::kRowHeight + UIConstants::kSpacing;
 
-  // Row 3: Mode/Invert row (optional, based on parameter type)
-  if (currentParameterType == 2 && delayModeButton.isVisible()) {
-    juce::Rectangle<int> modeRow(margin, currentY, width - margin * 2,
-                                 rowHeight);
-    delayModeLabel.setBounds(modeRow.removeFromLeft(labelWidth));
-    modeRow.removeFromLeft(spacing);
-    delayModeButton.setBounds(modeRow);
-    currentY += rowHeight + spacing;
-  }
+  // Row 3: Mode row removed (Phase mode removed, always Delay mode)
 
   // Spacer
-  currentY += spacing;
+  currentY += UIConstants::kSpacing;
 
   // ============ MULTIPLY CONTROLS or LFO CONTROLS ============
   if (currentLfoMode) {
     // LFO mode: Time, Amount, Smooth aligned with Gain, Delay, Feedback buttons
-    int smallKnobSize = 65;
-    int textBoxHeight = 20;
-    int knobWithTextHeight = smallKnobSize + textBoxHeight;
+    int knobWithTextHeight = UIConstants::kMediumKnobSize + UIConstants::kTextBoxHeight;
     int lfoRowSpacing = 12;
-    int labelHeight = 20; // Assuming label height is 20px
 
     // Align knob centers with button centers (Each button is 90px wide)
-    int speedX = margin + 45 - (smallKnobSize / 2);
-    int amountX = margin + 90 + 45 - (smallKnobSize / 2);
-    int smoothX = margin + 180 + 45 - (smallKnobSize / 2);
+    int speedX = UIConstants::kMargin + 45 - (UIConstants::kMediumKnobSize / 2);
+    int amountX = UIConstants::kMargin + 90 + 45 - (UIConstants::kMediumKnobSize / 2);
+    int smoothX = UIConstants::kMargin + 180 + 45 - (UIConstants::kMediumKnobSize / 2);
 
     // Labels row
-    lfoSpeedLabel.setBounds(speedX, currentY, smallKnobSize, labelHeight);
-    lfoAmountLabel.setBounds(amountX, currentY, smallKnobSize, labelHeight);
-    lfoSmoothLabel.setBounds(smoothX, currentY, smallKnobSize, labelHeight);
+    lfoSpeedLabel.setBounds(speedX, currentY, UIConstants::kMediumKnobSize, UIConstants::kLabelHeight);
+    lfoAmountLabel.setBounds(amountX, currentY, UIConstants::kMediumKnobSize, UIConstants::kLabelHeight);
+    lfoSmoothLabel.setBounds(smoothX, currentY, UIConstants::kMediumKnobSize, UIConstants::kLabelHeight);
 
-    currentY += labelHeight + 2;
+    currentY += UIConstants::kLabelHeight + 2;
 
     // Knobs row
-    lfoSpeedSlider.setBounds(speedX, currentY, smallKnobSize,
+    lfoSpeedSlider.setBounds(speedX, currentY, UIConstants::kMediumKnobSize,
                              knobWithTextHeight);
-    lfoAmountSlider.setBounds(amountX, currentY, smallKnobSize,
+    lfoAmountSlider.setBounds(amountX, currentY, UIConstants::kMediumKnobSize,
                               knobWithTextHeight);
-    lfoSmoothSlider.setBounds(smoothX, currentY, smallKnobSize,
+    lfoSmoothSlider.setBounds(smoothX, currentY, UIConstants::kMediumKnobSize,
                               knobWithTextHeight);
 
     currentY += knobWithTextHeight + (lfoRowSpacing / 2);
 
     // Row 4: LFO Mode options (Time/Beat and Sync)
-    juce::Rectangle<int> lfoOptionsRow(margin, currentY, width - margin * 2,
-                                       rowHeight);
-    int optionButtonWidth = (lfoOptionsRow.getWidth() - spacing) / 2;
+    juce::Rectangle<int> lfoOptionsRow(UIConstants::kMargin, currentY, width - UIConstants::kMargin * 2,
+                                       UIConstants::kRowHeight);
+    int optionButtonWidth = (lfoOptionsRow.getWidth() - UIConstants::kSpacing) / 2;
     lfoBeatModeButton.setBounds(
         lfoOptionsRow.removeFromLeft(optionButtonWidth));
-    lfoOptionsRow.removeFromLeft(spacing);
+    lfoOptionsRow.removeFromLeft(UIConstants::kSpacing);
     lfoSyncButton.setBounds(lfoOptionsRow);
 
-    currentY += rowHeight + (lfoRowSpacing / 2);
+    currentY += UIConstants::kRowHeight + (lfoRowSpacing / 2);
 
     // Row 5: Grid controls (H Grid and V Grid)
-    int gridKnobSize = 55;
-    int gridLabelHeight = 18;
-    int gridKnobWithTextHeight = gridKnobSize + 20; // knob + text box
+    int gridKnobWithTextHeight = UIConstants::kSmallKnobSize + UIConstants::kTextBoxHeight;
 
     // Center the two grid knobs in the available width
-    int totalGridWidth = gridKnobSize * 2 + spacing * 4;
-    int gridStartX = margin + (width - margin * 2 - totalGridWidth) / 2;
+    int totalGridWidth = UIConstants::kSmallKnobSize * 2 + UIConstants::kSpacing * 4;
+    int gridStartX = UIConstants::kMargin + (width - UIConstants::kMargin * 2 - totalGridWidth) / 2;
     int hGridX = gridStartX;
-    int vGridX = gridStartX + gridKnobSize + spacing * 4;
+    int vGridX = gridStartX + UIConstants::kSmallKnobSize + UIConstants::kSpacing * 4;
 
     // Labels
-    lfoHGridLabel.setBounds(hGridX, currentY, gridKnobSize, gridLabelHeight);
-    lfoVGridLabel.setBounds(vGridX, currentY, gridKnobSize, gridLabelHeight);
+    lfoHGridLabel.setBounds(hGridX, currentY, UIConstants::kSmallKnobSize, UIConstants::kLabelHeight);
+    lfoVGridLabel.setBounds(vGridX, currentY, UIConstants::kSmallKnobSize, UIConstants::kLabelHeight);
 
-    currentY += gridLabelHeight + 2;
+    currentY += UIConstants::kLabelHeight + 2;
 
     // Knobs
-    lfoHGridSlider.setBounds(hGridX, currentY, gridKnobSize,
+    lfoHGridSlider.setBounds(hGridX, currentY, UIConstants::kSmallKnobSize,
                              gridKnobWithTextHeight);
-    lfoVGridSlider.setBounds(vGridX, currentY, gridKnobSize,
+    lfoVGridSlider.setBounds(vGridX, currentY, UIConstants::kSmallKnobSize,
                              gridKnobWithTextHeight);
 
     currentY += gridKnobWithTextHeight + (lfoRowSpacing / 2);
   } else { // Normal mode: show Multiply knob (CENTERED)
 
     // Multiply label
-    juce::Rectangle<int> multLabelRow(margin, currentY, width - margin * 2, 20);
+    juce::Rectangle<int> multLabelRow(UIConstants::kMargin, currentY, width - UIConstants::kMargin * 2,
+                                      UIConstants::kLabelHeight);
 
     if (currentParameterType == 0)
       gainMultLabel.setBounds(multLabelRow);
@@ -639,45 +636,49 @@ void ControlPanel::resized() {
     else if (currentParameterType == 2)
       delayMultLabel.setBounds(multLabelRow);
 
-    currentY += 20; // Label height
+    currentY += UIConstants::kLabelHeight;
 
     // Multiply knob
-    juce::Rectangle<int> knobRow(margin, currentY, width - margin * 2,
-                                 knobSize);
-    int knobX = (width - knobSize) / 2; // Center X
+    juce::Rectangle<int> knobRow(UIConstants::kMargin, currentY, width - UIConstants::kMargin * 2,
+                                 UIConstants::kLargeKnobSize);
+    int knobX = (width - UIConstants::kLargeKnobSize) / 2; // Center X
 
-    if (currentParameterType == 0)
-      gainMultSlider.setBounds(knobX, currentY, knobSize, knobSize);
-    else if (currentParameterType == 1)
-      feedbackMultSlider.setBounds(knobX, currentY, knobSize, knobSize);
+    if (currentParameterType == 0) {
+      gainMultSlider.setBounds(knobX, currentY, UIConstants::kLargeKnobSize, UIConstants::kLargeKnobSize);
+      // Pre/Post button to the right of the knob
+      int buttonX = knobX + UIConstants::kLargeKnobSize + 10;
+      int buttonY = currentY + (UIConstants::kLargeKnobSize - UIConstants::kRowHeight) / 2;
+      gainPostButton.setBounds(buttonX, buttonY, UIConstants::kSmallKnobSize, UIConstants::kRowHeight);
+    } else if (currentParameterType == 1)
+      feedbackMultSlider.setBounds(knobX, currentY, UIConstants::kLargeKnobSize,
+                                   UIConstants::kLargeKnobSize);
     else if (currentParameterType == 2)
-      delayMultSlider.setBounds(knobX, currentY, knobSize, knobSize);
+      delayMultSlider.setBounds(knobX, currentY, UIConstants::kLargeKnobSize,
+                                UIConstants::kLargeKnobSize);
 
-    currentY += knobSize;
+    currentY += UIConstants::kLargeKnobSize;
 
     // Stereo controls row (only for Time/Delay parameter)
     if (currentParameterType == 2 && stereoSlider.isVisible()) {
-      int smallKnobSize = 65;
-      int textBoxHeight = 20;
-      int knobWithTextHeight = smallKnobSize + textBoxHeight;
-      int labelHeight = 20;
+      int knobWithTextHeight = UIConstants::kSmallKnobSize + UIConstants::kTextBoxHeight;
 
-      currentY += spacing;
+      currentY += UIConstants::kSpacing;
 
       // Two knobs side by side: Stereo and Low Cut
-      int stereoX = margin + (width - margin * 2) / 4 - smallKnobSize / 2;
-      int lowCutX = margin + 3 * (width - margin * 2) / 4 - smallKnobSize / 2;
+      int stereoX = UIConstants::kMargin + (width - UIConstants::kMargin * 2) / 4 - UIConstants::kSmallKnobSize / 2;
+      int lowCutX =
+          UIConstants::kMargin + 3 * (width - UIConstants::kMargin * 2) / 4 - UIConstants::kSmallKnobSize / 2;
 
       // Labels
-      stereoLabel.setBounds(stereoX, currentY, smallKnobSize, labelHeight);
-      stereoLowCutLabel.setBounds(lowCutX, currentY, smallKnobSize,
-                                  labelHeight);
-      currentY += labelHeight + 2;
+      stereoLabel.setBounds(stereoX, currentY, UIConstants::kSmallKnobSize, UIConstants::kLabelHeight);
+      stereoLowCutLabel.setBounds(lowCutX, currentY, UIConstants::kSmallKnobSize,
+                                  UIConstants::kLabelHeight);
+      currentY += UIConstants::kLabelHeight + 2;
 
       // Knobs
-      stereoSlider.setBounds(stereoX, currentY, smallKnobSize,
+      stereoSlider.setBounds(stereoX, currentY, UIConstants::kSmallKnobSize,
                              knobWithTextHeight);
-      stereoLowCutSlider.setBounds(lowCutX, currentY, smallKnobSize,
+      stereoLowCutSlider.setBounds(lowCutX, currentY, UIConstants::kSmallKnobSize,
                                    knobWithTextHeight);
       currentY += knobWithTextHeight;
     }
@@ -720,6 +721,7 @@ void ControlPanel::selectParameter(int paramType) {
   gainMultLabel.setVisible(showGainControls);
   gainMultSlider.setVisible(showGainControls);
   gainMaxLabel.setVisible(showGainControls);
+  gainPostButton.setVisible(showGainControls);
 
   // Show/hide delay multiply control (only when Delay mode is active, not
   // Phase)
@@ -759,9 +761,10 @@ void ControlPanel::selectParameter(int paramType) {
   fftSizeSelector.setVisible(showBottomSection);
   mixLabel.setVisible(showBottomSection);
   mixSlider.setVisible(showBottomSection);
-  displayModeLabel.setVisible(showBottomSection);
+  displayModeLabel.setVisible(false); // Always hidden
   displayModeButton.setVisible(showBottomSection);
-  spectrumSourceButton.setVisible(showBottomSection);
+  spectrumSourceButton.setVisible(false); // Always hidden, default to Output
+  hiResButton.setVisible(showBottomSection);
 
   updateMaxLabels(); // Update MAX label values
   resized();         // Update layout
@@ -814,33 +817,37 @@ void ControlPanel::setLfoMode(bool isLfoMode) {
 }
 
 void ControlPanel::updateLfoControls(float amount, float speedOrIndex,
-                                     float smoothMs, bool isBeat,
+                                     float smoothMs, SyncMode mode,
                                      bool isSynced) {
   lfoAmountSlider.setValue(amount, juce::dontSendNotification);
   lfoSmoothSlider.setValue(smoothMs, juce::dontSendNotification);
 
   // Update mode buttons
-  lfoBeatModeButton.setToggleState(isBeat, juce::dontSendNotification);
-  lfoBeatModeButton.setButtonText(isBeat ? "Beat" : "Time");
+  lfoBeatModeButton.setButtonText(getSyncModeString(mode));
   lfoSyncButton.setToggleState(isSynced, juce::dontSendNotification);
   lfoSyncButton.setButtonText(isSynced ? "Sync On" : "Sync Off");
 
   // Update speed slider range and value based on mode
-  updateLfoSpeedSliderSettings(isBeat);
+  updateLfoSpeedSliderSettings(mode);
   lfoSpeedSlider.setValue(speedOrIndex, juce::dontSendNotification);
 }
 
-void ControlPanel::updateLfoSpeedSliderSettings(bool beatMode) {
-  if (beatMode) {
+void ControlPanel::setGainPostMode(bool post) {
+  gainPostButton.setToggleState(post, juce::dontSendNotification);
+  gainPostButton.setButtonText(post ? "Post" : "Pre");
+}
+
+void ControlPanel::updateLfoSpeedSliderSettings(SyncMode mode) {
+  if (mode != SyncMode::Time) {
     lfoSpeedSlider.setRange(0.0, 8.0,
                             1.0); // Integer steps for beat subdivisions
     lfoSpeedSlider.setTextValueSuffix("");
-    lfoSpeedSlider.textFromValueFunction = [](double value) {
-      return LFOEngine::getBeatString(static_cast<int>(value));
+    lfoSpeedSlider.textFromValueFunction = [mode](double value) {
+      return LFOEngine::getBeatString(static_cast<int>(value), mode);
     };
-    lfoSpeedSlider.valueFromTextFunction = [](const juce::String &text) {
+    lfoSpeedSlider.valueFromTextFunction = [mode](const juce::String &text) {
       for (int i = 0; i < 9; ++i) {
-        if (LFOEngine::getBeatString(i) == text)
+        if (LFOEngine::getBeatString(i, mode) == text)
           return static_cast<double>(i);
       }
       return 0.0;
@@ -851,4 +858,18 @@ void ControlPanel::updateLfoSpeedSliderSettings(bool beatMode) {
     lfoSpeedSlider.textFromValueFunction = nullptr; // Use default
     lfoSpeedSlider.valueFromTextFunction = nullptr;
   }
+}
+
+juce::String ControlPanel::getSyncModeString(SyncMode mode) {
+  switch (mode) {
+  case SyncMode::Time:
+    return "Time";
+  case SyncMode::Note:
+    return "Note";
+  case SyncMode::Triplet:
+    return "Triplet";
+  case SyncMode::Dotted:
+    return "Dotted";
+  }
+  return "Time";
 }

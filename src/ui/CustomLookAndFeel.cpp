@@ -1,4 +1,5 @@
 #include "CustomLookAndFeel.h"
+#include "UIConstants.h"
 
 //==============================================================================
 CustomLookAndFeel::CustomLookAndFeel() {
@@ -192,7 +193,7 @@ void CustomLookAndFeel::drawButtonText(juce::Graphics &g,
                                        juce::TextButton &button,
                                        bool shouldDrawButtonAsHighlighted,
                                        bool shouldDrawButtonAsDown) {
-  auto font = juce::Font(14.0f);
+  auto font = juce::Font(UIConstants::kDefaultFontSize);
   g.setFont(font);
 
   auto textColour = button.getToggleState() ? backgroundDark : textPrimary;
@@ -255,7 +256,7 @@ void CustomLookAndFeel::drawPopupMenuItem(
 
     r.reduce(juce::jmin(5, area.getWidth() / 20), 0);
 
-    auto font = juce::Font(14.0f);
+    auto font = juce::Font(UIConstants::kDefaultFontSize);
     auto maxFontHeight = r.getHeight() / 1.3f;
 
     if (font.getHeight() > maxFontHeight)

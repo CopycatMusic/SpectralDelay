@@ -1,6 +1,8 @@
 #pragma once
 
+#include "../dsp/LFOEngine.h"
 #include "../utils/ParameterCurve.h"
+#include "UIConstants.h"
 #include <functional>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_core/juce_core.h>
@@ -52,8 +54,12 @@ public:
   // Callback when LFO smooth changes (for current parameter)
   std::function<void(int, float)> onLfoSmoothChanged; // (paramType, smoothMs)
 
-  // Callback when LFO beat mode changes
-  std::function<void(int, bool)> onLfoBeatModeChanged; // (paramType, isBeat)
+  // Callback when LFO sync mode changes
+  using SyncMode = LFOEngine::SyncMode;
+  std::function<void(int, SyncMode)> onLfoSyncModeChanged; // (paramType, mode)
+
+  // Callback to get current LFO sync mode
+  std::function<SyncMode(int)> onGetLfoSyncMode; // (paramType)
 
   // Callback when LFO sync changes
   std::function<void(int, bool)> onLfoSyncChanged; // (paramType, isSynced)
@@ -72,18 +78,22 @@ public:
   // Callback when high precision delay mode changes
   std::function<void(bool)> onHighPrecisionDelayChanged;
 
-  // Get currently active LFO mode (false = Free/Time, true = Beat)
-  bool isLfoBeatMode() const { return false; /* Need to store or query */ }
+  // Callback when gain post mode changes
+  std::function<void(bool)> onGainPostModeChanged;
 
-  // Get current delay mode (false = Phase, true = Delay)
-  bool isDelayMode() const { return currentDelayMode; }
+  // Get currently active LFO sync mode
+  SyncMode getLfoSyncMode() const {
+    if (onGetLfoSyncMode)
+      return onGetLfoSyncMode(currentParameterType);
+    return SyncMode::Time;
+  }
 
-  // Set delay mode UI state (for restoring from saved state)
-  void setDelayMode(bool isDelay) {
-    currentDelayMode = isDelay;
-    // Inverted: toggle off = Delay, toggle on = Phase
-    delayModeButton.setToggleState(!isDelay, juce::dontSendNotification);
-    delayModeButton.setButtonText(isDelay ? "Delay" : "Phase");
+  // Get current delay mode (always Delay mode, Phase mode removed)
+  bool isDelayMode() const { return true; }
+
+  // Set delay mode UI state (no-op, Phase mode removed)
+  void setDelayMode(bool /*isDelay*/) {
+    // Phase mode has been removed, always use Delay mode
   }
 
   // Set high precision delay mode UI state (for restoring from saved state)
@@ -109,6 +119,8 @@ public:
     feedbackInvertButton.setToggleState(invert, juce::dontSendNotification);
   }
 
+  void setGainPostMode(bool post);
+
   // Select parameter type (for restoring from saved state)
   void selectParameter(int paramType);
 
@@ -121,15 +133,20 @@ public:
    * Includes mode-specific updates for the speed slider.
    */
   void updateLfoControls(float amount, float speedOrIndex, float smoothMs,
-                         bool isBeat, bool isSynced);
+                         SyncMode mode, bool isSynced);
 
 private:
+  // Layout constants are now in UIConstants.h
+  // Use UIConstants::kMargin, UIConstants::kSpacing, etc.
+
   void comboBoxChanged(juce::ComboBox *comboBox) override;
   void sliderValueChanged(juce::Slider *slider) override;
   void updateMaxLabels(); // Update MAX value labels based on multiply sliders
 
   // Helper to update LFO speed slider suffix and range
-  void updateLfoSpeedSliderSettings(bool beatMode);
+  void updateLfoSpeedSliderSettings(SyncMode mode);
+
+  juce::String getSyncModeString(SyncMode mode);
 
   // Reference to parameter tree
   juce::AudioProcessorValueTreeState &parameters;
@@ -180,7 +197,8 @@ private:
   // Gain multiply control
   juce::Label gainMultLabel;
   juce::Slider gainMultSlider;
-  juce::Label gainMaxLabel; // Shows "MAX: xxx%"
+  juce::Label gainMaxLabel;               // Shows "MAX: xxx%"
+  juce::TextButton gainPostButton{"Pre"}; // Pre/Post gain mode
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       gainMultAttachment;
 
@@ -218,7 +236,8 @@ private:
   juce::Slider lfoSmoothSlider;
 
   // New LFO mode controls
-  juce::TextButton lfoBeatModeButton{"Time"}; // Switches between Time/Beat
+  juce::TextButton lfoBeatModeButton{
+      "Time"}; // Cycles through Time/Note/Triplet/Dotted
   juce::TextButton lfoSyncButton{"Sync Off"};
 
   // LFO grid controls

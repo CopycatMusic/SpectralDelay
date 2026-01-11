@@ -38,8 +38,9 @@ void LFOEngine::advance(int numSamples) {
     }
 
     float speedInMs = speeds[i];
-    if (isBeatMode[i]) {
-      speedInMs = getBeatDurationMs(static_cast<int>(speeds[i]), currentBpm);
+    if (syncModes[i] != SyncMode::Time) {
+      speedInMs = getBeatDurationMs(static_cast<int>(speeds[i]), currentBpm,
+                                    syncModes[i]);
     }
 
     if (speedInMs > 0.0f) {
@@ -70,7 +71,7 @@ float LFOEngine::getModulationValue(Parameter param) const {
   // If synced, override phase with playhead position
   if (isSynced[idx]) {
     double beatsPerCycle = 1.0;
-    if (isBeatMode[idx]) {
+    if (syncModes[idx] != SyncMode::Time) {
       // In beat mode, the cycle duration is directly related to beats
       static const float subdivisionBeats[] = {
           0.125f, // 1/32
@@ -78,13 +79,19 @@ float LFOEngine::getModulationValue(Parameter param) const {
           0.5f,   // 1/8
           1.0f,   // 1/4
           2.0f,   // 1/2
-          4.0f,   // 1 bar (4 beats)
-          8.0f,   // 2 bars
-          16.0f,  // 4 bars
-          32.0f   // 8 bars
+          4.0f,   // 1
+          8.0f,   // 2
+          16.0f,  // 4
+          32.0f   // 8
       };
       int beatIdx = juce::jlimit(0, 8, static_cast<int>(speeds[idx]));
       beatsPerCycle = subdivisionBeats[beatIdx];
+
+      // Apply Triplet/Dotted multipliers
+      if (syncModes[idx] == SyncMode::Triplet)
+        beatsPerCycle *= (2.0 / 3.0);
+      else if (syncModes[idx] == SyncMode::Dotted)
+        beatsPerCycle *= 1.5;
     } else {
       // In time mode, calculate beats per cycle based on BPM
       float msPerBeat = 60000.0f / static_cast<float>(currentBpm);
@@ -121,8 +128,9 @@ float LFOEngine::getFrameAveragedModulation(Parameter param,
     return 1.0f;
 
   float speedInMs = speeds[idx];
-  if (isBeatMode[idx]) {
-    speedInMs = getBeatDurationMs(static_cast<int>(speeds[idx]), currentBpm);
+  if (syncModes[idx] != SyncMode::Time) {
+    speedInMs = getBeatDurationMs(static_cast<int>(speeds[idx]), currentBpm,
+                                  syncModes[idx]);
   }
 
   if (numSamples <= 0 || speedInMs <= 0.0f)
@@ -141,11 +149,17 @@ float LFOEngine::getFrameAveragedModulation(Parameter param,
     // For synced mode, use the calculated phase at the start of original
     // advance
     double beatsPerCycle = 1.0;
-    if (isBeatMode[idx]) {
+    if (syncModes[idx] != SyncMode::Time) {
       static const float subdivisionBeats[] = {0.125f, 0.25f, 0.5f,  1.0f, 2.0f,
                                                4.0f,   8.0f,  16.0f, 32.0f};
       int beatIdx = juce::jlimit(0, 8, static_cast<int>(speeds[idx]));
       beatsPerCycle = subdivisionBeats[beatIdx];
+
+      // Apply Triplet/Dotted multipliers
+      if (syncModes[idx] == SyncMode::Triplet)
+        beatsPerCycle *= (2.0 / 3.0);
+      else if (syncModes[idx] == SyncMode::Dotted)
+        beatsPerCycle *= 1.5;
     } else {
       float msPerBeat = 60000.0f / static_cast<float>(currentBpm);
       beatsPerCycle = static_cast<double>(speeds[idx] / msPerBeat);
@@ -186,11 +200,17 @@ float LFOEngine::getPhase(Parameter param) const {
   // getModulationValue)
   if (isSynced[idx]) {
     double beatsPerCycle = 1.0;
-    if (isBeatMode[idx]) {
+    if (syncModes[idx] != SyncMode::Time) {
       static const float subdivisionBeats[] = {0.125f, 0.25f, 0.5f,  1.0f, 2.0f,
                                                4.0f,   8.0f,  16.0f, 32.0f};
       int beatIdx = juce::jlimit(0, 8, static_cast<int>(speeds[idx]));
       beatsPerCycle = subdivisionBeats[beatIdx];
+
+      // Apply Triplet/Dotted multipliers
+      if (syncModes[idx] == SyncMode::Triplet)
+        beatsPerCycle *= (2.0 / 3.0);
+      else if (syncModes[idx] == SyncMode::Dotted)
+        beatsPerCycle *= 1.5;
     } else {
       float msPerBeat = 60000.0f / static_cast<float>(currentBpm);
       beatsPerCycle = static_cast<double>(speeds[idx] / msPerBeat);
@@ -224,11 +244,10 @@ float LFOEngine::getAmount(Parameter param) const {
 void LFOEngine::setSpeed(Parameter param, float speedOrIndex) {
   int idx = static_cast<int>(param);
   if (idx >= 0 && idx < kNumParams) {
-    if (isBeatMode[idx])
+    if (syncModes[idx] != SyncMode::Time)
       speeds[idx] = juce::jlimit(0.0f, 8.0f, speedOrIndex);
     else
-      speeds[idx] = juce::jlimit(10.0f, 5000.0f,
-                                 speedOrIndex); // Increased range for time
+      speeds[idx] = juce::jlimit(10.0f, 5000.0f, speedOrIndex);
   }
 }
 
@@ -255,21 +274,21 @@ float LFOEngine::getSmooth(Parameter param) const {
   return smoothMs[idx];
 }
 
-void LFOEngine::setBeatMode(Parameter param, bool isBeat) {
+void LFOEngine::setSyncMode(Parameter param, SyncMode mode) {
   int idx = static_cast<int>(param);
   if (idx >= 0 && idx < kNumParams) {
-    if (isBeatMode[idx] != isBeat) {
-      isBeatMode[idx] = isBeat;
-      // When switching, we might want to convert speeds[idx] but it's easier to
-      // just reset default
-      speeds[idx] = isBeat ? 3.0f : 500.0f; // Default 1/4 or 500ms
+    if (syncModes[idx] != mode) {
+      syncModes[idx] = mode;
+      // When switching, reset default
+      speeds[idx] =
+          (mode == SyncMode::Time) ? 500.0f : 3.0f; // Default 1/4 or 500ms
     }
   }
 }
 
-bool LFOEngine::getBeatMode(Parameter param) const {
+LFOEngine::SyncMode LFOEngine::getSyncMode(Parameter param) const {
   int idx = static_cast<int>(param);
-  return (idx >= 0 && idx < kNumParams) ? isBeatMode[idx] : false;
+  return (idx >= 0 && idx < kNumParams) ? syncModes[idx] : SyncMode::Time;
 }
 
 void LFOEngine::setSynced(Parameter param, bool synced) {
@@ -284,20 +303,34 @@ bool LFOEngine::getSynced(Parameter param) const {
   return (idx >= 0 && idx < kNumParams) ? isSynced[idx] : false;
 }
 
-float LFOEngine::getBeatDurationMs(int beatIndex, double bpm) {
+float LFOEngine::getBeatDurationMs(int beatIndex, double bpm, SyncMode mode) {
   static const float subdivisionBeats[] = {0.125f, 0.25f, 0.5f,  1.0f, 2.0f,
                                            4.0f,   8.0f,  16.0f, 32.0f};
   int idx = juce::jlimit(0, 8, beatIndex);
   float beats = subdivisionBeats[idx];
+
+  // Apply Triplet/Dotted multipliers
+  if (mode == SyncMode::Triplet)
+    beats *= (2.0f / 3.0f);
+  else if (mode == SyncMode::Dotted)
+    beats *= 1.5f;
+
   float msPerBeat = 60000.0f / static_cast<float>(bpm);
   return beats * msPerBeat;
 }
 
-juce::String LFOEngine::getBeatString(int beatIndex) {
+juce::String LFOEngine::getBeatString(int beatIndex, SyncMode mode) {
   static const char *labels[] = {"1/32", "1/16", "1/8", "1/4", "1/2",
                                  "1",    "2",    "4",   "8"};
   int idx = juce::jlimit(0, 8, beatIndex);
-  return labels[idx];
+  juce::String label = labels[idx];
+
+  if (mode == SyncMode::Triplet)
+    label += "T";
+  else if (mode == SyncMode::Dotted)
+    label += ".";
+
+  return label;
 }
 
 void LFOEngine::updateSmoothedModulation(Parameter param, float targetValue,
@@ -338,7 +371,7 @@ void LFOEngine::initializeDefaultCurves() {
     curves[i].setDefaultValue(100.0f);
     smoothedOutputs[i].reset(sampleRate, 0.0);
     smoothedOutputs[i].setCurrentAndTargetValue(1.0f);
-    isBeatMode[i] = false;
+    syncModes[i] = SyncMode::Time;
     isSynced[i] = false;
   }
 }

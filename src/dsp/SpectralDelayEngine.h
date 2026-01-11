@@ -97,6 +97,15 @@ public:
   float getGainMultiplier() const { return gainMultiplier * 100.0f; }
 
   /**
+   * Set gain post mode (false = Pre, true = Post).
+   * Pre: Gain is applied before feedback (only affects input)
+   * Post: Gain is applied after all processing (affects entire output including
+   * feedback)
+   */
+  void setGainPostMode(bool post) { gainPostMode = post; }
+  bool isGainPostMode() const { return gainPostMode.load(); }
+
+  /**
    * Set delay multiplier (0-100%).
    */
   void setDelayMultiplier(float mult) { delayMultiplier = mult / 100.0f; }
@@ -197,6 +206,9 @@ private:
 
   // Gain multiplier (default 100%)
   std::atomic<float> gainMultiplier{1.0f};
+
+  // Gain post mode (false = Pre, true = Post)
+  std::atomic<bool> gainPostMode{false};
 
   // Delay multiplier (default 20%)
   std::atomic<float> delayMultiplier{0.2f};

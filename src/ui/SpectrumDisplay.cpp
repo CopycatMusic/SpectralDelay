@@ -1,5 +1,6 @@
 #include "SpectrumDisplay.h"
 #include "CustomLookAndFeel.h"
+#include "UIConstants.h"
 #include <cmath>
 
 //==============================================================================
@@ -290,7 +291,7 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
 
     // Draw "BYPASSED" text
     g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.5f));
-    g.setFont(juce::Font(16.0f));
+    g.setFont(juce::Font(UIConstants::kDefaultFontSize));
     g.drawText("BYPASSED", bounds, juce::Justification::centred);
   }
 }

@@ -167,9 +167,17 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
           inputMagnitudeSpectrum[static_cast<size_t>(bin)] =
               std::abs(spectrum[bin]) * normFactor;
         }
-        // DSP flow: Gain -> (+Feedback) -> [Phase or Delay] -> Stereo ->
-        // (storeFeedback)
-        applyGainModulation(spectrum, numBins);
+        // DSP flow depends on gain mode:
+        // Pre:  Gain -> (+Feedback) -> [Phase or Delay] -> Stereo ->
+        // storeFeedback Post: (+Feedback) -> [Phase or Delay] -> Stereo ->
+        // storeFeedback -> Gain
+        bool isPostGain = gainPostMode.load();
+
+        // Apply gain only in Pre mode (before feedback)
+        if (!isPostGain) {
+          applyGainModulation(spectrum, numBins);
+        }
+
         applyFeedback(spectrum, numBins, feedbackSpectrumL);
 
         // Apply either Phase rotation or Delay buffer based on mode
@@ -183,6 +191,11 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
         applyStereoWidthChannel(spectrum, numBins, true);
 
         storeFeedback(spectrum, numBins, feedbackSpectrumL);
+
+        // Apply gain in Post mode (after storeFeedback)
+        if (isPostGain) {
+          applyGainModulation(spectrum, numBins);
+        }
       });
 
   auto *rightIn = buffer.getReadPointer(1);
@@ -190,10 +203,15 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
 
   stftProcessorR.process(rightIn, rightOut, numSamples,
                          [this](std::complex<float> *spectrum, int numBins) {
-                           // Captured input magnitude spectrum (shared from L)
-                           // DSP flow: Gain -> (+Feedback) -> [Phase or Delay]
-                           // -> Stereo
-                           applyGainModulation(spectrum, numBins);
+                           // DSP flow depends on gain mode (same as left
+                           // channel)
+                           bool isPostGain = gainPostMode.load();
+
+                           // Apply gain only in Pre mode (before feedback)
+                           if (!isPostGain) {
+                             applyGainModulation(spectrum, numBins);
+                           }
+
                            applyFeedback(spectrum, numBins, feedbackSpectrumR);
 
                            if (useDelayMode) {
@@ -207,6 +225,11 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
                            applyStereoWidthChannel(spectrum, numBins, false);
 
                            storeFeedback(spectrum, numBins, feedbackSpectrumR);
+
+                           // Apply gain in Post mode (after storeFeedback)
+                           if (isPostGain) {
+                             applyGainModulation(spectrum, numBins);
+                           }
                          });
 
   // With STFT disabled, buffer already contains the input signal

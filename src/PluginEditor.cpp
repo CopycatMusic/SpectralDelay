@@ -1,6 +1,7 @@
 #include "PluginEditor.h"
 #include "BinaryData.h"
 #include "PluginProcessor.h"
+#include "ui/UIConstants.h"
 
 //==============================================================================
 CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
@@ -15,14 +16,16 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
 
   // Title labels
   brandLabel.setText("COPYCAT", juce::dontSendNotification);
-  brandLabel.setFont(juce::Font(montserratTypeface).withHeight(32.0f));
+  brandLabel.setFont(
+      juce::Font(montserratTypeface).withHeight(UIConstants::kTitleFontSize));
   brandLabel.setColour(juce::Label::textColourId,
                        CustomLookAndFeel::getTextPrimary());
   brandLabel.setJustificationType(juce::Justification::centredLeft);
   addAndMakeVisible(brandLabel);
 
   titleLabel.setText("SPECTRAL DELAY", juce::dontSendNotification);
-  titleLabel.setFont(juce::Font(montserratTypeface).withHeight(32.0f));
+  titleLabel.setFont(
+      juce::Font(montserratTypeface).withHeight(UIConstants::kTitleFontSize));
   titleLabel.setColour(juce::Label::textColourId,
                        CustomLookAndFeel::getTextPrimary().withAlpha(0.6f));
   titleLabel.setJustificationType(juce::Justification::centredLeft);
@@ -124,13 +127,21 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
     lfoEngine.setSmooth(param, smoothMs);
   };
 
-  // Connect LFO beat mode change
-  controlPanel.onLfoBeatModeChanged = [this](int paramType, bool isBeat) {
+  // Connect LFO sync mode change
+  controlPanel.onLfoSyncModeChanged = [this](int paramType,
+                                             LFOEngine::SyncMode mode) {
     auto &lfoEngine = processorRef.getLfoEngine();
     LFOEngine::Parameter param = static_cast<LFOEngine::Parameter>(paramType);
-    lfoEngine.setBeatMode(param, isBeat);
+    lfoEngine.setSyncMode(param, mode);
     // Mode change might reset speed to a default index/ms, so refresh UI
     updateEditingCurve();
+  };
+
+  // Connect callback to get current LFO sync mode
+  controlPanel.onGetLfoSyncMode = [this](int paramType) {
+    auto &lfoEngine = processorRef.getLfoEngine();
+    LFOEngine::Parameter param = static_cast<LFOEngine::Parameter>(paramType);
+    return lfoEngine.getSyncMode(param);
   };
 
   // Connect LFO sync change
@@ -161,11 +172,17 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
     processorRef.getEngine().setHighPrecisionDelay(enabled);
   };
 
+  // Connect gain post mode
+  controlPanel.onGainPostModeChanged = [this](bool post) {
+    processorRef.getEngine().setGainPostMode(post);
+  };
+
   // Sync UI with current engine state (for restoring saved state)
   controlPanel.setDelayMode(processorRef.getEngine().isDelayMode());
   controlPanel.setFeedbackInvert(processorRef.getEngine().isFeedbackInvert());
   controlPanel.setHighPrecisionDelay(
       processorRef.getEngine().isHighPrecisionDelay());
+  controlPanel.setGainPostMode(processorRef.getEngine().isGainPostMode());
 
   // Restore UI state from Processor (for DAW recall)
   controlPanel.selectParameter(processorRef.getUIParameterType());
@@ -183,8 +200,9 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
   // Set plugin window size (wider for better spectrum display)
   // Enable resizing with constraints
   setResizable(true, true);
-  setResizeLimits(700, 400, 1600, 1000);
-  setSize(950, 450);
+  setResizeLimits(UIConstants::kMinWindowWidth, UIConstants::kMinWindowHeight,
+                  UIConstants::kMaxWindowWidth, UIConstants::kMaxWindowHeight);
+  setSize(UIConstants::kDefaultWindowWidth, UIConstants::kDefaultWindowHeight);
 
   // Start timer for spectrum update (30 Hz)
   startTimerHz(30);
@@ -218,7 +236,7 @@ void CopyCatSpectralDelayEditor::updateEditingCurve() {
     // Update LFO controls with current parameter's values
     controlPanel.updateLfoControls(
         lfoEngine.getAmount(param), lfoEngine.getSpeed(param),
-        lfoEngine.getSmooth(param), lfoEngine.getBeatMode(param),
+        lfoEngine.getSmooth(param), lfoEngine.getSyncMode(param),
         lfoEngine.getSynced(param));
 
   } else {
@@ -295,9 +313,10 @@ void CopyCatSpectralDelayEditor::resized() {
   auto bounds = getLocalBounds();
 
   // Title bar
-  auto titleArea = bounds.removeFromTop(40);
-  auto titleLabelArea =
-      titleArea.removeFromLeft(450).withTrimmedLeft(15).withTrimmedTop(5);
+  auto titleArea = bounds.removeFromTop(UIConstants::kTitleBarHeight);
+  auto titleLabelArea = titleArea.removeFromLeft(UIConstants::kTitleAreaWidth)
+                            .withTrimmedLeft(15)
+                            .withTrimmedTop(5);
 
   // Position brand and title
   int brandWidth = brandLabel.getFont().getStringWidth(brandLabel.getText());
@@ -305,8 +324,8 @@ void CopyCatSpectralDelayEditor::resized() {
       titleLabelArea.removeFromLeft(brandWidth + 8)); // 8px space after COPYCAT
   titleLabel.setBounds(titleLabelArea);
 
-  // Split remaining area: right side is fixed 290px
-  int spectrumWidth = bounds.getWidth() - 290;
+  // Split remaining area: right side is fixed width
+  int spectrumWidth = bounds.getWidth() - UIConstants::kControlPanelWidth;
 
   // Left side: Spectrum display with curve editing
   auto leftArea = bounds.removeFromLeft(spectrumWidth);
