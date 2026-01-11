@@ -1,4 +1,5 @@
 #include "ControlPanel.h"
+#include "../dsp/LFOEngine.h"
 #include "CustomLookAndFeel.h"
 
 //==============================================================================
@@ -138,9 +139,9 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   fftSizeSelector.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   fftSizeSelector.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
-  // Range 0-10 corresponds to 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192,
-  // 16384, 32768
-  fftSizeSelector.setRange(0.0, 10.0, 1.0);
+  // Range 0-9 corresponds to 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192,
+  // 16384
+  fftSizeSelector.setRange(0.0, 9.0, 1.0);
   // Custom text display for FFT sizes
   fftSizeSelector.textFromValueFunction = [](double value) {
     int index = static_cast<int>(value);
@@ -172,7 +173,8 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   // Display mode toggle
   displayModeLabel.setText("Display:", juce::dontSendNotification);
-  displayModeLabel.setJustificationType(juce::Justification::left);
+  displayModeLabel.setJustificationType(juce::Justification::centred);
+
   displayModeLabel.setColour(juce::Label::textColourId,
                              CustomLookAndFeel::getTextPrimary());
   addAndMakeVisible(displayModeLabel);
@@ -220,7 +222,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   lfoAmountLabel.setJustificationType(juce::Justification::centred);
   lfoAmountLabel.setColour(juce::Label::textColourId,
                            CustomLookAndFeel::getTextPrimary());
-  addChildComponent(lfoAmountLabel);
+  addAndMakeVisible(lfoAmountLabel);
 
   lfoAmountSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   lfoAmountSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 20);
@@ -233,14 +235,14 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
                          static_cast<float>(lfoAmountSlider.getValue()));
     }
   };
-  addChildComponent(lfoAmountSlider);
+  addAndMakeVisible(lfoAmountSlider);
 
   // LFO Speed slider (100-2000ms)
   lfoSpeedLabel.setText("Time", juce::dontSendNotification);
   lfoSpeedLabel.setJustificationType(juce::Justification::centred);
   lfoSpeedLabel.setColour(juce::Label::textColourId,
                           CustomLookAndFeel::getTextPrimary());
-  addChildComponent(lfoSpeedLabel);
+  addAndMakeVisible(lfoSpeedLabel);
 
   lfoSpeedSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   lfoSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 20);
@@ -253,14 +255,14 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
                         static_cast<float>(lfoSpeedSlider.getValue()));
     }
   };
-  addChildComponent(lfoSpeedSlider);
+  addAndMakeVisible(lfoSpeedSlider);
 
   // LFO Smooth slider (0-100ms, displayed as 0-100%)
   lfoSmoothLabel.setText("Smooth", juce::dontSendNotification);
   lfoSmoothLabel.setJustificationType(juce::Justification::centred);
   lfoSmoothLabel.setColour(juce::Label::textColourId,
                            CustomLookAndFeel::getTextPrimary());
-  addChildComponent(lfoSmoothLabel);
+  addAndMakeVisible(lfoSmoothLabel);
 
   lfoSmoothSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   lfoSmoothSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 20);
@@ -273,7 +275,102 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
                          static_cast<float>(lfoSmoothSlider.getValue()));
     }
   };
-  addChildComponent(lfoSmoothSlider);
+  addAndMakeVisible(lfoSmoothSlider);
+
+  // LFO Beat/Time toggle button
+  lfoBeatModeButton.setClickingTogglesState(true);
+  lfoBeatModeButton.onClick = [this]() {
+    bool isBeat = lfoBeatModeButton.getToggleState();
+    lfoBeatModeButton.setButtonText(isBeat ? "Beat" : "Time");
+    updateLfoSpeedSliderSettings(isBeat);
+    if (onLfoBeatModeChanged) {
+      onLfoBeatModeChanged(currentParameterType, isBeat);
+    }
+  };
+  addAndMakeVisible(lfoBeatModeButton);
+
+  // LFO Host Sync toggle button
+  lfoSyncButton.setClickingTogglesState(true);
+  lfoSyncButton.onClick = [this]() {
+    bool isSynced = lfoSyncButton.getToggleState();
+    lfoSyncButton.setButtonText(isSynced ? "Sync On" : "Sync Off");
+    if (onLfoSyncChanged) {
+      onLfoSyncChanged(currentParameterType, isSynced);
+    }
+  };
+
+  addAndMakeVisible(lfoSyncButton);
+
+  // LFO H Grid slider (horizontal divisions - Y axis)
+  lfoHGridLabel.setText("H Grid", juce::dontSendNotification);
+  lfoHGridLabel.setJustificationType(juce::Justification::centred);
+  lfoHGridLabel.setColour(juce::Label::textColourId,
+                          CustomLookAndFeel::getTextPrimary());
+  addAndMakeVisible(lfoHGridLabel);
+
+  // Grid values: 0 = off, 2-64 = grid divisions
+  // Slider uses actual values, allowing any value 2-64 to be typed
+  lfoHGridSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+  lfoHGridSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 40, 20);
+  lfoHGridSlider.setRange(0.0, 32.0, 1.0); // Direct value range
+  lfoHGridSlider.setValue(0.0);
+  lfoHGridSlider.setSkewFactorFromMidPoint(
+      8.0); // Make lower values easier to select
+  lfoHGridSlider.textFromValueFunction = [](double value) {
+    int v = static_cast<int>(value);
+    if (v < 2)
+      return juce::String("0");
+    return juce::String(v);
+  };
+  lfoHGridSlider.valueFromTextFunction = [](const juce::String &text) {
+    int val = text.getIntValue();
+    if (val < 2)
+      return 0.0;
+    return static_cast<double>(juce::jlimit(2, 64, val));
+  };
+  lfoHGridSlider.onValueChange = [this]() {
+    int value = static_cast<int>(lfoHGridSlider.getValue());
+    if (value == 1)
+      value = 0; // Treat 1 as off
+    if (onLfoHGridChanged) {
+      onLfoHGridChanged(value);
+    }
+  };
+  addAndMakeVisible(lfoHGridSlider);
+
+  // LFO V Grid slider (vertical divisions - X/time axis)
+  lfoVGridLabel.setText("V Grid", juce::dontSendNotification);
+  lfoVGridLabel.setJustificationType(juce::Justification::centred);
+  lfoVGridLabel.setColour(juce::Label::textColourId,
+                          CustomLookAndFeel::getTextPrimary());
+  addAndMakeVisible(lfoVGridLabel);
+
+  lfoVGridSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+  lfoVGridSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 40, 20);
+  lfoVGridSlider.setRange(0.0, 32.0, 1.0); // Direct value range
+  lfoVGridSlider.setValue(0.0);
+  lfoVGridSlider.setSkewFactorFromMidPoint(8.0);
+  lfoVGridSlider.textFromValueFunction = [](double value) {
+    int v = static_cast<int>(value);
+    if (v < 2)
+      return juce::String("0");
+    return juce::String(v);
+  };
+  lfoVGridSlider.valueFromTextFunction = [](const juce::String &text) {
+    int val = text.getIntValue();
+    if (val < 2)
+      return 0.0;
+    return static_cast<double>(juce::jlimit(2, 64, val));
+  };
+  lfoVGridSlider.onValueChange = [this]() {
+    int value = static_cast<int>(lfoVGridSlider.getValue());
+    if (value == 1)
+      value = 0; // Treat 1 as off
+    if (onLfoVGridChanged) {
+      onLfoVGridChanged(value);
+    }
+  };
+  addAndMakeVisible(lfoVGridSlider);
 }
 
 ControlPanel::~ControlPanel() { mixSlider.removeListener(this); }
@@ -287,27 +384,35 @@ void ControlPanel::paint(juce::Graphics &g) {
   g.drawRect(getLocalBounds(), 1);
 
   int rowHeight = 25;
-  int spacing = 8;
+  int spacing = 5;
   int margin = 10;
-
-  // Bottom section: FFT & Mix (Knob Height) + Display (Row Height)
-  // Mix and FFT are same row now
-  int knobHeight = 90; // Approx height for knob + label + text
-  int globalSectionHeight =
-      knobHeight + (rowHeight + spacing) + (spacing * 2) + margin;
-  int bottomSeparatorY = getHeight() - globalSectionHeight - margin;
 
   g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.2f));
 
-  // Draw separator above bottom section
-  int bottomLineY = bottomSeparatorY + margin;
-  g.fillRect(margin, bottomLineY, getWidth() - margin * 2, 1);
+  // Draw separator below parameter selector row (LFO button +
+  // Gain/Delay/Feedback) Top section = margin + LFO row + spacing + param row +
+  // spacing
+  int topSectionEndY = margin + rowHeight + spacing + rowHeight + spacing;
+  g.fillRect(margin, topSectionEndY, getWidth() - margin * 2, 1);
+
+  // Draw separator above the bottom section only when not in LFO mode
+  // (bottom section is hidden in LFO mode)
+  if (!currentLfoMode) {
+    int knobSize = 80;
+    int displayRowHeight = rowHeight + spacing;
+    int knobSectionHeight = 20 + knobSize;
+
+    int bottomSectionStartY = getHeight() - margin - displayRowHeight - margin -
+                              knobSectionHeight - spacing;
+    int lineY = bottomSectionStartY - (margin / 2);
+    g.fillRect(margin, lineY, getWidth() - margin * 2, 1);
+  }
 }
 
 void ControlPanel::resized() {
   int rowHeight = 25;
   int labelWidth = 80;
-  int spacing = 8;
+  int spacing = 5;
   int margin = 10;
   int knobSize = 80; // Size of the rotary knob area
 
@@ -427,7 +532,43 @@ void ControlPanel::resized() {
     lfoSmoothSlider.setBounds(smoothX, currentY, smallKnobSize,
                               knobWithTextHeight);
 
-    currentY += knobWithTextHeight + lfoRowSpacing;
+    currentY += knobWithTextHeight + (lfoRowSpacing / 2);
+
+    // Row 4: LFO Mode options (Time/Beat and Sync)
+    juce::Rectangle<int> lfoOptionsRow(margin, currentY, width - margin * 2,
+                                       rowHeight);
+    int optionButtonWidth = (lfoOptionsRow.getWidth() - spacing) / 2;
+    lfoBeatModeButton.setBounds(
+        lfoOptionsRow.removeFromLeft(optionButtonWidth));
+    lfoOptionsRow.removeFromLeft(spacing);
+    lfoSyncButton.setBounds(lfoOptionsRow);
+
+    currentY += rowHeight + (lfoRowSpacing / 2);
+
+    // Row 5: Grid controls (H Grid and V Grid)
+    int gridKnobSize = 55;
+    int gridLabelHeight = 18;
+    int gridKnobWithTextHeight = gridKnobSize + 20; // knob + text box
+
+    // Center the two grid knobs in the available width
+    int totalGridWidth = gridKnobSize * 2 + spacing * 4;
+    int gridStartX = margin + (width - margin * 2 - totalGridWidth) / 2;
+    int hGridX = gridStartX;
+    int vGridX = gridStartX + gridKnobSize + spacing * 4;
+
+    // Labels
+    lfoHGridLabel.setBounds(hGridX, currentY, gridKnobSize, gridLabelHeight);
+    lfoVGridLabel.setBounds(vGridX, currentY, gridKnobSize, gridLabelHeight);
+
+    currentY += gridLabelHeight + 2;
+
+    // Knobs
+    lfoHGridSlider.setBounds(hGridX, currentY, gridKnobSize,
+                             gridKnobWithTextHeight);
+    lfoVGridSlider.setBounds(vGridX, currentY, gridKnobSize,
+                             gridKnobWithTextHeight);
+
+    currentY += gridKnobWithTextHeight + (lfoRowSpacing / 2);
   } else { // Normal mode: show Multiply knob (CENTERED)
 
     // Multiply label
@@ -510,6 +651,26 @@ void ControlPanel::selectParameter(int paramType) {
   lfoSmoothLabel.setVisible(currentLfoMode);
   lfoSmoothSlider.setVisible(currentLfoMode);
 
+  // New LFO mode controls
+  lfoBeatModeButton.setVisible(currentLfoMode);
+  lfoSyncButton.setVisible(currentLfoMode);
+
+  // LFO grid controls
+  lfoHGridLabel.setVisible(currentLfoMode);
+  lfoHGridSlider.setVisible(currentLfoMode);
+  lfoVGridLabel.setVisible(currentLfoMode);
+  lfoVGridSlider.setVisible(currentLfoMode);
+
+  // Bottom section controls: hide when in LFO mode
+  bool showBottomSection = !currentLfoMode;
+  fftSizeLabel.setVisible(showBottomSection);
+  fftSizeSelector.setVisible(showBottomSection);
+  mixLabel.setVisible(showBottomSection);
+  mixSlider.setVisible(showBottomSection);
+  displayModeLabel.setVisible(showBottomSection);
+  displayModeButton.setVisible(showBottomSection);
+  spectrumSourceButton.setVisible(showBottomSection);
+
   updateMaxLabels(); // Update MAX label values
   resized();         // Update layout
 
@@ -553,35 +714,49 @@ void ControlPanel::setLfoMode(bool isLfoMode) {
   currentLfoMode = isLfoMode;
   lfoButton.setToggleState(isLfoMode, juce::dontSendNotification);
 
-  // Show/hide LFO controls
-  lfoAmountLabel.setVisible(isLfoMode);
-  lfoAmountSlider.setVisible(isLfoMode);
-  lfoSpeedLabel.setVisible(isLfoMode);
-  lfoSpeedSlider.setVisible(isLfoMode);
-  lfoSmoothLabel.setVisible(isLfoMode);
-  lfoSmoothSlider.setVisible(isLfoMode);
+  // Sync visibility of all components through selectParameter
+  selectParameter(currentParameterType);
 
-  // Hide normal Multiply controls in LFO mode
-  if (isLfoMode) {
-    gainMultLabel.setVisible(false);
-    gainMultSlider.setVisible(false);
-    gainMaxLabel.setVisible(false);
-    feedbackMultLabel.setVisible(false);
-    feedbackMultSlider.setVisible(false);
-    feedbackMaxLabel.setVisible(false);
-    delayMultLabel.setVisible(false);
-    delayMultSlider.setVisible(false);
-    delayMaxLabel.setVisible(false);
-  } else {
-    selectParameter(currentParameterType); // Restore normal visibility
-  }
-
-  resized();
+  // Repaint to update separator line visibility
+  repaint();
 }
 
-void ControlPanel::updateLfoSliders(float amount, float speedMs,
-                                    float smoothMs) {
+void ControlPanel::updateLfoControls(float amount, float speedOrIndex,
+                                     float smoothMs, bool isBeat,
+                                     bool isSynced) {
   lfoAmountSlider.setValue(amount, juce::dontSendNotification);
-  lfoSpeedSlider.setValue(speedMs, juce::dontSendNotification);
   lfoSmoothSlider.setValue(smoothMs, juce::dontSendNotification);
+
+  // Update mode buttons
+  lfoBeatModeButton.setToggleState(isBeat, juce::dontSendNotification);
+  lfoBeatModeButton.setButtonText(isBeat ? "Beat" : "Time");
+  lfoSyncButton.setToggleState(isSynced, juce::dontSendNotification);
+  lfoSyncButton.setButtonText(isSynced ? "Sync On" : "Sync Off");
+
+  // Update speed slider range and value based on mode
+  updateLfoSpeedSliderSettings(isBeat);
+  lfoSpeedSlider.setValue(speedOrIndex, juce::dontSendNotification);
+}
+
+void ControlPanel::updateLfoSpeedSliderSettings(bool beatMode) {
+  if (beatMode) {
+    lfoSpeedSlider.setRange(0.0, 8.0,
+                            1.0); // Integer steps for beat subdivisions
+    lfoSpeedSlider.setTextValueSuffix("");
+    lfoSpeedSlider.textFromValueFunction = [](double value) {
+      return LFOEngine::getBeatString(static_cast<int>(value));
+    };
+    lfoSpeedSlider.valueFromTextFunction = [](const juce::String &text) {
+      for (int i = 0; i < 9; ++i) {
+        if (LFOEngine::getBeatString(i) == text)
+          return static_cast<double>(i);
+      }
+      return 0.0;
+    };
+  } else {
+    lfoSpeedSlider.setRange(10.0, 5000.0, 1.0);
+    lfoSpeedSlider.setTextValueSuffix("ms");
+    lfoSpeedSlider.textFromValueFunction = nullptr; // Use default
+    lfoSpeedSlider.valueFromTextFunction = nullptr;
+  }
 }

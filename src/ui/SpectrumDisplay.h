@@ -117,6 +117,26 @@ public:
   }
 
   /**
+   * Set LFO horizontal grid divisions (Y axis snap).
+   * 0 = no grid, N = divide into N parts with N+1 snap positions.
+   */
+  void setLfoHGrid(int divisions) {
+    lfoHGrid = divisions;
+    if (lfoMode)
+      repaint();
+  }
+
+  /**
+   * Set LFO vertical grid divisions (X axis snap).
+   * 0 = no grid, N = divide into N parts with N+1 snap positions.
+   */
+  void setLfoVGrid(int divisions) {
+    lfoVGrid = divisions;
+    if (lfoMode)
+      repaint();
+  }
+
+  /**
    * Callback when curve points are modified.
    */
   std::function<void()> onCurveModified;
@@ -154,6 +174,9 @@ private:
 
   // Get the graph bounds (excluding axis labels)
   juce::Rectangle<float> getGraphBounds() const;
+
+  // Snap a normalized value (0-1) to grid if grid is enabled
+  float snapToGrid(float value, int divisions) const;
 
   // Spectrum data
   std::vector<float> magnitudeData;
@@ -248,6 +271,10 @@ private:
   float lfoPhase = 0.0f;        // Current LFO position (0.0 to 1.0)
   int currentParameterType = 2; // 0=Gain, 1=Feedback, 2=Time (default Time)
   float lfoModulations[3] = {1.0f, 1.0f, 1.0f}; // Current multipliers
+
+  // LFO grid settings for snap-to-grid
+  int lfoHGrid = 0; // Horizontal grid divisions (Y axis)
+  int lfoVGrid = 0; // Vertical grid divisions (X axis)
 
   // Axis label settings (right side Y-axis)
   juce::String axisUnit = "";

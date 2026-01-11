@@ -3,6 +3,7 @@
 #include "../utils/ParameterCurve.h"
 #include <functional>
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
 //==============================================================================
@@ -51,8 +52,21 @@ public:
   // Callback when LFO smooth changes (for current parameter)
   std::function<void(int, float)> onLfoSmoothChanged; // (paramType, smoothMs)
 
+  // Callback when LFO beat mode changes
+  std::function<void(int, bool)> onLfoBeatModeChanged; // (paramType, isBeat)
+
+  // Callback when LFO sync changes
+  std::function<void(int, bool)> onLfoSyncChanged; // (paramType, isSynced)
+
+  // Callback when LFO grid changes
+  std::function<void(int)> onLfoHGridChanged; // H Grid divisions
+  std::function<void(int)> onLfoVGridChanged; // V Grid divisions
+
   // Callback when feedback multiplier changes
   std::function<void(float)> onFeedbackMultiplierChanged;
+
+  // Get currently active LFO mode (false = Free/Time, true = Beat)
+  bool isLfoBeatMode() const { return false; /* Need to store or query */ }
 
   // Get current delay mode (false = Phase, true = Delay)
   bool isDelayMode() const { return currentDelayMode; }
@@ -89,13 +103,20 @@ public:
   void setLfoMode(bool isLfoMode);
   bool isLfoMode() const { return currentLfoMode; }
 
-  // Update LFO sliders with current values from engine
-  void updateLfoSliders(float amount, float speedMs, float smoothMs);
+  /**
+   * Update LFO controls with current values from engine.
+   * Includes mode-specific updates for the speed slider.
+   */
+  void updateLfoControls(float amount, float speedOrIndex, float smoothMs,
+                         bool isBeat, bool isSynced);
 
 private:
   void comboBoxChanged(juce::ComboBox *comboBox) override;
   void sliderValueChanged(juce::Slider *slider) override;
   void updateMaxLabels(); // Update MAX value labels based on multiply sliders
+
+  // Helper to update LFO speed slider suffix and range
+  void updateLfoSpeedSliderSettings(bool beatMode);
 
   // Reference to parameter tree
   juce::AudioProcessorValueTreeState &parameters;
@@ -173,6 +194,16 @@ private:
   juce::Slider lfoSpeedSlider;
   juce::Label lfoSmoothLabel;
   juce::Slider lfoSmoothSlider;
+
+  // New LFO mode controls
+  juce::TextButton lfoBeatModeButton{"Time"}; // Switches between Time/Beat
+  juce::TextButton lfoSyncButton{"Sync Off"};
+
+  // LFO grid controls
+  juce::Label lfoHGridLabel;
+  juce::Slider lfoHGridSlider;
+  juce::Label lfoVGridLabel;
+  juce::Slider lfoVGridSlider;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ControlPanel)
 };

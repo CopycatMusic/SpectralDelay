@@ -196,10 +196,11 @@ private:
   juce::AudioBuffer<float> dryBuffer;
 
   // Delay lines for dry signal compensation (one per channel)
+  // Max size must match max FFT size (16384) to properly compensate for latency
   juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::None>
-      dryDelayL{8192};
+      dryDelayL{16384};
   juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::None>
-      dryDelayR{8192};
+      dryDelayR{16384};
 
   // Mix parameters
   std::atomic<float> mixAmount{0.5f};

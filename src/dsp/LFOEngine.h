@@ -2,6 +2,7 @@
 
 #include "../utils/ParameterCurve.h"
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_core/juce_core.h>
 
 //==============================================================================
 /**
@@ -83,25 +84,51 @@ public:
   const ParameterCurve &getCurve(Parameter param) const;
 
   /**
-   * Get current sample rate.
+   * Update host timing information.
+   * @param bpm Host tempo in beats per minute
+   * @param ppqPosition Current playhead position in pulses per quarter note
+   * @param isPlaying Whether the host is currently in playback
    */
-  double getSampleRate() const { return sampleRate; }
+  void updateHostInfo(double bpm, double ppqPosition, bool isPlaying);
 
   /**
    * Initialize curves with default values (flat line at 100%).
    */
   void initializeDefaultCurves();
 
+  // Mode setters/getters
+  void setBeatMode(Parameter param, bool isBeat);
+  bool getBeatMode(Parameter param) const;
+
+  void setSynced(Parameter param, bool isSynced);
+  bool getSynced(Parameter param) const;
+
+  /**
+   * Get the duration of a beat subdivision in milliseconds.
+   */
+  static float getBeatDurationMs(int beatIndex, double bpm);
+
+  /**
+   * Get the string representation of a beat subdivision index.
+   */
+  static juce::String getBeatString(int beatIndex);
+
 private:
   static constexpr int kNumParams = static_cast<int>(Parameter::Count);
 
   double sampleRate = 44100.0;
+  double currentBpm = 120.0;
+  double currentPpqPosition = 0.0;
+  bool isPlaying = false;
 
   // Per-parameter LFO state
   float phases[kNumParams] = {0.0f, 0.0f, 0.0f};
   float amounts[kNumParams] = {0.0f, 0.0f, 0.0f};      // Default 0%
   float speeds[kNumParams] = {500.0f, 500.0f, 500.0f}; // Default 500ms
   float smoothMs[kNumParams] = {0.0f, 0.0f, 0.0f}; // Default 0ms (no smooth)
+
+  bool isBeatMode[kNumParams] = {false, false, false};
+  bool isSynced[kNumParams] = {false, false, false};
 
   // Smoothed LFO output values
   mutable juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>

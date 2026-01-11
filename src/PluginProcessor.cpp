@@ -21,12 +21,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout
 CopyCatSpectralDelayProcessor::createParameterLayout() {
   std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-  // FFT Size: indices for 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384,
-  // 32768
+  // FFT Size: indices for 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384
   params.push_back(std::make_unique<juce::AudioParameterChoice>(
       "fftSize", "FFT Size",
       juce::StringArray{"32", "64", "128", "256", "512", "1024", "2048", "4096",
-                        "8192", "16384", "32768"},
+                        "8192", "16384"},
       6)); // Default: 2048 (index 6)
 
   // Mix (dry/wet)
@@ -103,11 +102,12 @@ void CopyCatSpectralDelayProcessor::changeProgramName(
 void CopyCatSpectralDelayProcessor::prepareToPlay(double sampleRate,
                                                   int samplesPerBlock) {
   engine.prepare(sampleRate, samplesPerBlock);
+  lfoEngine.prepare(
+      sampleRate); // Initialize LFO engine with correct sample rate
 
   // Convert FFT size index to actual size
   int fftSizeIndex = static_cast<int>(*fftSizeParam);
-  int fftSizes[] = {32,   64,   128,  256,   512,  1024,
-                    2048, 4096, 8192, 16384, 32768};
+  int fftSizes[] = {32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
   engine.setFFTSize(fftSizes[fftSizeIndex]);
 
   // Set fixed overlap factor (4x)
@@ -164,14 +164,18 @@ void CopyCatSpectralDelayProcessor::processBlock(
   // Check for FFT size changes
   if (fftSizeParam) {
     int fftSizeIndex = static_cast<int>(*fftSizeParam);
-    int fftSizes[] = {32,   64,   128,  256,   512,  1024,
-                      2048, 4096, 8192, 16384, 32768};
+    int fftSizes[] = {32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     engine.setFFTSize(fftSizes[fftSizeIndex]);
   }
 
-  // Prepare LFO engine with sample rate if not already done
-  if (lfoEngine.getSampleRate() != getSampleRate()) {
-    lfoEngine.prepare(getSampleRate());
+  // Update LFO host info
+  if (auto *playHead = getPlayHead()) {
+    if (auto hostInfo = playHead->getPosition()) {
+      double bpm = hostInfo->getBpm().orFallback(120.0);
+      double ppq = hostInfo->getPpqPosition().orFallback(0.0);
+      bool playing = hostInfo->getIsPlaying();
+      lfoEngine.updateHostInfo(bpm, ppq, playing);
+    }
   }
 
   // Advance LFO phases by buffer size
@@ -281,6 +285,10 @@ void CopyCatSpectralDelayProcessor::getStateInformation(
                                         LFOEngine::Parameter::Gain)));
   xml->setAttribute("lfoGainSmooth", static_cast<double>(lfoEngine.getSmooth(
                                          LFOEngine::Parameter::Gain)));
+  xml->setAttribute("lfoGainBeatMode",
+                    lfoEngine.getBeatMode(LFOEngine::Parameter::Gain));
+  xml->setAttribute("lfoGainSynced",
+                    lfoEngine.getSynced(LFOEngine::Parameter::Gain));
   xml->setAttribute(
       "lfoGainCurve",
       lfoEngine.getCurve(LFOEngine::Parameter::Gain).serializePoints());
@@ -294,6 +302,10 @@ void CopyCatSpectralDelayProcessor::getStateInformation(
   xml->setAttribute(
       "lfoFeedbackSmooth",
       static_cast<double>(lfoEngine.getSmooth(LFOEngine::Parameter::Feedback)));
+  xml->setAttribute("lfoFeedbackBeatMode",
+                    lfoEngine.getBeatMode(LFOEngine::Parameter::Feedback));
+  xml->setAttribute("lfoFeedbackSynced",
+                    lfoEngine.getSynced(LFOEngine::Parameter::Feedback));
   xml->setAttribute(
       "lfoFeedbackCurve",
       lfoEngine.getCurve(LFOEngine::Parameter::Feedback).serializePoints());
@@ -305,6 +317,10 @@ void CopyCatSpectralDelayProcessor::getStateInformation(
                                         LFOEngine::Parameter::Time)));
   xml->setAttribute("lfoTimeSmooth", static_cast<double>(lfoEngine.getSmooth(
                                          LFOEngine::Parameter::Time)));
+  xml->setAttribute("lfoTimeBeatMode",
+                    lfoEngine.getBeatMode(LFOEngine::Parameter::Time));
+  xml->setAttribute("lfoTimeSynced",
+                    lfoEngine.getSynced(LFOEngine::Parameter::Time));
   xml->setAttribute(
       "lfoTimeCurve",
       lfoEngine.getCurve(LFOEngine::Parameter::Time).serializePoints());
@@ -387,6 +403,14 @@ void CopyCatSpectralDelayProcessor::setStateInformation(const void *data,
                           static_cast<float>(xmlState->getDoubleAttribute(
                               "lfoGainSmooth", 0.0)));
     }
+    if (xmlState->hasAttribute("lfoGainBeatMode")) {
+      lfoEngine.setBeatMode(LFOEngine::Parameter::Gain,
+                            xmlState->getBoolAttribute("lfoGainBeatMode"));
+    }
+    if (xmlState->hasAttribute("lfoGainSynced")) {
+      lfoEngine.setSynced(LFOEngine::Parameter::Gain,
+                          xmlState->getBoolAttribute("lfoGainSynced"));
+    }
     if (xmlState->hasAttribute("lfoGainCurve")) {
       lfoEngine.getCurve(LFOEngine::Parameter::Gain)
           .deserializePoints(xmlState->getStringAttribute("lfoGainCurve"));
@@ -408,6 +432,14 @@ void CopyCatSpectralDelayProcessor::setStateInformation(const void *data,
                           static_cast<float>(xmlState->getDoubleAttribute(
                               "lfoFeedbackSmooth", 0.0)));
     }
+    if (xmlState->hasAttribute("lfoFeedbackBeatMode")) {
+      lfoEngine.setBeatMode(LFOEngine::Parameter::Feedback,
+                            xmlState->getBoolAttribute("lfoFeedbackBeatMode"));
+    }
+    if (xmlState->hasAttribute("lfoFeedbackSynced")) {
+      lfoEngine.setSynced(LFOEngine::Parameter::Feedback,
+                          xmlState->getBoolAttribute("lfoFeedbackSynced"));
+    }
     if (xmlState->hasAttribute("lfoFeedbackCurve")) {
       lfoEngine.getCurve(LFOEngine::Parameter::Feedback)
           .deserializePoints(xmlState->getStringAttribute("lfoFeedbackCurve"));
@@ -428,6 +460,14 @@ void CopyCatSpectralDelayProcessor::setStateInformation(const void *data,
       lfoEngine.setSmooth(LFOEngine::Parameter::Time,
                           static_cast<float>(xmlState->getDoubleAttribute(
                               "lfoTimeSmooth", 0.0)));
+    }
+    if (xmlState->hasAttribute("lfoTimeBeatMode")) {
+      lfoEngine.setBeatMode(LFOEngine::Parameter::Time,
+                            xmlState->getBoolAttribute("lfoTimeBeatMode"));
+    }
+    if (xmlState->hasAttribute("lfoTimeSynced")) {
+      lfoEngine.setSynced(LFOEngine::Parameter::Time,
+                          xmlState->getBoolAttribute("lfoTimeSynced"));
     }
     if (xmlState->hasAttribute("lfoTimeCurve")) {
       lfoEngine.getCurve(LFOEngine::Parameter::Time)

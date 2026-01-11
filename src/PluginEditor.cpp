@@ -124,6 +124,30 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
     lfoEngine.setSmooth(param, smoothMs);
   };
 
+  // Connect LFO beat mode change
+  controlPanel.onLfoBeatModeChanged = [this](int paramType, bool isBeat) {
+    auto &lfoEngine = processorRef.getLfoEngine();
+    LFOEngine::Parameter param = static_cast<LFOEngine::Parameter>(paramType);
+    lfoEngine.setBeatMode(param, isBeat);
+    // Mode change might reset speed to a default index/ms, so refresh UI
+    updateEditingCurve();
+  };
+
+  // Connect LFO sync change
+  controlPanel.onLfoSyncChanged = [this](int paramType, bool isSynced) {
+    auto &lfoEngine = processorRef.getLfoEngine();
+    LFOEngine::Parameter param = static_cast<LFOEngine::Parameter>(paramType);
+    lfoEngine.setSynced(param, isSynced);
+  };
+
+  // Connect LFO grid controls
+  controlPanel.onLfoHGridChanged = [this](int divisions) {
+    spectrumDisplay.setLfoHGrid(divisions);
+  };
+  controlPanel.onLfoVGridChanged = [this](int divisions) {
+    spectrumDisplay.setLfoVGrid(divisions);
+  };
+
   // Sync UI with current engine state (for restoring saved state)
   controlPanel.setDelayMode(processorRef.getEngine().isDelayMode());
   controlPanel.setFeedbackInvert(processorRef.getEngine().isFeedbackInvert());
@@ -176,10 +200,12 @@ void CopyCatSpectralDelayEditor::updateEditingCurve() {
     spectrumDisplay.setLfoMode(true);
     spectrumDisplay.setTimeMode(controlPanel.isDelayMode());
 
-    // Update LFO sliders with current parameter's values
-    controlPanel.updateLfoSliders(lfoEngine.getAmount(param),
-                                  lfoEngine.getSpeed(param),
-                                  lfoEngine.getSmooth(param));
+    // Update LFO controls with current parameter's values
+    controlPanel.updateLfoControls(
+        lfoEngine.getAmount(param), lfoEngine.getSpeed(param),
+        lfoEngine.getSmooth(param), lfoEngine.getBeatMode(param),
+        lfoEngine.getSynced(param));
+
   } else {
     // Normal mode: edit SpectralDelayEngine curves
     spectrumDisplay.setLfoMode(false);
@@ -313,12 +339,13 @@ void CopyCatSpectralDelayEditor::timerCallback() {
   auto &lfoEngine = processorRef.getLfoEngine();
 
   // Set modulation values for all parameters to enable animation of gray lines
+  // Use smoothed values so the animation matches the actual audio processing
   spectrumDisplay.setLfoModulation(
-      0, lfoEngine.getModulationValue(LFOEngine::Parameter::Gain));
+      0, lfoEngine.getSmoothedModulationValue(LFOEngine::Parameter::Gain));
   spectrumDisplay.setLfoModulation(
-      1, lfoEngine.getModulationValue(LFOEngine::Parameter::Feedback));
+      1, lfoEngine.getSmoothedModulationValue(LFOEngine::Parameter::Feedback));
   spectrumDisplay.setLfoModulation(
-      2, lfoEngine.getModulationValue(LFOEngine::Parameter::Time));
+      2, lfoEngine.getSmoothedModulationValue(LFOEngine::Parameter::Time));
 
   // Update axis label (in case multiply slider changed)
   updateAxisLabel();

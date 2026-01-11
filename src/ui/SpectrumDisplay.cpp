@@ -173,6 +173,31 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
 
   auto graphBounds = getGraphBounds();
 
+  // Draw LFO grid lines when in LFO mode
+  if (lfoMode) {
+    g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.1f));
+
+    // Draw vertical grid lines (V Grid - X axis divisions)
+    if (lfoVGrid > 0) {
+      for (int i = 1; i < lfoVGrid; ++i) {
+        float x = graphBounds.getX() +
+                  (static_cast<float>(i) / static_cast<float>(lfoVGrid)) *
+                      graphBounds.getWidth();
+        g.drawLine(x, graphBounds.getY(), x, graphBounds.getBottom(), 1.0f);
+      }
+    }
+
+    // Draw horizontal grid lines (H Grid - Y axis divisions)
+    if (lfoHGrid > 0) {
+      for (int i = 1; i < lfoHGrid; ++i) {
+        float y = graphBounds.getY() +
+                  (static_cast<float>(i) / static_cast<float>(lfoHGrid)) *
+                      graphBounds.getHeight();
+        g.drawLine(graphBounds.getX(), y, graphBounds.getRight(), y, 1.0f);
+      }
+    }
+  }
+
   // Draw spectrum (only when not in LFO mode)
   if (!lfoMode && currentNumBins > 0 && !magnitudeData.empty()) {
     float binWidth =
@@ -444,6 +469,13 @@ juce::Rectangle<float> SpectrumDisplay::getGraphBounds() const {
   return getLocalBounds().toFloat().reduced(10.0f);
 }
 
+float SpectrumDisplay::snapToGrid(float value, int divisions) const {
+  if (divisions <= 0)
+    return value;
+  float step = 1.0f / static_cast<float>(divisions);
+  return std::round(value / step) * step;
+}
+
 //==============================================================================
 float SpectrumDisplay::frequencyToX(float frequency) const {
   if (lfoMode) {
@@ -534,6 +566,14 @@ void SpectrumDisplay::mouseDown(const juce::MouseEvent &e) {
     normX = juce::jlimit(0.0f, 1.0f, normX);
     normY = juce::jlimit(0.0f, 1.0f, normY);
 
+    // Apply grid snapping in LFO mode
+    if (lfoMode) {
+      if (lfoVGrid > 0)
+        normX = snapToGrid(normX, lfoVGrid);
+      if (lfoHGrid > 0)
+        normY = snapToGrid(normY, lfoHGrid);
+    }
+
     float frequency = xToFrequency(normX);
     float value = yToValue(normY);
 
@@ -569,6 +609,14 @@ void SpectrumDisplay::mouseDrag(const juce::MouseEvent &e) {
 
   normX = juce::jlimit(0.0f, 1.0f, normX);
   normY = juce::jlimit(0.0f, 1.0f, normY);
+
+  // Apply grid snapping in LFO mode
+  if (lfoMode) {
+    if (lfoVGrid > 0)
+      normX = snapToGrid(normX, lfoVGrid);
+    if (lfoHGrid > 0)
+      normY = snapToGrid(normY, lfoHGrid);
+  }
 
   float frequency = xToFrequency(normX);
   float value = yToValue(normY);

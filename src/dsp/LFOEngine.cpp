@@ -19,12 +19,31 @@ void LFOEngine::reset() {
   }
 }
 
+void LFOEngine::updateHostInfo(double bpm, double ppqPosition,
+                               bool currentlyPlaying) {
+  currentBpm = bpm;
+  currentPpqPosition = ppqPosition;
+  isPlaying = currentlyPlaying;
+}
+
 void LFOEngine::advance(int numSamples) {
   for (int i = 0; i < kNumParams; ++i) {
-    if (speeds[i] > 0.0f) {
-      // Calculate phase increment per sample
-      // speed is in ms, so frequency = 1000 / speed Hz
-      float frequency = 1000.0f / speeds[i];
+    // If synced, phase is determined by playhead in getModulationValue
+    // Only advance internal phase when NOT synced, or when synced but host is
+    // playing (for smooth transitions when host starts/stops)
+
+    // Skip internal phase update if synced and host is paused
+    if (isSynced[i] && !isPlaying) {
+      continue;
+    }
+
+    float speedInMs = speeds[i];
+    if (isBeatMode[i]) {
+      speedInMs = getBeatDurationMs(static_cast<int>(speeds[i]), currentBpm);
+    }
+
+    if (speedInMs > 0.0f) {
+      float frequency = 1000.0f / speedInMs;
       float phaseIncrement =
           static_cast<float>(frequency / sampleRate * numSamples);
       phases[i] += phaseIncrement;
@@ -46,9 +65,42 @@ float LFOEngine::getModulationValue(Parameter param) const {
   if (amount <= 0.0f)
     return 1.0f; // No modulation
 
+  float currentPhase = phases[idx];
+
+  // If synced, override phase with playhead position
+  if (isSynced[idx]) {
+    double beatsPerCycle = 1.0;
+    if (isBeatMode[idx]) {
+      // In beat mode, the cycle duration is directly related to beats
+      static const float subdivisionBeats[] = {
+          0.125f, // 1/32
+          0.25f,  // 1/16
+          0.5f,   // 1/8
+          1.0f,   // 1/4
+          2.0f,   // 1/2
+          4.0f,   // 1 bar (4 beats)
+          8.0f,   // 2 bars
+          16.0f,  // 4 bars
+          32.0f   // 8 bars
+      };
+      int beatIdx = juce::jlimit(0, 8, static_cast<int>(speeds[idx]));
+      beatsPerCycle = subdivisionBeats[beatIdx];
+    } else {
+      // In time mode, calculate beats per cycle based on BPM
+      float msPerBeat = 60000.0f / static_cast<float>(currentBpm);
+      beatsPerCycle = static_cast<double>(speeds[idx] / msPerBeat);
+    }
+
+    if (beatsPerCycle > 0.0) {
+      currentPhase = static_cast<float>(
+          std::fmod(currentPpqPosition / beatsPerCycle, 1.0));
+      if (currentPhase < 0)
+        currentPhase += 1.0f;
+    }
+  }
+
   // Get value from curve at current phase position (0-1 range)
-  // LFO curves use normalized X axis (0-1) instead of Hz frequency
-  float curveValue = curves[idx].getValueAtNormalizedPosition(phases[idx]);
+  float curveValue = curves[idx].getValueAtNormalizedPosition(currentPhase);
 
   // Normalize curve value (assuming 0-100 range)
   float normalizedCurve = curveValue / 100.0f;
@@ -57,61 +109,102 @@ float LFOEngine::getModulationValue(Parameter param) const {
   return 1.0f - amount + (amount * normalizedCurve);
 }
 
-float LFOEngine::getPhase(Parameter param) const {
-  int idx = static_cast<int>(param);
-  if (idx < 0 || idx >= kNumParams)
-    return 0.0f;
-  return phases[idx];
-}
-
+// Helper function to get integrated phase average
 float LFOEngine::getFrameAveragedModulation(Parameter param,
                                             int numSamples) const {
   int idx = static_cast<int>(param);
   if (idx < 0 || idx >= kNumParams)
     return 1.0f;
 
-  float amount = amounts[idx] / 100.0f; // Convert to 0-1 range
+  float amount = amounts[idx] / 100.0f;
   if (amount <= 0.0f)
-    return 1.0f; // No modulation
+    return 1.0f;
 
-  if (numSamples <= 0 || speeds[idx] <= 0.0f)
-    return getModulationValue(param); // Fallback to single sample
+  float speedInMs = speeds[idx];
+  if (isBeatMode[idx]) {
+    speedInMs = getBeatDurationMs(static_cast<int>(speeds[idx]), currentBpm);
+  }
+
+  if (numSamples <= 0 || speedInMs <= 0.0f)
+    return getModulationValue(param);
 
   // Calculate phase increment per sample
-  float frequency = 1000.0f / speeds[idx];
+  float frequency = 1000.0f / speedInMs;
   float phaseIncrementPerSample = static_cast<float>(frequency / sampleRate);
 
-  // Determine how many sub-samples to use for integration
-  // Use at least 8 samples but cap at numSamples to avoid excessive computation
-  // More samples = more accurate average but more CPU
   int integrationSamples =
       juce::jmin(numSamples, juce::jmax(8, numSamples / 64));
-
   float sum = 0.0f;
-  float tempPhase = phases[idx];
+
+  float startPhase = phases[idx];
+  if (isSynced[idx]) {
+    // For synced mode, use the calculated phase at the start of original
+    // advance
+    double beatsPerCycle = 1.0;
+    if (isBeatMode[idx]) {
+      static const float subdivisionBeats[] = {0.125f, 0.25f, 0.5f,  1.0f, 2.0f,
+                                               4.0f,   8.0f,  16.0f, 32.0f};
+      int beatIdx = juce::jlimit(0, 8, static_cast<int>(speeds[idx]));
+      beatsPerCycle = subdivisionBeats[beatIdx];
+    } else {
+      float msPerBeat = 60000.0f / static_cast<float>(currentBpm);
+      beatsPerCycle = static_cast<double>(speeds[idx] / msPerBeat);
+    }
+    startPhase =
+        static_cast<float>(std::fmod(currentPpqPosition / beatsPerCycle, 1.0));
+    if (startPhase < 0)
+      startPhase += 1.0f;
+  }
+
   float stepSize =
       static_cast<float>(numSamples) / static_cast<float>(integrationSamples);
 
   for (int i = 0; i < integrationSamples; ++i) {
-    // Calculate phase at this sub-sample point
     int sampleOffset = static_cast<int>(i * stepSize);
-    float samplePhase = tempPhase + phaseIncrementPerSample * sampleOffset;
+    float samplePhase = startPhase + phaseIncrementPerSample * sampleOffset;
 
-    // Wrap phase to [0, 1)
     while (samplePhase >= 1.0f)
       samplePhase -= 1.0f;
 
-    // Get curve value at this phase
     float curveValue =
         curves[idx].getValueAtNormalizedPosition(samplePhase) / 100.0f;
     sum += curveValue;
   }
 
-  // Calculate average
   float averageCurve = sum / static_cast<float>(integrationSamples);
-
-  // Apply amount: blend between 1.0 (no mod) and curve value
   return 1.0f - amount + (amount * averageCurve);
+}
+
+float LFOEngine::getPhase(Parameter param) const {
+  int idx = static_cast<int>(param);
+  if (idx < 0 || idx >= kNumParams)
+    return 0.0f;
+
+  float currentPhase = phases[idx];
+
+  // If synced, calculate phase from playhead position (same logic as
+  // getModulationValue)
+  if (isSynced[idx]) {
+    double beatsPerCycle = 1.0;
+    if (isBeatMode[idx]) {
+      static const float subdivisionBeats[] = {0.125f, 0.25f, 0.5f,  1.0f, 2.0f,
+                                               4.0f,   8.0f,  16.0f, 32.0f};
+      int beatIdx = juce::jlimit(0, 8, static_cast<int>(speeds[idx]));
+      beatsPerCycle = subdivisionBeats[beatIdx];
+    } else {
+      float msPerBeat = 60000.0f / static_cast<float>(currentBpm);
+      beatsPerCycle = static_cast<double>(speeds[idx] / msPerBeat);
+    }
+
+    if (beatsPerCycle > 0.0) {
+      currentPhase = static_cast<float>(
+          std::fmod(currentPpqPosition / beatsPerCycle, 1.0));
+      if (currentPhase < 0)
+        currentPhase += 1.0f;
+    }
+  }
+
+  return currentPhase;
 }
 
 void LFOEngine::setAmount(Parameter param, float amount) {
@@ -128,10 +221,14 @@ float LFOEngine::getAmount(Parameter param) const {
   return amounts[idx];
 }
 
-void LFOEngine::setSpeed(Parameter param, float speedMs) {
+void LFOEngine::setSpeed(Parameter param, float speedOrIndex) {
   int idx = static_cast<int>(param);
   if (idx >= 0 && idx < kNumParams) {
-    speeds[idx] = juce::jlimit(100.0f, 2000.0f, speedMs);
+    if (isBeatMode[idx])
+      speeds[idx] = juce::jlimit(0.0f, 8.0f, speedOrIndex);
+    else
+      speeds[idx] = juce::jlimit(10.0f, 5000.0f,
+                                 speedOrIndex); // Increased range for time
   }
 }
 
@@ -146,7 +243,6 @@ void LFOEngine::setSmooth(Parameter param, float smooth) {
   int idx = static_cast<int>(param);
   if (idx >= 0 && idx < kNumParams) {
     smoothMs[idx] = juce::jlimit(0.0f, 100.0f, smooth);
-    // Update smoother time constant
     float smoothSeconds = smoothMs[idx] / 1000.0f;
     smoothedOutputs[idx].reset(sampleRate, smoothSeconds);
   }
@@ -157,6 +253,51 @@ float LFOEngine::getSmooth(Parameter param) const {
   if (idx < 0 || idx >= kNumParams)
     return 0.0f;
   return smoothMs[idx];
+}
+
+void LFOEngine::setBeatMode(Parameter param, bool isBeat) {
+  int idx = static_cast<int>(param);
+  if (idx >= 0 && idx < kNumParams) {
+    if (isBeatMode[idx] != isBeat) {
+      isBeatMode[idx] = isBeat;
+      // When switching, we might want to convert speeds[idx] but it's easier to
+      // just reset default
+      speeds[idx] = isBeat ? 3.0f : 500.0f; // Default 1/4 or 500ms
+    }
+  }
+}
+
+bool LFOEngine::getBeatMode(Parameter param) const {
+  int idx = static_cast<int>(param);
+  return (idx >= 0 && idx < kNumParams) ? isBeatMode[idx] : false;
+}
+
+void LFOEngine::setSynced(Parameter param, bool synced) {
+  int idx = static_cast<int>(param);
+  if (idx >= 0 && idx < kNumParams) {
+    isSynced[idx] = synced;
+  }
+}
+
+bool LFOEngine::getSynced(Parameter param) const {
+  int idx = static_cast<int>(param);
+  return (idx >= 0 && idx < kNumParams) ? isSynced[idx] : false;
+}
+
+float LFOEngine::getBeatDurationMs(int beatIndex, double bpm) {
+  static const float subdivisionBeats[] = {0.125f, 0.25f, 0.5f,  1.0f, 2.0f,
+                                           4.0f,   8.0f,  16.0f, 32.0f};
+  int idx = juce::jlimit(0, 8, beatIndex);
+  float beats = subdivisionBeats[idx];
+  float msPerBeat = 60000.0f / static_cast<float>(bpm);
+  return beats * msPerBeat;
+}
+
+juce::String LFOEngine::getBeatString(int beatIndex) {
+  static const char *labels[] = {"1/32", "1/16", "1/8", "1/4", "1/2",
+                                 "1",    "2",    "4",   "8"};
+  int idx = juce::jlimit(0, 8, beatIndex);
+  return labels[idx];
 }
 
 void LFOEngine::updateSmoothedModulation(Parameter param, float targetValue,
@@ -192,13 +333,12 @@ const ParameterCurve &LFOEngine::getCurve(Parameter param) const {
 }
 
 void LFOEngine::initializeDefaultCurves() {
-  // Initialize all LFO curves with default value at 100% (top)
-  // No points added - same as normal parameter curves
   for (int i = 0; i < kNumParams; ++i) {
     curves[i].clearPoints();
     curves[i].setDefaultValue(100.0f);
-    // Initialize smoothers with default sample rate and no smoothing
     smoothedOutputs[i].reset(sampleRate, 0.0);
     smoothedOutputs[i].setCurrentAndTargetValue(1.0f);
+    isBeatMode[i] = false;
+    isSynced[i] = false;
   }
 }
