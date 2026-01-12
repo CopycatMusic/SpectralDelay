@@ -141,12 +141,10 @@ private:
 
   void comboBoxChanged(juce::ComboBox *comboBox) override;
   void sliderValueChanged(juce::Slider *slider) override;
-  void updateMaxLabels(); // Update MAX value labels based on multiply sliders
+  juce::String getSyncModeString(SyncMode mode);
 
   // Helper to update LFO speed slider suffix and range
   void updateLfoSpeedSliderSettings(SyncMode mode);
-
-  juce::String getSyncModeString(SyncMode mode);
 
   // Reference to parameter tree
   juce::AudioProcessorValueTreeState &parameters;
@@ -190,14 +188,12 @@ private:
   juce::Label feedbackMultLabel;
   juce::Slider feedbackMultSlider;
   juce::TextButton feedbackInvertButton{"Phase Invert"};
-  juce::Label feedbackMaxLabel; // Shows "MAX: xxx%"
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       feedbackMultAttachment;
 
   // Gain multiply control
   juce::Label gainMultLabel;
   juce::Slider gainMultSlider;
-  juce::Label gainMaxLabel;               // Shows "MAX: xxx%"
   juce::TextButton gainPostButton{"Pre"}; // Pre/Post gain mode
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       gainMultAttachment;
@@ -205,7 +201,6 @@ private:
   // Delay multiply control
   juce::Label delayMultLabel;
   juce::Slider delayMultSlider;
-  juce::Label delayMaxLabel; // Shows "MAX: xxxms"
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       delayMultAttachment;
 

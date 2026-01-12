@@ -124,8 +124,8 @@ private:
 
   // Per-parameter LFO state
   float phases[kNumParams] = {0.0f, 0.0f, 0.0f};
-  float amounts[kNumParams] = {0.0f, 0.0f, 0.0f};      // Default 0%
-  float speeds[kNumParams] = {500.0f, 500.0f, 500.0f}; // Default 500ms
+  float amounts[kNumParams] = {100.0f, 100.0f, 100.0f}; // Default 100%
+  float speeds[kNumParams] = {500.0f, 500.0f, 500.0f};  // Default 500ms
   float smoothMs[kNumParams] = {0.0f, 0.0f, 0.0f}; // Default 0ms (no smooth)
 
   SyncMode syncModes[kNumParams] = {SyncMode::Time, SyncMode::Time,

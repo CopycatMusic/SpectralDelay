@@ -23,14 +23,21 @@ SpectrumDisplay::SpectrumDisplay() {
   clearButton.onClick = [this] {
     if (editingCurve != nullptr) {
       editingCurve->clearPoints();
-      updateClearButtonVisibility();
+      updateLabelsVisibility();
       if (onCurveModified)
         onCurveModified();
       repaint();
     }
   };
 
-  updateClearButtonVisibility();
+  // Set up max value label
+  maxValueLabel.setColour(juce::Label::textColourId,
+                          CustomLookAndFeel::getTextPrimary().withAlpha(0.6f));
+  maxValueLabel.setFont(juce::Font(UIConstants::kDefaultFontSize));
+  maxValueLabel.setJustificationType(juce::Justification::left);
+  addAndMakeVisible(maxValueLabel);
+
+  updateLabelsVisibility();
 }
 
 SpectrumDisplay::~SpectrumDisplay() {}
@@ -131,16 +138,24 @@ void SpectrumDisplay::setEditingCurve(ParameterCurve *curve, float valueMin,
   editingCurve = curve;
   curveValueMin = valueMin;
   curveValueMax = valueMax;
-  updateClearButtonVisibility();
+  updateLabelsVisibility();
   repaint();
 }
 
-void SpectrumDisplay::updateClearButtonVisibility() {
+void SpectrumDisplay::updateLabelsVisibility() {
+  // Clear button is only visible when editing a curve AND there are points
   if (editingCurve == nullptr) {
     clearButton.setVisible(false);
   } else {
     clearButton.setVisible(editingCurve->getNumPoints() > 0);
   }
+
+  // Max value label is visible when NOT in LFO mode
+  maxValueLabel.setVisible(!lfoMode);
+}
+
+void SpectrumDisplay::updateClearButtonVisibility() {
+  updateLabelsVisibility();
 }
 
 void SpectrumDisplay::setBackgroundCurves(ParameterCurve *gain,
@@ -157,6 +172,20 @@ void SpectrumDisplay::setBackgroundCurves(ParameterCurve *gain,
 void SpectrumDisplay::setAxisLabel(const juce::String &unit, float displayMax) {
   axisUnit = unit;
   axisDisplayMax = displayMax;
+
+  // Update max value label text
+  if (unit.isEmpty()) {
+    maxValueLabel.setText("", juce::dontSendNotification);
+  } else {
+    // Round to integer for cleaner display if it's large, otherwise keep 1
+    // decimal
+    juce::String valStr = (displayMax >= 10.0f)
+                              ? juce::String(static_cast<int>(displayMax))
+                              : juce::String(displayMax, 1);
+    maxValueLabel.setText("MAX: " + valStr + " " + unit,
+                          juce::dontSendNotification);
+  }
+
   repaint();
 }
 
@@ -167,10 +196,6 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
   // Background
   g.setColour(backgroundColour);
   g.fillRect(bounds);
-
-  // Border
-  g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.1f));
-  g.drawRect(bounds.reduced(0.5f), 1.0f);
 
   auto graphBounds = getGraphBounds();
 
@@ -284,22 +309,15 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
     g.drawLine(lineX, graphBounds.getY(), lineX, graphBounds.getBottom(), 2.0f);
   }
 
-  // Draw bypass overlay (dim the display when bypassed)
-  if (isBypassed) {
-    g.setColour(CustomLookAndFeel::getBackgroundMedium().withAlpha(0.7f));
-    g.fillRect(bounds);
-
-    // Draw "BYPASSED" text
-    g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.5f));
-    g.setFont(juce::Font(UIConstants::kDefaultFontSize));
-    g.drawText("BYPASSED", bounds, juce::Justification::centred);
-  }
+  // Draw vertical divider line at right edge
+  g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.3f));
+  g.fillRect(getWidth() - 1, 0, 1, getHeight());
 }
 
 void SpectrumDisplay::drawCurve(juce::Graphics &g) {
   // Draw background curves in gray
   juce::Colour ghostColour =
-      CustomLookAndFeel::getTextPrimary().withAlpha(0.5f);
+      CustomLookAndFeel::getTextPrimary().withAlpha(0.6f);
 
   if (lfoMode) {
     // LFO mode: show the gray curve for the currently selected parameter type
@@ -459,8 +477,19 @@ void SpectrumDisplay::drawParameterCurve(juce::Graphics &g,
 
 void SpectrumDisplay::resized() {
   auto graphBounds = getGraphBounds().toNearestInt();
+
   // Position clear button in top-left of the graph area with 2px margin
-  clearButton.setBounds(graphBounds.getX() + 2, graphBounds.getY() + 2, 24, 24);
+  int buttonSize = 24;
+  clearButton.setBounds(graphBounds.getX() + 2, graphBounds.getY() + 2,
+                        buttonSize, buttonSize);
+
+  // Position max value label to the right of the clear button
+  // Allow plenty of width for long labels like "MAX: 2000 ms"
+  int labelWidth = 100;
+  int labelHeight = 20;
+  maxValueLabel.setBounds(clearButton.getRight() + 5,
+                          clearButton.getY() + (buttonSize - labelHeight) / 2,
+                          labelWidth, labelHeight);
 }
 
 //==============================================================================

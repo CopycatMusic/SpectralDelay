@@ -17,19 +17,19 @@ constexpr int kMaxWindowHeight = 1000;
 // ===== Layout =====
 constexpr int kControlPanelWidth = 290;
 constexpr int kTitleBarHeight = 40;
-constexpr int kTitleAreaWidth = 450;
+constexpr int kTitleAreaWidth = 600;
 
 // ===== Margins and Spacing =====
 constexpr int kMargin = 10;
-constexpr int kSpacing = 5;
+constexpr int kSpacing = 8;
 constexpr int kRowHeight = 25;
 constexpr int kLabelHeight = 15;
 constexpr int kTextBoxHeight = 15;
 
 // ===== Knob Sizes (square) =====
-constexpr int kLargeKnobSize = 80;  // Multiply knob
+constexpr int kLargeKnobSize = 90;  // Multiply knob
 constexpr int kMediumKnobSize = 65; // LFO Speed/Amount/Smooth
-constexpr int kSmallKnobSize = 60;  // FFT, Mix, Stereo, LowCut, Grid
+constexpr int kSmallKnobSize = 55;  // FFT, Mix, Stereo, LowCut, Grid
 
 // ===== Font Sizes =====
 constexpr float kTitleFontSize = 32.0f;   // Brand and title labels

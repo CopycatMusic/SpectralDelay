@@ -22,11 +22,11 @@ public:
   // Punch Red
   static juce::Colour getAccentTertiary() { return juce::Colour(0xFFffd93d); }
   // Mustard Yellow
-  static juce::Colour getTextPrimary() { return juce::Colour(0xFFF1FAEE); }
+  static juce::Colour getTextPrimary() { return juce::Colour(0xFFf5f5f5); }
 
   // https://coolors.co/0d1117-161b22-00d4ff-ff6b6b-ffd93d-ffffff
   // new color version
-  // https://coolors.co/0f1c2e-0D1827-0a131f-45D4ED-E63946-ffd93d-f1faee
+  // https://coolors.co/0f1c2e-0D1827-0a131f-45D4ED-E63946-ffd93d-f5f5f5
   // DO NOT CHANGE THIS LINK
 
   // Slider
@@ -61,6 +61,8 @@ public:
                          const juce::String &shortcutKeyText,
                          const juce::Drawable *icon,
                          const juce::Colour *textColour) override;
+
+  juce::Slider::SliderLayout getSliderLayout(juce::Slider &slider) override;
 
 private:
   // Color palette (cached from static getters)

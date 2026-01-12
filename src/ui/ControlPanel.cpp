@@ -39,8 +39,6 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
     bool showDelayMult = currentDelayMode && (currentParameterType == 2);
     delayMultLabel.setVisible(showDelayMult);
     delayMultSlider.setVisible(showDelayMult);
-    delayMaxLabel.setVisible(showDelayMult);
-    updateMaxLabels();
     resized();
 
     if (onDelayModeChanged) {
@@ -68,17 +66,10 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   feedbackMultSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   feedbackMultSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 15);
-  feedbackMultSlider.onValueChange = [this]() { updateMaxLabels(); };
   addChildComponent(feedbackMultSlider);
   feedbackMultAttachment =
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           parameters, "feedbackMult", feedbackMultSlider);
-
-  // Feedback MAX label
-  feedbackMaxLabel.setColour(juce::Label::textColourId,
-                             CustomLookAndFeel::getTextPrimary());
-  feedbackMaxLabel.setJustificationType(juce::Justification::centred);
-  addChildComponent(feedbackMaxLabel);
 
   feedbackInvertButton.setClickingTogglesState(true);
   feedbackInvertButton.onClick = [this]() {
@@ -97,17 +88,10 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   gainMultSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   gainMultSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 15);
-  gainMultSlider.onValueChange = [this]() { updateMaxLabels(); };
   addChildComponent(gainMultSlider);
   gainMultAttachment =
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           parameters, "gainMult", gainMultSlider);
-
-  // Gain MAX label
-  gainMaxLabel.setColour(juce::Label::textColourId,
-                         CustomLookAndFeel::getTextPrimary());
-  gainMaxLabel.setJustificationType(juce::Justification::centred);
-  addChildComponent(gainMaxLabel);
 
   // Gain Pre/Post button - initially hidden
   gainPostButton.setClickingTogglesState(true);
@@ -132,17 +116,10 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   delayMultSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   delayMultSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 15);
-  delayMultSlider.onValueChange = [this]() { updateMaxLabels(); };
   addChildComponent(delayMultSlider);
   delayMultAttachment =
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           parameters, "delayMult", delayMultSlider);
-
-  // Delay MAX label
-  delayMaxLabel.setColour(juce::Label::textColourId,
-                          CustomLookAndFeel::getTextPrimary());
-  delayMaxLabel.setJustificationType(juce::Justification::centred);
-  addChildComponent(delayMaxLabel);
 
   // Stereo width control - only visible for Time/Delay parameter
   stereoLabel.setText("Stereo", juce::dontSendNotification);
@@ -152,7 +129,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addChildComponent(stereoLabel);
 
   stereoSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  stereoSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
+  stereoSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 65, 15);
   stereoSlider.setRange(0.0, 100.0, 1.0);
   stereoSlider.setValue(0.0);
   stereoSlider.setTextValueSuffix("%");
@@ -163,15 +140,15 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   };
   addChildComponent(stereoSlider);
 
-  // Stereo Low Cut control
-  stereoLowCutLabel.setText("Low Cut", juce::dontSendNotification);
+  // Stereo Cutoff control
+  stereoLowCutLabel.setText("Cutoff", juce::dontSendNotification);
   stereoLowCutLabel.setJustificationType(juce::Justification::centred);
   stereoLowCutLabel.setColour(juce::Label::textColourId,
                               CustomLookAndFeel::getTextPrimary());
   addChildComponent(stereoLowCutLabel);
 
   stereoLowCutSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  stereoLowCutSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
+  stereoLowCutSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 65, 15);
   stereoLowCutSlider.setRange(20.0, 500.0, 1.0);
   stereoLowCutSlider.setValue(150.0);
   stereoLowCutSlider.setTextValueSuffix("Hz");
@@ -190,7 +167,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addAndMakeVisible(fftSizeLabel);
 
   fftSizeSelector.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  fftSizeSelector.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 15);
+  fftSizeSelector.setTextBoxStyle(juce::Slider::TextBoxLeft, false, 65, 15);
   // Range 0-9 corresponds to 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192,
   // 16384
   fftSizeSelector.setRange(0.0, 9.0, 1.0);
@@ -216,7 +193,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addAndMakeVisible(mixLabel);
 
   mixSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  mixSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 15);
+  mixSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 65, 15);
   mixSlider.addListener(this);
   addAndMakeVisible(mixSlider);
   mixAttachment =
@@ -387,7 +364,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   static const int numGridValues = 9;
 
   lfoHGridSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  lfoHGridSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 40, 15);
+  lfoHGridSlider.setTextBoxStyle(juce::Slider::TextBoxLeft, false, 65, 15);
   lfoHGridSlider.setRange(0.0, numGridValues - 1, 1.0); // Index-based range
   lfoHGridSlider.setValue(0.0);
   lfoHGridSlider.textFromValueFunction = [](double value) {
@@ -423,7 +400,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addAndMakeVisible(lfoVGridLabel);
 
   lfoVGridSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  lfoVGridSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 40, 15);
+  lfoVGridSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 65, 15);
   lfoVGridSlider.setRange(0.0, numGridValues - 1, 1.0); // Index-based range
   lfoVGridSlider.setValue(0.0);
   lfoVGridSlider.textFromValueFunction = [](double value) {
@@ -457,28 +434,47 @@ ControlPanel::~ControlPanel() { mixSlider.removeListener(this); }
 void ControlPanel::paint(juce::Graphics &g) {
   g.fillAll(CustomLookAndFeel::getBackgroundPanel());
 
-  // Draw border
-  g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.1f));
-  g.drawRect(getLocalBounds(), 1);
-
-  g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.2f));
+  g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.3f));
 
   // Draw separator below parameter selector row (LFO button +
-  // Gain/Delay/Feedback) Top section = UIConstants::kMargin + LFO row + UIConstants::kSpacing + param row
+  // Gain/Delay/Feedback) Top section = UIConstants::kMargin + LFO row +
+  // UIConstants::kSpacing + param row
   // + UIConstants::kSpacing
-  int topSectionEndY = UIConstants::kMargin + UIConstants::kRowHeight + UIConstants::kSpacing + UIConstants::kRowHeight + UIConstants::kSpacing;
-  g.fillRect(UIConstants::kMargin, topSectionEndY, getWidth() - UIConstants::kMargin * 2, 1);
+  int topSectionEndY = UIConstants::kMargin + UIConstants::kRowHeight +
+                       UIConstants::kSpacing + UIConstants::kRowHeight +
+                       UIConstants::kSpacing;
+  g.fillRect(UIConstants::kMargin, topSectionEndY,
+             getWidth() - UIConstants::kMargin * 2, 1);
 
   // Draw separator above the bottom section only when not in LFO mode
   // (bottom section is hidden in LFO mode)
-  if (!currentLfoMode) {
+  {
+    // Must match resized() calculations exactly!
+    int smallKnobSize = UIConstants::kSmallKnobSize; // 55
     int displayRowHeight = UIConstants::kRowHeight + UIConstants::kSpacing;
-    int knobSectionHeight = UIConstants::kLabelHeight + UIConstants::kSmallKnobSize;
 
-    int bottomSectionStartY = getHeight() - UIConstants::kMargin - displayRowHeight -
-                              UIConstants::kMargin - knobSectionHeight - UIConstants::kSpacing;
+    int middleSectionHeight = 0;
+    if (currentParameterType == 2) {
+      // Side-by-side Time mode height
+      // Right side controls: Knob(55) - TextBox is on the side
+      middleSectionHeight = (smallKnobSize + UIConstants::kSpacing) * 2;
+    } else {
+      // Original centered Gain/Feedback mode height
+      middleSectionHeight = UIConstants::kLabelHeight +
+                            UIConstants::kLargeKnobSize +
+                            UIConstants::kTextBoxHeight;
+    }
+
+    // Bottom section: 55px (Label and Value are on the sides)
+    int knobSectionHeight = smallKnobSize;
+
+    // The separator is drawn relative to the bottom section's start
+    int bottomSectionStartY = getHeight() - UIConstants::kMargin -
+                              knobSectionHeight - UIConstants::kSpacing -
+                              displayRowHeight;
     int lineY = bottomSectionStartY - (UIConstants::kMargin / 2);
-    g.fillRect(UIConstants::kMargin, lineY, getWidth() - UIConstants::kMargin * 2, 1);
+    g.fillRect(UIConstants::kMargin, lineY,
+               getWidth() - UIConstants::kMargin * 2, 1);
   }
 }
 
@@ -486,19 +482,18 @@ void ControlPanel::resized() {
   int width = getWidth();
   int height = getHeight();
 
-  // ============ BOTTOM SECTION: Fixed at bottom ============
-
-  // Mix and FFT: UIConstants::kLabelHeight + UIConstants::kSmallKnobSize + UIConstants::kSpacing
-  int knobSectionHeight = UIConstants::kLabelHeight + UIConstants::kSmallKnobSize;
+  // Mix and FFT: 55px height total (Label and TextBox are on the sides)
+  int knobSectionHeight = UIConstants::kSmallKnobSize;
 
   // Display row
   int displayRowHeight = UIConstants::kRowHeight + UIConstants::kSpacing;
 
-  int bottomY = height - UIConstants::kMargin - displayRowHeight - UIConstants::kMargin -
-                knobSectionHeight - UIConstants::kSpacing;
+  int bottomY = height - UIConstants::kMargin - knobSectionHeight -
+                UIConstants::kSpacing - displayRowHeight;
 
   // --- Display Row: Line/Bar and HiRes on the same row ---
-  juce::Rectangle<int> displayRow(UIConstants::kMargin, bottomY, width - UIConstants::kMargin * 2,
+  juce::Rectangle<int> displayRow(UIConstants::kMargin, bottomY,
+                                  width - UIConstants::kMargin * 2,
                                   UIConstants::kRowHeight);
   int buttonAreaWidth = displayRow.getWidth();
   int singleButtonWidth = (buttonAreaWidth - UIConstants::kSpacing) / 2;
@@ -508,32 +503,31 @@ void ControlPanel::resized() {
 
   bottomY += displayRowHeight + UIConstants::kSpacing;
 
-  // --- Labels Row for FFT and Mix ---
-  juce::Rectangle<int> labelsRow(UIConstants::kMargin, bottomY, width - UIConstants::kMargin * 2,
-                                 UIConstants::kLabelHeight);
-
-  // FFT Label (Left half)
-  juce::Rectangle<int> fftLabelArea =
-      labelsRow.removeFromLeft((width - UIConstants::kMargin * 2) / 2);
-  fftSizeLabel.setBounds(fftLabelArea);
-
-  // Mix Label (Right half)
-  mixLabel.setBounds(labelsRow);
-
-  bottomY += UIConstants::kLabelHeight;
-
   // --- Knobs Row for FFT and Mix ---
   int halfWidth = (width - UIConstants::kMargin * 2) / 2;
+  int textBoxWidth = 65;
+  int textGap = 5;
+  int sliderWidthWithText =
+      UIConstants::kSmallKnobSize + textBoxWidth + textGap;
 
-  // FFT Knob (Left Center)
-  fftSizeSelector.setBounds(UIConstants::kMargin + halfWidth / 2 - UIConstants::kSmallKnobSize / 2,
-                            bottomY, UIConstants::kSmallKnobSize, UIConstants::kSmallKnobSize);
+  // FFT Knob (LEFT-WING: Text on Left, Knob on Right)
+  int fftX = UIConstants::kMargin + (halfWidth - sliderWidthWithText) / 2;
+  // LookAndFeel shifts TextBox to 27-42px. We put Label at 12-27px.
+  fftSizeLabel.setBounds(fftX, bottomY + 12, textBoxWidth,
+                         UIConstants::kLabelHeight);
+  fftSizeSelector.setBounds(fftX, bottomY, sliderWidthWithText,
+                            UIConstants::kSmallKnobSize);
 
-  // Mix Knob (Right Center)
-  mixSlider.setBounds(UIConstants::kMargin + halfWidth + halfWidth / 2 - UIConstants::kSmallKnobSize / 2,
-                      bottomY, UIConstants::kSmallKnobSize, UIConstants::kSmallKnobSize);
+  // Mix Knob (RIGHT-WING: Knob on Left, Text on Right)
+  int mixX =
+      UIConstants::kMargin + halfWidth + (halfWidth - sliderWidthWithText) / 2;
+  mixSlider.setBounds(mixX, bottomY, sliderWidthWithText,
+                      UIConstants::kSmallKnobSize);
+  mixLabel.setBounds(mixX + UIConstants::kSmallKnobSize + textGap, bottomY + 12,
+                     textBoxWidth, UIConstants::kLabelHeight);
 
-  bottomY += UIConstants::kSmallKnobSize + UIConstants::kMargin + UIConstants::kSpacing;
+  bottomY += UIConstants::kSmallKnobSize + UIConstants::kMargin +
+             UIConstants::kSpacing;
 
   spectrumSourceLabel.setVisible(false);
 
@@ -541,13 +535,15 @@ void ControlPanel::resized() {
   int currentY = UIConstants::kMargin;
 
   // Row 1: LFO button
-  juce::Rectangle<int> lfoRow(UIConstants::kMargin, currentY, width - UIConstants::kMargin * 2,
+  juce::Rectangle<int> lfoRow(UIConstants::kMargin, currentY,
+                              width - UIConstants::kMargin * 2,
                               UIConstants::kRowHeight);
   lfoButton.setBounds(lfoRow);
   currentY += UIConstants::kRowHeight + UIConstants::kSpacing;
 
   // Row 2: Parameter selector buttons (Gain, Time, Feedback)
-  juce::Rectangle<int> paramRow(UIConstants::kMargin, currentY, width - UIConstants::kMargin * 2,
+  juce::Rectangle<int> paramRow(UIConstants::kMargin, currentY,
+                                width - UIConstants::kMargin * 2,
                                 UIConstants::kRowHeight);
   int buttonWidth = (paramRow.getWidth() - UIConstants::kSpacing * 2) / 3;
   gainButton.setBounds(paramRow.removeFromLeft(buttonWidth));
@@ -565,18 +561,24 @@ void ControlPanel::resized() {
   // ============ MULTIPLY CONTROLS or LFO CONTROLS ============
   if (currentLfoMode) {
     // LFO mode: Time, Amount, Smooth aligned with Gain, Delay, Feedback buttons
-    int knobWithTextHeight = UIConstants::kMediumKnobSize + UIConstants::kTextBoxHeight;
+    int knobWithTextHeight =
+        UIConstants::kMediumKnobSize + UIConstants::kTextBoxHeight;
     int lfoRowSpacing = 12;
 
     // Align knob centers with button centers (Each button is 90px wide)
     int speedX = UIConstants::kMargin + 45 - (UIConstants::kMediumKnobSize / 2);
-    int amountX = UIConstants::kMargin + 90 + 45 - (UIConstants::kMediumKnobSize / 2);
-    int smoothX = UIConstants::kMargin + 180 + 45 - (UIConstants::kMediumKnobSize / 2);
+    int amountX =
+        UIConstants::kMargin + 90 + 45 - (UIConstants::kMediumKnobSize / 2);
+    int smoothX =
+        UIConstants::kMargin + 180 + 45 - (UIConstants::kMediumKnobSize / 2);
 
     // Labels row
-    lfoSpeedLabel.setBounds(speedX, currentY, UIConstants::kMediumKnobSize, UIConstants::kLabelHeight);
-    lfoAmountLabel.setBounds(amountX, currentY, UIConstants::kMediumKnobSize, UIConstants::kLabelHeight);
-    lfoSmoothLabel.setBounds(smoothX, currentY, UIConstants::kMediumKnobSize, UIConstants::kLabelHeight);
+    lfoSpeedLabel.setBounds(speedX, currentY, UIConstants::kMediumKnobSize,
+                            UIConstants::kLabelHeight);
+    lfoAmountLabel.setBounds(amountX, currentY, UIConstants::kMediumKnobSize,
+                             UIConstants::kLabelHeight);
+    lfoSmoothLabel.setBounds(smoothX, currentY, UIConstants::kMediumKnobSize,
+                             UIConstants::kLabelHeight);
 
     currentY += UIConstants::kLabelHeight + 2;
 
@@ -591,9 +593,11 @@ void ControlPanel::resized() {
     currentY += knobWithTextHeight + (lfoRowSpacing / 2);
 
     // Row 4: LFO Mode options (Time/Beat and Sync)
-    juce::Rectangle<int> lfoOptionsRow(UIConstants::kMargin, currentY, width - UIConstants::kMargin * 2,
+    juce::Rectangle<int> lfoOptionsRow(UIConstants::kMargin, currentY,
+                                       width - UIConstants::kMargin * 2,
                                        UIConstants::kRowHeight);
-    int optionButtonWidth = (lfoOptionsRow.getWidth() - UIConstants::kSpacing) / 2;
+    int optionButtonWidth =
+        (lfoOptionsRow.getWidth() - UIConstants::kSpacing) / 2;
     lfoBeatModeButton.setBounds(
         lfoOptionsRow.removeFromLeft(optionButtonWidth));
     lfoOptionsRow.removeFromLeft(UIConstants::kSpacing);
@@ -601,86 +605,137 @@ void ControlPanel::resized() {
 
     currentY += UIConstants::kRowHeight + (lfoRowSpacing / 2);
 
-    // Row 5: Grid controls (H Grid and V Grid)
-    int gridKnobWithTextHeight = UIConstants::kSmallKnobSize + UIConstants::kTextBoxHeight;
+    // Row 5: Grid controls (H Grid and V Grid SYMMETRIC)
+    int textBoxWidth = 65;
+    int textGap = 5;
+    int sliderWidthWithText =
+        UIConstants::kSmallKnobSize + textBoxWidth + textGap;
 
-    // Center the two grid knobs in the available width
-    int totalGridWidth = UIConstants::kSmallKnobSize * 2 + UIConstants::kSpacing * 4;
-    int gridStartX = UIConstants::kMargin + (width - UIConstants::kMargin * 2 - totalGridWidth) / 2;
-    int hGridX = gridStartX;
-    int vGridX = gridStartX + UIConstants::kSmallKnobSize + UIConstants::kSpacing * 4;
+    // Center the two grid units in the available width
+    int halfControlWidth = (width - UIConstants::kMargin * 2) / 2;
 
-    // Labels
-    lfoHGridLabel.setBounds(hGridX, currentY, UIConstants::kSmallKnobSize, UIConstants::kLabelHeight);
-    lfoVGridLabel.setBounds(vGridX, currentY, UIConstants::kSmallKnobSize, UIConstants::kLabelHeight);
+    // H Grid (Left-Wing: Text on Left, Knob on Right)
+    int hGridX =
+        UIConstants::kMargin + (halfControlWidth - sliderWidthWithText) / 2;
+    lfoHGridLabel.setBounds(hGridX, currentY + 12, textBoxWidth,
+                            UIConstants::kLabelHeight);
+    lfoHGridSlider.setBounds(hGridX, currentY, sliderWidthWithText,
+                             UIConstants::kSmallKnobSize);
 
-    currentY += UIConstants::kLabelHeight + 2;
+    // V Grid (Right-Wing: Knob on Left, Text on Right)
+    int vGridX = UIConstants::kMargin + halfControlWidth +
+                 (halfControlWidth - sliderWidthWithText) / 2;
+    lfoVGridSlider.setBounds(vGridX, currentY, sliderWidthWithText,
+                             UIConstants::kSmallKnobSize);
+    lfoVGridLabel.setBounds(vGridX + UIConstants::kSmallKnobSize + textGap,
+                            currentY + 12, textBoxWidth,
+                            UIConstants::kLabelHeight);
 
-    // Knobs
-    lfoHGridSlider.setBounds(hGridX, currentY, UIConstants::kSmallKnobSize,
-                             gridKnobWithTextHeight);
-    lfoVGridSlider.setBounds(vGridX, currentY, UIConstants::kSmallKnobSize,
-                             gridKnobWithTextHeight);
-
-    currentY += gridKnobWithTextHeight + (lfoRowSpacing / 2);
+    currentY += UIConstants::kSmallKnobSize + (lfoRowSpacing / 2);
   } else { // Normal mode: show Multiply knob (CENTERED)
 
-    // Multiply label
-    juce::Rectangle<int> multLabelRow(UIConstants::kMargin, currentY, width - UIConstants::kMargin * 2,
-                                      UIConstants::kLabelHeight);
+    if (currentParameterType == 2 && !currentLfoMode) {
+      // NEW COMPOSITE LAYOUT FOR TIME MODE:
+      // Left side: Large Multiply knob (90px)
+      // Right side: Two stacked small knobs (50px) for Stereo and Cutoff
+      // Textboxes for Stereo/Cutoff are now on the RIGHT.
 
-    if (currentParameterType == 0)
-      gainMultLabel.setBounds(multLabelRow);
-    else if (currentParameterType == 1)
-      feedbackMultLabel.setBounds(multLabelRow);
-    else if (currentParameterType == 2)
-      delayMultLabel.setBounds(multLabelRow);
+      // Composite layout centered vs left/right wing height
+      int compositeHeight =
+          (UIConstants::kSmallKnobSize + UIConstants::kSpacing) * 2;
 
-    currentY += UIConstants::kLabelHeight;
+      int textBoxWidth = 65;
+      int textGap = 5;
+      int sliderWidthWithText =
+          UIConstants::kSmallKnobSize + textBoxWidth + textGap;
 
-    // Multiply knob
-    juce::Rectangle<int> knobRow(UIConstants::kMargin, currentY, width - UIConstants::kMargin * 2,
-                                 UIConstants::kLargeKnobSize);
-    int knobX = (width - UIConstants::kLargeKnobSize) / 2; // Center X
+      int leftAreaWidth =
+          (width - UIConstants::kMargin * 2) * 0.55f; // ~148px for Large knob
+      int rightAreaWidth =
+          (width - UIConstants::kMargin * 2) - leftAreaWidth; // ~122px
 
-    if (currentParameterType == 0) {
-      gainMultSlider.setBounds(knobX, currentY, UIConstants::kLargeKnobSize, UIConstants::kLargeKnobSize);
-      // Pre/Post button to the right of the knob
-      int buttonX = knobX + UIConstants::kLargeKnobSize + 10;
-      int buttonY = currentY + (UIConstants::kLargeKnobSize - UIConstants::kRowHeight) / 2;
-      gainPostButton.setBounds(buttonX, buttonY, UIConstants::kSmallKnobSize, UIConstants::kRowHeight);
-    } else if (currentParameterType == 1)
-      feedbackMultSlider.setBounds(knobX, currentY, UIConstants::kLargeKnobSize,
-                                   UIConstants::kLargeKnobSize);
-    else if (currentParameterType == 2)
-      delayMultSlider.setBounds(knobX, currentY, UIConstants::kLargeKnobSize,
-                                UIConstants::kLargeKnobSize);
+      // LEFT SIDE: Multiply
+      int largeKnobWithTextHeight = UIConstants::kLargeKnobSize +
+                                    UIConstants::kTextBoxHeight; // 90+15=105
+      int largeControlHeight =
+          UIConstants::kLabelHeight + largeKnobWithTextHeight; // 15+105=120
 
-    currentY += UIConstants::kLargeKnobSize;
+      // Vertical centering offset
+      int largeYOffset = (compositeHeight - largeControlHeight) / 2;
 
-    // Stereo controls row (only for Time/Delay parameter)
-    if (currentParameterType == 2 && stereoSlider.isVisible()) {
-      int knobWithTextHeight = UIConstants::kSmallKnobSize + UIConstants::kTextBoxHeight;
+      delayMultLabel.setBounds(UIConstants::kMargin, currentY + largeYOffset,
+                               leftAreaWidth, UIConstants::kLabelHeight);
+      delayMultSlider.setBounds(
+          UIConstants::kMargin +
+              (leftAreaWidth - UIConstants::kLargeKnobSize) / 2,
+          currentY + largeYOffset + UIConstants::kLabelHeight,
+          UIConstants::kLargeKnobSize, largeKnobWithTextHeight);
 
-      currentY += UIConstants::kSpacing;
+      // RIGHT SIDE: Stacked Stereo and Cutoff (Text on Right)
+      int rightX = UIConstants::kMargin + leftAreaWidth;
 
-      // Two knobs side by side: Stereo and Low Cut
-      int stereoX = UIConstants::kMargin + (width - UIConstants::kMargin * 2) / 4 - UIConstants::kSmallKnobSize / 2;
-      int lowCutX =
-          UIConstants::kMargin + 3 * (width - UIConstants::kMargin * 2) / 4 - UIConstants::kSmallKnobSize / 2;
+      // Stereo (TOP)
+      int stereoKnobY = currentY;
+      stereoSlider.setBounds(
+          rightX + (rightAreaWidth - sliderWidthWithText) / 2, stereoKnobY,
+          sliderWidthWithText, UIConstants::kSmallKnobSize);
+      stereoLabel.setBounds(
+          rightX + (rightAreaWidth - sliderWidthWithText) / 2 +
+              UIConstants::kSmallKnobSize + textGap,
+          stereoKnobY + 12, textBoxWidth, UIConstants::kLabelHeight);
 
-      // Labels
-      stereoLabel.setBounds(stereoX, currentY, UIConstants::kSmallKnobSize, UIConstants::kLabelHeight);
-      stereoLowCutLabel.setBounds(lowCutX, currentY, UIConstants::kSmallKnobSize,
-                                  UIConstants::kLabelHeight);
-      currentY += UIConstants::kLabelHeight + 2;
+      // Cutoff (BOTTOM)
+      int cutoffKnobY =
+          stereoKnobY + UIConstants::kSmallKnobSize + UIConstants::kSpacing;
+      stereoLowCutSlider.setBounds(
+          rightX + (rightAreaWidth - sliderWidthWithText) / 2, cutoffKnobY,
+          sliderWidthWithText, UIConstants::kSmallKnobSize);
+      stereoLowCutLabel.setBounds(
+          rightX + (rightAreaWidth - sliderWidthWithText) / 2 +
+              UIConstants::kSmallKnobSize + textGap,
+          cutoffKnobY + 12, textBoxWidth, UIConstants::kLabelHeight);
 
-      // Knobs
-      stereoSlider.setBounds(stereoX, currentY, UIConstants::kSmallKnobSize,
-                             knobWithTextHeight);
-      stereoLowCutSlider.setBounds(lowCutX, currentY, UIConstants::kSmallKnobSize,
-                                   knobWithTextHeight);
-      currentY += knobWithTextHeight;
+      currentY += compositeHeight;
+    } else {
+      // ORIGINAL CENTERED LAYOUT FOR GAIN/FEEDBACK OR LFO MODE
+      // Multiply label
+      juce::Rectangle<int> multLabelRow(UIConstants::kMargin, currentY,
+                                        width - UIConstants::kMargin * 2,
+                                        UIConstants::kLabelHeight);
+
+      if (currentParameterType == 0)
+        gainMultLabel.setBounds(multLabelRow);
+      else if (currentParameterType == 1)
+        feedbackMultLabel.setBounds(multLabelRow);
+      else if (currentParameterType == 2)
+        delayMultLabel.setBounds(multLabelRow);
+
+      currentY += UIConstants::kLabelHeight;
+
+      // Multiply knob
+      int largeKnobWithTextHeight =
+          UIConstants::kLargeKnobSize + UIConstants::kTextBoxHeight;
+      int knobX = (width - UIConstants::kLargeKnobSize) / 2; // Center X
+
+      if (currentParameterType == 0) {
+        gainMultSlider.setBounds(knobX, currentY, UIConstants::kLargeKnobSize,
+                                 largeKnobWithTextHeight);
+        // Pre/Post button
+        int buttonX = knobX + UIConstants::kLargeKnobSize + 10;
+        int buttonY =
+            currentY +
+            (UIConstants::kLargeKnobSize - UIConstants::kRowHeight) / 2;
+        gainPostButton.setBounds(buttonX, buttonY, UIConstants::kSmallKnobSize,
+                                 UIConstants::kRowHeight);
+      } else if (currentParameterType == 1)
+        feedbackMultSlider.setBounds(knobX, currentY,
+                                     UIConstants::kLargeKnobSize,
+                                     largeKnobWithTextHeight);
+      else if (currentParameterType == 2)
+        delayMultSlider.setBounds(knobX, currentY, UIConstants::kLargeKnobSize,
+                                  largeKnobWithTextHeight);
+
+      currentY += largeKnobWithTextHeight;
     }
 
     // MAX label (Below knob) - HIDDEN
@@ -714,13 +769,11 @@ void ControlPanel::selectParameter(int paramType) {
   feedbackMultLabel.setVisible(showFeedbackControls);
   feedbackMultSlider.setVisible(showFeedbackControls);
   feedbackInvertButton.setVisible(false); // Hidden as requested
-  feedbackMaxLabel.setVisible(showFeedbackControls);
 
   // Show/hide gain multiply control (Gain = paramType 0)
   bool showGainControls = (paramType == 0) && !currentLfoMode;
   gainMultLabel.setVisible(showGainControls);
   gainMultSlider.setVisible(showGainControls);
-  gainMaxLabel.setVisible(showGainControls);
   gainPostButton.setVisible(showGainControls);
 
   // Show/hide delay multiply control (only when Delay mode is active, not
@@ -728,7 +781,6 @@ void ControlPanel::selectParameter(int paramType) {
   bool showDelayControls = (paramType == 2) && !currentLfoMode;
   delayMultLabel.setVisible(showDelayControls);
   delayMultSlider.setVisible(showDelayControls);
-  delayMaxLabel.setVisible(showDelayControls);
 
   // Show/hide stereo width controls (only for Time/Delay parameter)
   bool showStereoControls = (paramType == 2) && !currentLfoMode;
@@ -755,8 +807,8 @@ void ControlPanel::selectParameter(int paramType) {
   lfoVGridLabel.setVisible(currentLfoMode);
   lfoVGridSlider.setVisible(currentLfoMode);
 
-  // Bottom section controls: hide when in LFO mode
-  bool showBottomSection = !currentLfoMode;
+  // Bottom section controls: shown in all modes
+  bool showBottomSection = true;
   fftSizeLabel.setVisible(showBottomSection);
   fftSizeSelector.setVisible(showBottomSection);
   mixLabel.setVisible(showBottomSection);
@@ -766,8 +818,7 @@ void ControlPanel::selectParameter(int paramType) {
   spectrumSourceButton.setVisible(false); // Always hidden, default to Output
   hiResButton.setVisible(showBottomSection);
 
-  updateMaxLabels(); // Update MAX label values
-  resized();         // Update layout
+  resized(); // Update layout
 
   if (onParameterTypeChanged) {
     onParameterTypeChanged(currentParameterType);
@@ -780,29 +831,6 @@ void ControlPanel::comboBoxChanged(juce::ComboBox * /*comboBox*/) {
 
 void ControlPanel::sliderValueChanged(juce::Slider * /*slider*/) {
   // Mix slider is auto-attached, no manual handling needed
-}
-
-void ControlPanel::updateMaxLabels() {
-  // Gain: base max 200%, scaled by multiply slider (0-100%)
-  float gainMult = static_cast<float>(gainMultSlider.getValue()) / 100.0f;
-  float gainMax = 200.0f * gainMult;
-  gainMaxLabel.setText("MAX: " + juce::String(static_cast<int>(gainMax)) + "%",
-                       juce::dontSendNotification);
-
-  // Feedback: base max 100%, scaled by multiply slider (0-100%)
-  float feedbackMult =
-      static_cast<float>(feedbackMultSlider.getValue()) / 100.0f;
-  float feedbackMax = 100.0f * feedbackMult;
-  feedbackMaxLabel.setText(
-      "MAX: " + juce::String(static_cast<int>(feedbackMax)) + "%",
-      juce::dontSendNotification);
-
-  // Delay: base max 2000ms, scaled by multiply slider (0-100%)
-  float delayMult = static_cast<float>(delayMultSlider.getValue()) / 100.0f;
-  float delayMax = 2000.0f * delayMult;
-  delayMaxLabel.setText("MAX: " + juce::String(static_cast<int>(delayMax)) +
-                            "ms",
-                        juce::dontSendNotification);
 }
 
 void ControlPanel::setLfoMode(bool isLfoMode) {
@@ -853,10 +881,30 @@ void ControlPanel::updateLfoSpeedSliderSettings(SyncMode mode) {
       return 0.0;
     };
   } else {
-    lfoSpeedSlider.setRange(10.0, 5000.0, 1.0);
-    lfoSpeedSlider.setTextValueSuffix("ms");
-    lfoSpeedSlider.textFromValueFunction = nullptr; // Use default
-    lfoSpeedSlider.valueFromTextFunction = nullptr;
+    // Time mode: 100ms to 10000ms (10s), non-linear with 1000ms (1s) at center
+    lfoSpeedSlider.setRange(100.0, 10000.0, 1.0);
+    lfoSpeedSlider.setSkewFactorFromMidPoint(1000.0); // 1s at center
+    lfoSpeedSlider.setTextValueSuffix("");
+    lfoSpeedSlider.textFromValueFunction = [](double value) {
+      if (value >= 1000.0) {
+        // Display in seconds with 2 decimal places
+        return juce::String(value / 1000.0, 2) + "s";
+      } else {
+        // Display in milliseconds (integer)
+        return juce::String(static_cast<int>(value)) + "ms";
+      }
+    };
+    lfoSpeedSlider.valueFromTextFunction = [](const juce::String &text) {
+      if (text.endsWithIgnoreCase("s") && !text.endsWithIgnoreCase("ms")) {
+        // Parse seconds
+        return text.dropLastCharacters(1).getDoubleValue() * 1000.0;
+      } else if (text.endsWithIgnoreCase("ms")) {
+        // Parse milliseconds
+        return text.dropLastCharacters(2).getDoubleValue();
+      }
+      // Default: assume milliseconds
+      return text.getDoubleValue();
+    };
   }
 }
 

@@ -305,8 +305,6 @@ void CopyCatSpectralDelayEditor::paint(juce::Graphics &g) {
                                 0.0f, static_cast<float>(getHeight()), false);
   g.setGradientFill(gradient);
   g.fillAll();
-
-  // No divider line - panels manage their own borders
 }
 
 void CopyCatSpectralDelayEditor::resized() {
@@ -357,9 +355,6 @@ void CopyCatSpectralDelayEditor::timerCallback() {
     controlPanel.setShowInputSpectrum(isInput);
     showInputSpectrum = isInput;
   }
-
-  // Check bypass state and update spectrum display
-  spectrumDisplay.setBypassed(processorRef.isSuspended());
 
   // Choose spectrum source based on toggle
   const float *spectrumData = showInputSpectrum

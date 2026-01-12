@@ -247,7 +247,7 @@ void LFOEngine::setSpeed(Parameter param, float speedOrIndex) {
     if (syncModes[idx] != SyncMode::Time)
       speeds[idx] = juce::jlimit(0.0f, 8.0f, speedOrIndex);
     else
-      speeds[idx] = juce::jlimit(10.0f, 5000.0f, speedOrIndex);
+      speeds[idx] = juce::jlimit(100.0f, 10000.0f, speedOrIndex);
   }
 }
 

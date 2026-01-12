@@ -62,14 +62,6 @@ public:
   }
 
   /**
-   * Set bypass state - dims the display when bypassed.
-   */
-  void setBypassed(bool bypassed) {
-    isBypassed = bypassed;
-    repaint();
-  }
-
-  /**
    * Set dynamic mode for ghost curve selection.
    */
   void setTimeMode(bool isDelay) {
@@ -82,6 +74,7 @@ public:
    */
   void setLfoMode(bool isLfo) {
     lfoMode = isLfo;
+    updateLabelsVisibility();
     repaint();
   }
 
@@ -152,6 +145,7 @@ public:
   void mouseMove(const juce::MouseEvent &e) override;
 
 private:
+  void updateLabelsVisibility();
   float frequencyToX(float frequency) const;
   float magnitudeToY(float magnitude) const;
   float xToFrequency(float x) const;
@@ -230,6 +224,9 @@ private:
     }
   };
 
+  // Labels
+  juce::Label maxValueLabel;
+
   // Clear button for points
   IconButton clearButton;
   void updateClearButtonVisibility();
@@ -264,8 +261,6 @@ private:
   // Display mode (line or bar chart)
   DisplayMode displayMode = DisplayMode::Line;
 
-  // Bypass state
-  bool isBypassed = false;
   bool useDelayMode = true;
   bool lfoMode = false;
   float lfoPhase = 0.0f;        // Current LFO position (0.0 to 1.0)

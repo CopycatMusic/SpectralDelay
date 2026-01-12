@@ -26,7 +26,7 @@ CustomLookAndFeel::CustomLookAndFeel() {
   setColour(juce::TextButton::textColourOnId, backgroundDark);
 
   setColour(juce::ComboBox::backgroundColourId, backgroundMedium);
-  setColour(juce::ComboBox::outlineColourId, textPrimary.withAlpha(0.2f));
+  setColour(juce::ComboBox::outlineColourId, textPrimary.withAlpha(0.3f));
   setColour(juce::ComboBox::textColourId, textPrimary);
   setColour(juce::ComboBox::arrowColourId, textPrimary);
 
@@ -57,7 +57,7 @@ void CustomLookAndFeel::drawRotarySlider(juce::Graphics &g, int x, int y,
 
   // 1. Background Track (Darker arc)
   // ----------------------------------------------------
-  float trackWidth = 5.0f;
+  float trackWidth = 4.0f;
   juce::Path bgArc;
   bgArc.addCentredArc(centreX, centreY, radius - trackWidth / 2,
                       radius - trackWidth / 2, 0.0f, rotaryStartAngle,
@@ -107,7 +107,7 @@ void CustomLookAndFeel::drawRotarySlider(juce::Graphics &g, int x, int y,
                   knobRadius * 2.0f);
 
     // Inner bezel (thin ring reflection)
-    g.setColour(textPrimary.withAlpha(0.08f));
+    g.setColour(textPrimary.withAlpha(0.1f));
     g.drawEllipse(centreX - knobRadius, centreY - knobRadius, knobRadius * 2.0f,
                   knobRadius * 2.0f, 1.0f);
   }
@@ -117,7 +117,7 @@ void CustomLookAndFeel::drawRotarySlider(juce::Graphics &g, int x, int y,
   if (knobRadius > 5.0f) {
     juce::Path p;
     float pointerLength = knobRadius * 0.75f;
-    float pointerThickness = 3.5f;
+    float pointerThickness = 3.0f;
 
     p.addRoundedRectangle(-pointerThickness * 0.5f, -pointerLength,
                           pointerThickness, pointerLength, 1.5f);
@@ -129,6 +129,35 @@ void CustomLookAndFeel::drawRotarySlider(juce::Graphics &g, int x, int y,
     g.setColour(accentPrimary);
     g.fillPath(p);
   }
+}
+
+juce::Slider::SliderLayout
+CustomLookAndFeel::getSliderLayout(juce::Slider &slider) {
+  auto layout = LookAndFeel_V4::getSliderLayout(slider);
+
+  auto style = slider.getTextBoxPosition();
+  if (style == juce::Slider::TextBoxLeft ||
+      style == juce::Slider::TextBoxRight) {
+    auto bounds = slider.getLocalBounds();
+    int knobSize = UIConstants::kSmallKnobSize;
+    int gap = 5;
+
+    // For small knobs (55px), shift TextBox to start at 27px (bottom half)
+    // and add horizontal gap
+    if (bounds.getHeight() == knobSize) {
+      layout.textBoxBounds.setY(27);
+
+      if (style == juce::Slider::TextBoxLeft) {
+        layout.sliderBounds.setX(slider.getTextBoxWidth() + gap);
+        layout.textBoxBounds.setX(0);
+      } else {
+        layout.sliderBounds.setX(0);
+        layout.textBoxBounds.setX(knobSize + gap);
+      }
+    }
+  }
+
+  return layout;
 }
 
 void CustomLookAndFeel::drawLinearSlider(juce::Graphics &g, int x, int y,
@@ -217,7 +246,7 @@ void CustomLookAndFeel::drawComboBox(juce::Graphics &g, int width, int height,
   g.setColour(backgroundMedium);
   g.fillRoundedRectangle(bounds, 6.0f);
 
-  g.setColour(textPrimary.withAlpha(0.15f));
+  g.setColour(textPrimary.withAlpha(0.1f));
   g.drawRoundedRectangle(bounds, 6.0f, 1.0f);
 
   // Arrow
@@ -251,7 +280,7 @@ void CustomLookAndFeel::drawPopupMenuItem(
 
       g.setColour(backgroundDark);
     } else {
-      g.setColour(isActive ? textPrimary : textPrimary.withAlpha(0.5f));
+      g.setColour(isActive ? textPrimary : textPrimary.withAlpha(0.6f));
     }
 
     r.reduce(juce::jmin(5, area.getWidth() / 20), 0);
