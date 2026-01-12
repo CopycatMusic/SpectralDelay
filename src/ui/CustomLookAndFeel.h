@@ -13,9 +13,10 @@ public:
   ~CustomLookAndFeel() override;
 
   // Static color getters for use throughout the application
-  static juce::Colour getBackgroundDark() { return juce::Colour(0xFF0f1c2e); }
-  static juce::Colour getBackgroundMedium() { return juce::Colour(0xFF0D1827); }
   static juce::Colour getBackgroundPanel() { return juce::Colour(0xFF0a131f); }
+  static juce::Colour getBackgroundDark() { return juce::Colour(0xFF14253D); }
+  static juce::Colour getBackgroundMedium() { return juce::Colour(0xFF192E4D); }
+
   static juce::Colour getAccentPrimary() { return juce::Colour(0xFF45D4ED); }
   // Sky Blue
   static juce::Colour getAccentSecondary() { return juce::Colour(0xFFE63946); }
@@ -23,11 +24,14 @@ public:
   static juce::Colour getAccentTertiary() { return juce::Colour(0xFFffd93d); }
   // Mustard Yellow
   static juce::Colour getTextPrimary() { return juce::Colour(0xFFf5f5f5); }
+  static juce::Colour getTextSecondary() { return juce::Colour(0xFF999999); }
 
   // https://coolors.co/0d1117-161b22-00d4ff-ff6b6b-ffd93d-ffffff
   // new color version
-  // https://coolors.co/0f1c2e-0D1827-0a131f-45D4ED-E63946-ffd93d-f5f5f5
+  // https://coolors.co/0f1c2e-0D1827-0a131f-45D4ED-E63946-ffd93d-f5f5f5-999999
   // DO NOT CHANGE THIS LINK
+  // https://coolors.co/0a131f-14253d-192e4d-999999-f5f5f5-07cbed-e63946-ffd93d
+  // new(ver3)
 
   // Slider
   void drawRotarySlider(juce::Graphics &g, int x, int y, int width, int height,

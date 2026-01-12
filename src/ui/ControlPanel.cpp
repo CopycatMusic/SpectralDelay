@@ -130,7 +130,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   stereoSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   stereoSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 65, 15);
-  stereoSlider.setRange(0.0, 100.0, 1.0);
+  stereoSlider.setRange(0.0, 100.0, 0.0);
   stereoSlider.setValue(0.0);
   stereoSlider.setTextValueSuffix("%");
   stereoSlider.onValueChange = [this]() {
@@ -149,7 +149,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   stereoLowCutSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   stereoLowCutSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 65, 15);
-  stereoLowCutSlider.setRange(20.0, 500.0, 1.0);
+  stereoLowCutSlider.setRange(20.0, 500.0, 0.0);
   stereoLowCutSlider.setValue(150.0);
   stereoLowCutSlider.setTextValueSuffix("Hz");
   stereoLowCutSlider.onValueChange = [this]() {
@@ -219,6 +219,18 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
                              CustomLookAndFeel::getTextPrimary());
   addAndMakeVisible(displayModeLabel);
 
+  // Grid toggle button
+  gridButton.setClickingTogglesState(true);
+  gridButton.setToggleState(true, juce::dontSendNotification); // Default: on
+  gridButton.setColour(juce::TextButton::buttonOnColourId,
+                       CustomLookAndFeel::getAccentPrimary());
+  gridButton.onClick = [this]() {
+    if (onGridDisplayChanged) {
+      onGridDisplayChanged(gridButton.getToggleState());
+    }
+  };
+  addAndMakeVisible(gridButton);
+
   displayModeButton.setButtonText("Line");
   displayModeButton.setClickingTogglesState(true);
   displayModeButton.onClick = [this]() {
@@ -266,7 +278,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   lfoAmountSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   lfoAmountSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
-  lfoAmountSlider.setRange(0.0, 100.0, 1.0);
+  lfoAmountSlider.setRange(0.0, 100.0, 0.0);
   lfoAmountSlider.setValue(100.0); // Default 100%
   lfoAmountSlider.setTextValueSuffix("%");
   lfoAmountSlider.onValueChange = [this]() {
@@ -286,10 +298,12 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   lfoSpeedSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   lfoSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
-  lfoSpeedSlider.setRange(100.0, 2000.0, 1.0);
+  lfoSpeedSlider.setRange(100.0, 2000.0, 0.0);
   lfoSpeedSlider.setValue(500.0); // Default 500ms
   lfoSpeedSlider.setTextValueSuffix("ms");
   lfoSpeedSlider.onValueChange = [this]() {
+    if (isUpdating)
+      return;
     if (onLfoSpeedChanged) {
       onLfoSpeedChanged(currentParameterType,
                         static_cast<float>(lfoSpeedSlider.getValue()));
@@ -306,7 +320,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   lfoSmoothSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   lfoSmoothSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
-  lfoSmoothSlider.setRange(0.0, 200.0, 1.0);
+  lfoSmoothSlider.setRange(0.0, 200.0, 0.0);
   lfoSmoothSlider.setValue(0.0); // Default 0ms (no smooth)
   lfoSmoothSlider.setTextValueSuffix("ms");
   lfoSmoothSlider.onValueChange = [this]() {
@@ -330,9 +344,8 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
     int nextModeInt = (static_cast<int>(currentMode) + 1) % 4;
     SyncMode nextMode = static_cast<SyncMode>(nextModeInt);
 
-    lfoBeatModeButton.setButtonText(getSyncModeString(nextMode));
-    updateLfoSpeedSliderSettings(nextMode);
-
+    // Update engine only - let callback update UI to avoid range clamping
+    // issues
     if (onLfoSyncModeChanged) {
       onLfoSyncModeChanged(currentParameterType, nextMode);
     }
@@ -491,12 +504,15 @@ void ControlPanel::resized() {
   int bottomY = height - UIConstants::kMargin - knobSectionHeight -
                 UIConstants::kSpacing - displayRowHeight;
 
-  // --- Display Row: Line/Bar and HiRes on the same row ---
+  // --- Display Row: Grid, Line/Bar, and HiRes on the same row ---
   juce::Rectangle<int> displayRow(UIConstants::kMargin, bottomY,
                                   width - UIConstants::kMargin * 2,
                                   UIConstants::kRowHeight);
   int buttonAreaWidth = displayRow.getWidth();
-  int singleButtonWidth = (buttonAreaWidth - UIConstants::kSpacing) / 2;
+  int singleButtonWidth =
+      (buttonAreaWidth - UIConstants::kSpacing * 2) / 3; // 3 buttons now
+  gridButton.setBounds(displayRow.removeFromLeft(singleButtonWidth));
+  displayRow.removeFromLeft(UIConstants::kSpacing);
   displayModeButton.setBounds(displayRow.removeFromLeft(singleButtonWidth));
   displayRow.removeFromLeft(UIConstants::kSpacing);
   hiResButton.setBounds(displayRow);
@@ -847,6 +863,7 @@ void ControlPanel::setLfoMode(bool isLfoMode) {
 void ControlPanel::updateLfoControls(float amount, float speedOrIndex,
                                      float smoothMs, SyncMode mode,
                                      bool isSynced) {
+  juce::ScopedValueSetter<bool> updating(isUpdating, true);
   lfoAmountSlider.setValue(amount, juce::dontSendNotification);
   lfoSmoothSlider.setValue(smoothMs, juce::dontSendNotification);
 
@@ -858,6 +875,7 @@ void ControlPanel::updateLfoControls(float amount, float speedOrIndex,
   // Update speed slider range and value based on mode
   updateLfoSpeedSliderSettings(mode);
   lfoSpeedSlider.setValue(speedOrIndex, juce::dontSendNotification);
+  lfoSpeedSlider.updateText(); // Force text refresh after mode/value sync
 }
 
 void ControlPanel::setGainPostMode(bool post) {
@@ -868,7 +886,8 @@ void ControlPanel::setGainPostMode(bool post) {
 void ControlPanel::updateLfoSpeedSliderSettings(SyncMode mode) {
   if (mode != SyncMode::Time) {
     lfoSpeedSlider.setRange(0.0, 8.0,
-                            1.0); // Integer steps for beat subdivisions
+                            1.0);      // Integer steps for beat subdivisions
+    lfoSpeedSlider.setSkewFactor(1.0); // Ensure linear behavior
     lfoSpeedSlider.setTextValueSuffix("");
     lfoSpeedSlider.textFromValueFunction = [mode](double value) {
       return LFOEngine::getBeatString(static_cast<int>(value), mode);
@@ -882,7 +901,7 @@ void ControlPanel::updateLfoSpeedSliderSettings(SyncMode mode) {
     };
   } else {
     // Time mode: 100ms to 10000ms (10s), non-linear with 1000ms (1s) at center
-    lfoSpeedSlider.setRange(100.0, 10000.0, 1.0);
+    lfoSpeedSlider.setRange(100.0, 10000.0, 0.0); // Continuous (0.0 step size)
     lfoSpeedSlider.setSkewFactorFromMidPoint(1000.0); // 1s at center
     lfoSpeedSlider.setTextValueSuffix("");
     lfoSpeedSlider.textFromValueFunction = [](double value) {
@@ -902,7 +921,6 @@ void ControlPanel::updateLfoSpeedSliderSettings(SyncMode mode) {
         // Parse milliseconds
         return text.dropLastCharacters(2).getDoubleValue();
       }
-      // Default: assume milliseconds
       return text.getDoubleValue();
     };
   }

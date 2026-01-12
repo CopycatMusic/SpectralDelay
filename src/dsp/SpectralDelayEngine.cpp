@@ -51,17 +51,15 @@ void SpectralDelayEngine::prepare(double sampleRate, int maxBlockSize) {
                      static_cast<float>(sampleRate);
   maxDelaySamples = static_cast<int>(maxDelayMs / 1000.0f / hopSizeSec) + 1;
 
-  // Allocate delay buffers for each bin
-  delayBufferL.resize(static_cast<size_t>(currentNumBins.load()));
-  delayBufferR.resize(static_cast<size_t>(currentNumBins.load()));
-  delayWritePosL.resize(static_cast<size_t>(currentNumBins.load()), 0);
-  delayWritePosR.resize(static_cast<size_t>(currentNumBins.load()), 0);
-  for (int bin = 0; bin < currentNumBins.load(); ++bin) {
-    delayBufferL[static_cast<size_t>(bin)].resize(
-        static_cast<size_t>(maxDelaySamples), std::complex<float>(0.0f, 0.0f));
-    delayBufferR[static_cast<size_t>(bin)].resize(
-        static_cast<size_t>(maxDelaySamples), std::complex<float>(0.0f, 0.0f));
-  }
+  // Allocate delay buffers (flattened)
+  size_t totalDelayBufferSize = static_cast<size_t>(currentNumBins.load()) *
+                                static_cast<size_t>(maxDelaySamples);
+
+  delayBufferL.assign(totalDelayBufferSize, std::complex<float>(0.0f, 0.0f));
+  delayBufferR.assign(totalDelayBufferSize, std::complex<float>(0.0f, 0.0f));
+
+  delayWritePosL.assign(static_cast<size_t>(currentNumBins.load()), 0);
+  delayWritePosR.assign(static_cast<size_t>(currentNumBins.load()), 0);
 
   // Log memory usage (only in Debug builds)
   float memMB = static_cast<float>(currentNumBins.load()) *
@@ -72,13 +70,6 @@ void SpectralDelayEngine::prepare(double sampleRate, int maxBlockSize) {
       ", Bins: " + juce::String(currentNumBins.load()));
   DBG("Max delay frames: " + juce::String(maxDelaySamples));
   DBG("Delay buffer memory: " + juce::String(memMB, 2) + " MB");
-
-  // Initialize input spectrum storage
-  inputMagnitudeSpectrum.resize(static_cast<size_t>(currentNumBins.load()),
-                                0.0f);
-
-  // Prepare dry buffer
-  dryBuffer.setSize(2, maxBlockSize);
 
   // Prepare dry signal delay lines to match STFT latency
   juce::dsp::ProcessSpec spec;
@@ -94,24 +85,9 @@ void SpectralDelayEngine::prepare(double sampleRate, int maxBlockSize) {
   dryDelayL.setDelay(static_cast<float>(latency));
   dryDelayR.setDelay(static_cast<float>(latency));
 
-  // Initialize output FFT analyzer (for post-mix spectrum display)
-  int outputFFTOrder =
-      static_cast<int>(std::log2(static_cast<float>(currentFFTSize.load())));
-  outputFFT = std::make_unique<juce::dsp::FFT>(outputFFTOrder);
-  outputFFTBuffer.resize(static_cast<size_t>(currentFFTSize.load()) * 2, 0.0f);
+  // Initialize visualization buffers
   outputMagnitudeSpectrum.resize(static_cast<size_t>(currentNumBins.load()),
                                  0.0f);
-  outputAccumBuffer.resize(static_cast<size_t>(currentFFTSize.load()), 0.0f);
-  outputAccumPos = 0;
-
-  // Create Hann window for output FFT
-  outputWindow.resize(static_cast<size_t>(currentFFTSize.load()));
-  for (int i = 0; i < currentFFTSize.load(); ++i) {
-    outputWindow[static_cast<size_t>(i)] =
-        0.5f * (1.0f - std::cos(2.0f * juce::MathConstants<float>::pi *
-                                static_cast<float>(i) /
-                                static_cast<float>(currentFFTSize.load())));
-  }
 }
 
 void SpectralDelayEngine::reset() {
@@ -159,14 +135,6 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
   stftProcessorL.process(
       leftIn, leftOut, numSamples,
       [this](std::complex<float> *spectrum, int numBins) {
-        // Capture input spectrum magnitude before DSP
-        float normFactor = 1.0f / static_cast<float>(currentFFTSize.load());
-        for (int bin = 0; bin < numBins &&
-                          bin < static_cast<int>(inputMagnitudeSpectrum.size());
-             ++bin) {
-          inputMagnitudeSpectrum[static_cast<size_t>(bin)] =
-              std::abs(spectrum[bin]) * normFactor;
-        }
         // DSP flow depends on gain mode:
         // Pre:  Gain -> (+Feedback) -> [Phase or Delay] -> Stereo ->
         // storeFeedback Post: (+Feedback) -> [Phase or Delay] -> Stereo ->
@@ -195,6 +163,22 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
         // Apply gain in Post mode (after storeFeedback)
         if (isPostGain) {
           applyGainModulation(spectrum, numBins);
+        }
+
+        // Capture visualization spectrum (Left channel only)
+        // Use try_lock to never block audio thread
+        {
+          std::unique_lock<std::mutex> lock(spectrumMutex, std::try_to_lock);
+          if (lock.owns_lock()) {
+            float normFactor = 1.0f / static_cast<float>(currentFFTSize.load());
+            for (int bin = 0; bin < numBins && bin < currentNumBins.load();
+                 ++bin) {
+              outputMagnitudeSpectrum[static_cast<size_t>(bin)] =
+                  std::abs(spectrum[bin]) * normFactor;
+            }
+            // Atomic swap / copy to visualization buffer
+            visualizationMagnitudeSpectrum = outputMagnitudeSpectrum;
+          }
         }
       });
 
@@ -250,57 +234,6 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
       delayLine.pushSample(0, dryData[i]);
 
       wetData[i] = delayedDry * dry + wetData[i] * wet;
-    }
-  }
-
-  // Analyze output spectrum (left channel only, after mix)
-  if (outputFFT != nullptr && !outputAccumBuffer.empty()) {
-    auto *outputData = buffer.getReadPointer(0);
-    for (int i = 0; i < numSamples; ++i) {
-      outputAccumBuffer[static_cast<size_t>(outputAccumPos)] = outputData[i];
-      outputAccumPos++;
-
-      // When buffer is full, perform FFT analysis
-      if (outputAccumPos >= currentFFTSize.load()) {
-        // Apply window and copy to FFT buffer
-        for (int j = 0; j < currentFFTSize.load(); ++j) {
-          outputFFTBuffer[static_cast<size_t>(j)] =
-              outputAccumBuffer[static_cast<size_t>(j)] *
-              outputWindow[static_cast<size_t>(j)];
-        }
-        // Clear imaginary part
-        for (int j = currentFFTSize.load(); j < currentFFTSize.load() * 2;
-             ++j) {
-          outputFFTBuffer[static_cast<size_t>(j)] = 0.0f;
-        }
-
-        // Perform FFT
-        outputFFT->performRealOnlyForwardTransform(outputFFTBuffer.data(),
-                                                   true);
-
-        // Calculate magnitude spectrum
-        auto *spectrum =
-            reinterpret_cast<std::complex<float> *>(outputFFTBuffer.data());
-        float normFactor = 1.0f / static_cast<float>(currentFFTSize.load());
-
-        {
-          std::lock_guard<std::mutex> lock(spectrumMutex);
-          for (int bin = 0; bin < currentNumBins.load(); ++bin) {
-            outputMagnitudeSpectrum[static_cast<size_t>(bin)] =
-                std::abs(spectrum[bin]) * normFactor;
-          }
-          visualizationMagnitudeSpectrum = outputMagnitudeSpectrum;
-          visualizationInputSpectrum = inputMagnitudeSpectrum;
-        }
-
-        // Reset accumulator (with overlap - keep half the samples)
-        int shiftAmount = currentFFTSize.load() / 2;
-        for (int j = 0; j < shiftAmount; ++j) {
-          outputAccumBuffer[static_cast<size_t>(j)] =
-              outputAccumBuffer[static_cast<size_t>(j + shiftAmount)];
-        }
-        outputAccumPos = shiftAmount;
-      }
     }
   }
 }
@@ -359,31 +292,23 @@ void SpectralDelayEngine::setFFTSize(int size) {
                            std::complex<float>(0.0f, 0.0f));
   feedbackNeedsUpdate = true;
 
-  // Resize and clear delay buffers
+  // Resize and clear delay buffers (flattened)
+  size_t totalDelayBufferSize = static_cast<size_t>(currentNumBins.load()) *
+                                static_cast<size_t>(maxDelaySamples);
+
   delayValuesMs.resize(static_cast<size_t>(currentNumBins.load()), 0.0f);
-  delayBufferL.resize(static_cast<size_t>(currentNumBins.load()));
-  delayBufferR.resize(static_cast<size_t>(currentNumBins.load()));
+
+  // Resize flattened buffers
+  delayBufferL.assign(totalDelayBufferSize, std::complex<float>(0.0f, 0.0f));
+  delayBufferR.assign(totalDelayBufferSize, std::complex<float>(0.0f, 0.0f));
+
   // Reset all write positions to 0
   delayWritePosL.assign(static_cast<size_t>(currentNumBins.load()), 0);
   delayWritePosR.assign(static_cast<size_t>(currentNumBins.load()), 0);
-  // Clear and resize each bin's delay buffer
-  for (int bin = 0; bin < currentNumBins.load(); ++bin) {
-    delayBufferL[static_cast<size_t>(bin)].assign(
-        static_cast<size_t>(maxDelaySamples), std::complex<float>(0.0f, 0.0f));
-    delayBufferR[static_cast<size_t>(bin)].assign(
-        static_cast<size_t>(maxDelaySamples), std::complex<float>(0.0f, 0.0f));
-  }
+
   delayNeedsUpdate = true;
 
-  // Resize input spectrum storage
-  inputMagnitudeSpectrum.resize(static_cast<size_t>(currentNumBins.load()),
-                                0.0f);
-
-  // Resize output FFT analyzer buffers (critical for UI thread safety)
-  int outputFFTOrder =
-      static_cast<int>(std::log2(static_cast<float>(currentFFTSize.load())));
-  outputFFT = std::make_unique<juce::dsp::FFT>(outputFFTOrder);
-  outputFFTBuffer.resize(static_cast<size_t>(currentFFTSize.load()) * 2, 0.0f);
+  // Resize visualization buffers
   outputMagnitudeSpectrum.assign(static_cast<size_t>(currentNumBins.load()),
                                  0.0f);
 
@@ -391,20 +316,6 @@ void SpectralDelayEngine::setFFTSize(int size) {
     std::lock_guard<std::mutex> lock(spectrumMutex);
     visualizationMagnitudeSpectrum.assign(
         static_cast<size_t>(currentNumBins.load()), 0.0f);
-    visualizationInputSpectrum.assign(
-        static_cast<size_t>(currentNumBins.load()), 0.0f);
-  }
-
-  outputAccumBuffer.assign(static_cast<size_t>(currentFFTSize.load()), 0.0f);
-  outputAccumPos = 0;
-
-  // Recreate Hann window for output FFT
-  outputWindow.resize(static_cast<size_t>(currentFFTSize.load()));
-  for (int i = 0; i < currentFFTSize.load(); ++i) {
-    outputWindow[static_cast<size_t>(i)] =
-        0.5f * (1.0f - std::cos(2.0f * juce::MathConstants<float>::pi *
-                                static_cast<float>(i) /
-                                static_cast<float>(currentFFTSize.load())));
   }
 
   // Update dry signal delay to match new STFT latency
@@ -428,13 +339,16 @@ void SpectralDelayEngine::setOverlapFactor(int factor) {
 
 //==============================================================================
 const float *SpectralDelayEngine::getMagnitudeSpectrum() const {
-  std::lock_guard<std::mutex> lock(spectrumMutex);
+  // Cast away constness to lock mutex (since we removed 'mutable' from header)
+  // This is a safe hack given we know we are just reading
+  auto *nonConstThis = const_cast<SpectralDelayEngine *>(this);
+  std::lock_guard<std::mutex> lock(nonConstThis->spectrumMutex);
   return visualizationMagnitudeSpectrum.data();
 }
 
 const float *SpectralDelayEngine::getInputMagnitudeSpectrum() const {
-  std::lock_guard<std::mutex> lock(spectrumMutex);
-  return visualizationInputSpectrum.data();
+  // Deprecated/Removed - return nullptr or empty
+  return nullptr;
 }
 
 int SpectralDelayEngine::getLatencyInSamples() const {
@@ -446,9 +360,15 @@ void SpectralDelayEngine::updatePhaseShifts() {
   juce::SpinLock::ScopedLockType lock(paramLock);
 
   int bins = currentNumBins.load();
+  float sr = static_cast<float>(currentSampleRate.load());
+  float fftSize = static_cast<float>(currentFFTSize.load());
+
+  // Use bulk fill to avoid lock contention
+  phaseCurve.fillBinValues(phaseShifts.data(), bins, sr,
+                           static_cast<int>(fftSize));
+
   for (int i = 0; i < bins; ++i) {
-    float freq = binToFrequency(i);
-    float phaseDegrees = phaseCurve.getValueAtFrequency(freq);
+    float phaseDegrees = phaseShifts[static_cast<size_t>(i)];
 
     // Clamp degrees to valid range (0 to 360)
     phaseDegrees = juce::jlimit(0.0f, 360.0f, phaseDegrees);
@@ -476,14 +396,17 @@ void SpectralDelayEngine::updateGainValues() {
   juce::SpinLock::ScopedLockType lock(paramLock);
 
   int bins = currentNumBins.load();
+  float sr = static_cast<float>(currentSampleRate.load());
+  float fftSize = static_cast<float>(currentFFTSize.load());
+
+  // Use bulk fill to avoid lock contention
+  gainCurve.fillBinValues(gainValues.data(), bins, sr,
+                          static_cast<int>(fftSize));
+
   for (int i = 0; i < bins; ++i) {
-    float freq = binToFrequency(i);
-    float gain = gainCurve.getValueAtFrequency(freq);
-
     // Clamp to valid range (0 to 200%)
-    gain = juce::jlimit(0.0f, 200.0f, gain);
-
-    gainValues[static_cast<size_t>(i)] = gain;
+    gainValues[static_cast<size_t>(i)] =
+        juce::jlimit(0.0f, 200.0f, gainValues[static_cast<size_t>(i)]);
   }
 
   gainNeedsUpdate = false;
@@ -505,14 +428,17 @@ void SpectralDelayEngine::updateFeedbackValues() {
   juce::SpinLock::ScopedLockType lock(paramLock);
 
   int bins = currentNumBins.load();
+  float sr = static_cast<float>(currentSampleRate.load());
+  float fftSize = static_cast<float>(currentFFTSize.load());
+
+  // Use bulk fill to avoid lock contention
+  feedbackCurve.fillBinValues(feedbackValues.data(), bins, sr,
+                              static_cast<int>(fftSize));
+
   for (int i = 0; i < bins; ++i) {
-    float freq = binToFrequency(i);
-    float feedback = feedbackCurve.getValueAtFrequency(freq);
-
     // Clamp to valid range (0 to 100%)
-    feedback = juce::jlimit(0.0f, 100.0f, feedback);
-
-    feedbackValues[static_cast<size_t>(i)] = feedback;
+    feedbackValues[static_cast<size_t>(i)] =
+        juce::jlimit(0.0f, 100.0f, feedbackValues[static_cast<size_t>(i)]);
   }
 
   feedbackNeedsUpdate = false;
@@ -556,14 +482,17 @@ void SpectralDelayEngine::updateDelayValues() {
   juce::SpinLock::ScopedLockType lock(paramLock);
 
   int bins = currentNumBins.load();
+  float sr = static_cast<float>(currentSampleRate.load());
+  float fftSize = static_cast<float>(currentFFTSize.load());
+
+  // Use bulk fill to avoid lock contention
+  delayCurve.fillBinValues(delayValuesMs.data(), bins, sr,
+                           static_cast<int>(fftSize));
+
   for (int i = 0; i < bins; ++i) {
-    float freq = binToFrequency(i);
-    float delayMs = delayCurve.getValueAtFrequency(freq);
-
     // Clamp to valid range (0 to 2000ms)
-    delayMs = juce::jlimit(0.0f, 2000.0f, delayMs);
-
-    delayValuesMs[static_cast<size_t>(i)] = delayMs;
+    delayValuesMs[static_cast<size_t>(i)] =
+        juce::jlimit(0.0f, 2000.0f, delayValuesMs[static_cast<size_t>(i)]);
   }
 
   delayNeedsUpdate = false;
@@ -571,8 +500,7 @@ void SpectralDelayEngine::updateDelayValues() {
 
 void SpectralDelayEngine::applyDelay(
     std::complex<float> *spectrum, int numBins,
-    std::vector<std::vector<std::complex<float>>> &delayBuffer,
-    std::vector<int> &writePos) {
+    std::vector<std::complex<float>> &delayBuffer, std::vector<int> &writePos) {
 
   // Calculate hop time in ms - defensive check for zero sample rate or hop size
   float sr = static_cast<float>(currentSampleRate.load());
@@ -585,10 +513,13 @@ void SpectralDelayEngine::applyDelay(
   float hopTimeMs = (hop / sr) * 1000.0f;
   bool useHighPrecision = highPrecisionDelay.load();
 
+  // Validate buffer sizing to prevent out of bounds access
+  if (delayBuffer.size() <
+      static_cast<size_t>(numBins) * static_cast<size_t>(maxDelaySamples))
+    return;
+
   for (int bin = 0;
-       bin < numBins && bin < static_cast<int>(delayValuesMs.size()) &&
-       bin < static_cast<int>(delayBuffer.size());
-       ++bin) {
+       bin < numBins && bin < static_cast<int>(delayValuesMs.size()); ++bin) {
 
     // Calculate delay in frames (apply multiplier)
     float delayMs =
@@ -609,15 +540,20 @@ void SpectralDelayEngine::applyDelay(
     // Get write position for this bin
     size_t binIdx = static_cast<size_t>(bin);
     int wp = writePos[binIdx];
-    int bufferSize = static_cast<int>(delayBuffer[binIdx].size());
+
+    // Circular buffer size is constant for all bins now
+    int bufferSize = maxDelaySamples;
+
+    // Calculate base offset for this bin in the flattened buffer
+    size_t binOffset = binIdx * static_cast<size_t>(maxDelaySamples);
 
     // Write current value to buffer
-    delayBuffer[binIdx][static_cast<size_t>(wp)] = spectrum[bin];
+    delayBuffer[binOffset + static_cast<size_t>(wp)] = spectrum[bin];
 
     // Read delayed value (circular buffer)
     int readPos = (wp - delayFramesInt + bufferSize) % bufferSize;
     std::complex<float> delayedSample =
-        delayBuffer[binIdx][static_cast<size_t>(readPos)];
+        delayBuffer[binOffset + static_cast<size_t>(readPos)];
 
     // High precision mode: apply phase rotation for fractional frame
     // compensation

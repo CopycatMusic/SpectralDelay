@@ -7,7 +7,7 @@
 SpectrumDisplay::SpectrumDisplay() {
   // Set up colors from centralized palette
   backgroundColour = CustomLookAndFeel::getBackgroundPanel();
-  gridColour = CustomLookAndFeel::getTextPrimary().withAlpha(0.1f);
+  gridColour = CustomLookAndFeel::getTextPrimary().withAlpha(0.2f);
   spectrumColour = CustomLookAndFeel::getAccentPrimary();
   spectrumFillColour = spectrumColour.withAlpha(0.3f);
 
@@ -32,7 +32,7 @@ SpectrumDisplay::SpectrumDisplay() {
 
   // Set up max value label
   maxValueLabel.setColour(juce::Label::textColourId,
-                          CustomLookAndFeel::getTextPrimary().withAlpha(0.6f));
+                          CustomLookAndFeel::getTextSecondary());
   maxValueLabel.setFont(juce::Font(UIConstants::kDefaultFontSize));
   maxValueLabel.setJustificationType(juce::Justification::left);
   addAndMakeVisible(maxValueLabel);
@@ -201,7 +201,7 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
 
   // Draw LFO grid lines when in LFO mode
   if (lfoMode) {
-    g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.1f));
+    g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.2f));
 
     // Draw vertical grid lines (V Grid - X axis divisions)
     if (lfoVGrid > 0) {
@@ -222,6 +222,11 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
         g.drawLine(graphBounds.getX(), y, graphBounds.getRight(), y, 1.0f);
       }
     }
+  }
+
+  // Draw frequency grid lines (only when not in LFO mode)
+  if (!lfoMode && showFrequencyGrid) {
+    drawFrequencyGrid(g);
   }
 
   // Draw spectrum (only when not in LFO mode)
@@ -316,8 +321,7 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
 
 void SpectrumDisplay::drawCurve(juce::Graphics &g) {
   // Draw background curves in gray
-  juce::Colour ghostColour =
-      CustomLookAndFeel::getTextPrimary().withAlpha(0.6f);
+  juce::Colour ghostColour = CustomLookAndFeel::getTextSecondary();
 
   if (lfoMode) {
     // LFO mode: show the gray curve for the currently selected parameter type
@@ -708,5 +712,54 @@ void SpectrumDisplay::mouseMove(const juce::MouseEvent &e) {
   if (newHovered != hoveredPointIndex) {
     hoveredPointIndex = newHovered;
     repaint();
+  }
+}
+
+void SpectrumDisplay::drawFrequencyGrid(juce::Graphics &g) {
+  auto graphBounds = getGraphBounds();
+
+  // Major grid frequencies: 100Hz, 1kHz, 10kHz (alpha 0.2)
+  const float majorFreqs[] = {100.0f, 1000.0f, 10000.0f};
+  g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.2f));
+
+  for (float freq : majorFreqs) {
+    if (freq >= minFreq && freq <= maxFreq) {
+      float x =
+          graphBounds.getX() + frequencyToX(freq) * graphBounds.getWidth();
+      g.drawLine(x, graphBounds.getY(), x, graphBounds.getBottom(), 1.0f);
+    }
+  }
+
+  // Minor grid frequencies: 20-90Hz, 200-900Hz, 2k-9kHz (alpha 0.1)
+  g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.1f));
+
+  // 20-90 Hz (excluding 100)
+  for (int i = 2; i <= 9; ++i) {
+    float freq = static_cast<float>(i * 10);
+    if (freq >= minFreq && freq <= maxFreq) {
+      float x =
+          graphBounds.getX() + frequencyToX(freq) * graphBounds.getWidth();
+      g.drawLine(x, graphBounds.getY(), x, graphBounds.getBottom(), 1.0f);
+    }
+  }
+
+  // 200-900 Hz (excluding 1000)
+  for (int i = 2; i <= 9; ++i) {
+    float freq = static_cast<float>(i * 100);
+    if (freq >= minFreq && freq <= maxFreq) {
+      float x =
+          graphBounds.getX() + frequencyToX(freq) * graphBounds.getWidth();
+      g.drawLine(x, graphBounds.getY(), x, graphBounds.getBottom(), 1.0f);
+    }
+  }
+
+  // 2k-9k Hz (excluding 10000)
+  for (int i = 2; i <= 9; ++i) {
+    float freq = static_cast<float>(i * 1000);
+    if (freq >= minFreq && freq <= maxFreq) {
+      float x =
+          graphBounds.getX() + frequencyToX(freq) * graphBounds.getWidth();
+      g.drawLine(x, graphBounds.getY(), x, graphBounds.getBottom(), 1.0f);
+    }
   }
 }

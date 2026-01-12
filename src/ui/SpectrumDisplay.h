@@ -130,6 +130,17 @@ public:
   }
 
   /**
+   * Set whether to show frequency grid lines (only in normal spectrum mode).
+   */
+  void setShowFrequencyGrid(bool show) {
+    showFrequencyGrid = show;
+    if (!lfoMode)
+      repaint();
+  }
+
+  bool isShowFrequencyGrid() const { return showFrequencyGrid; }
+
+  /**
    * Callback when curve points are modified.
    */
   std::function<void()> onCurveModified;
@@ -158,6 +169,9 @@ private:
   // Draw curve points and lines
   void drawCurve(juce::Graphics &g);
 
+  // Draw frequency grid lines (only in normal spectrum mode)
+  void drawFrequencyGrid(juce::Graphics &g);
+
   // Helper to draw a single curve
   // useFrequencyAxis: if true, use logarithmic frequency axis even in LFO mode
   // modulationFactor: scales the Y value for animation
@@ -179,7 +193,7 @@ private:
 
   // Display settings
   float minFreq = 20.0f;
-  float maxFreq = 20000.0f;
+  float maxFreq = 22000.0f;
   float minDb = -80.0f;
   float maxDb = 0.0f;
 
@@ -270,6 +284,9 @@ private:
   // LFO grid settings for snap-to-grid
   int lfoHGrid = 0; // Horizontal grid divisions (Y axis)
   int lfoVGrid = 0; // Vertical grid divisions (X axis)
+
+  // Frequency grid display (normal spectrum mode only)
+  bool showFrequencyGrid = true;
 
   // Axis label settings (right side Y-axis)
   juce::String axisUnit = "";

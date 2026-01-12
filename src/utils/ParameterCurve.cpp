@@ -57,7 +57,10 @@ void ParameterCurve::clearPoints() {
 //==============================================================================
 float ParameterCurve::getValueAtFrequency(float frequency) const {
   std::lock_guard<std::recursive_mutex> lock(curveMutex);
+  return getValueAtFrequencyInternal(frequency);
+}
 
+float ParameterCurve::getValueAtFrequencyInternal(float frequency) const {
   // No points: return default value
   if (points.empty()) {
     return defaultValue;
@@ -81,6 +84,8 @@ float ParameterCurve::getValueAtFrequency(float frequency) const {
   }
 
   // Find surrounding points and interpolate
+  // Optimization: for sequential access (like in fillBinValues), we could cache
+  // current index, but simple search is okay for now
   for (size_t i = 0; i < points.size() - 1; ++i) {
     if (frequency >= points[i].frequency &&
         frequency <= points[i + 1].frequency) {
@@ -115,39 +120,55 @@ float ParameterCurve::getValueAtNormalizedPosition(float position) const {
   // Clamp position to [0, 1]
   position = std::max(0.0f, std::min(1.0f, position));
 
-  // Before first point: use first point's value
-  if (position <= points.front().frequency) {
-    return points.front().value;
-  }
-
-  // After last point: use last point's value
-  if (position >= points.back().frequency) {
-    return points.back().value;
-  }
-
-  // Find surrounding points and interpolate
-  for (size_t i = 0; i < points.size() - 1; ++i) {
-    if (position >= points[i].frequency &&
-        position <= points[i + 1].frequency) {
-      float posDiff = points[i + 1].frequency - points[i].frequency;
-      if (posDiff > 1e-6f) {
-        float t = (position - points[i].frequency) / posDiff;
-        return points[i].value + t * (points[i + 1].value - points[i].value);
-      }
-      return points[i].value;
-    }
-  }
-
-  return defaultValue;
+  // Reuse the internal logic since "frequency" member holds the X position
+  return getValueAtFrequencyInternal(position);
 }
 
 void ParameterCurve::fillBinValues(float *output, int numBins, float sampleRate,
                                    int fftSize) const {
   std::lock_guard<std::recursive_mutex> lock(curveMutex);
+  float binWidth = sampleRate / static_cast<float>(fftSize);
+
+  // Use cached index optimization since we are iterating sequentially
+  size_t currentPointIdx = 0;
+
+  if (points.empty()) {
+    std::fill(output, output + numBins, defaultValue);
+    return;
+  }
+
   for (int i = 0; i < numBins; ++i) {
-    float frequency =
-        static_cast<float>(i) * sampleRate / static_cast<float>(fftSize);
-    output[i] = getValueAtFrequency(frequency);
+    float frequency = static_cast<float>(i) * binWidth;
+
+    // Inline logic for speed optimization in bulk processing
+    float val = defaultValue;
+
+    if (points.size() == 1) {
+      val = points[0].value;
+    } else if (frequency <= points.front().frequency) {
+      val = points.front().value;
+    } else if (frequency >= points.back().frequency) {
+      val = points.back().value;
+    } else {
+      // Sequential search optimization: current frequency is always >= previous
+      while (currentPointIdx < points.size() - 1 &&
+             frequency > points[currentPointIdx + 1].frequency) {
+        currentPointIdx++;
+      }
+
+      const auto &p1 = points[currentPointIdx];
+      const auto &p2 = points[currentPointIdx + 1];
+
+      float freqDiff = p2.frequency - p1.frequency;
+      if (freqDiff > 1e-6f) {
+        float t = (frequency - p1.frequency) / freqDiff;
+        val = p1.value + t * (p2.value - p1.value);
+      } else {
+        val = p1.value;
+      }
+    }
+
+    output[i] = val;
   }
 }
 

@@ -132,6 +132,11 @@ private:
                                     SyncMode::Time};
   bool isSynced[kNumParams] = {false, false, false};
 
+  // Separate storage for Time mode (ms) and Sync modes (beat index)
+  float timeModeSpeeds[kNumParams] = {500.0f, 500.0f, 500.0f}; // Default 500ms
+  float syncIntervals[kNumParams] = {4.0f, 4.0f,
+                                     4.0f}; // Default 1/4 note (index 4)
+
   // Smoothed LFO output values
   mutable juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>
       smoothedOutputs[kNumParams];

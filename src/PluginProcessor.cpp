@@ -30,9 +30,9 @@ CopyCatSpectralDelayProcessor::createParameterLayout() {
 
   // Mix (dry/wet)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "mix", "Mix", juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 100.0f,
+      "mix", "Mix", juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f), 100.0f,
       juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) { return juce::String(value, 0) + "%"; }, nullptr));
+      [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
 
   // Display mode: 0 = Line, 1 = Bar
   params.push_back(std::make_unique<juce::AudioParameterChoice>(
@@ -47,23 +47,23 @@ CopyCatSpectralDelayProcessor::createParameterLayout() {
   // Feedback Multiplier (0-100%)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
       "feedbackMult", "Feedback Multiplier",
-      juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 100.0f,
+      juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f), 100.0f,
       juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) { return juce::String(value, 0) + "%"; }, nullptr));
+      [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
 
   // Gain Multiplier (0-100%, default 100%)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
       "gainMult", "Gain Multiplier",
-      juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f), 100.0f,
+      juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f), 100.0f,
       juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) { return juce::String(value, 0) + "%"; }, nullptr));
+      [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
 
   // Delay Multiplier (0-100%, default 20%, non-linear for finer control near 0)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
       "delayMult", "Delay Multiplier",
-      juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f, 0.5f), 20.0f,
+      juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f, 0.5f), 20.0f,
       juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) { return juce::String(value, 0) + "%"; }, nullptr));
+      [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
 
   return {params.begin(), params.end()};
 }

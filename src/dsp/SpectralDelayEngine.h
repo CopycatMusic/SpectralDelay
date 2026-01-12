@@ -161,7 +161,7 @@ private:
   void applyFeedback(std::complex<float> *spectrum, int numBins,
                      std::vector<std::complex<float>> &feedbackBuffer);
   void applyDelay(std::complex<float> *spectrum, int numBins,
-                  std::vector<std::vector<std::complex<float>>> &delayBuffer,
+                  std::vector<std::complex<float>> &delayBuffer,
                   std::vector<int> &writePos);
   void storeFeedback(std::complex<float> *spectrum, int numBins,
                      std::vector<std::complex<float>> &feedbackBuffer);
@@ -227,10 +227,10 @@ private:
   std::vector<float> delayValuesMs;
   std::atomic<bool> delayNeedsUpdate{true};
 
-  // Per-bin delay buffers (circular buffers for each bin, each channel)
-  // delayBufferL[bin] = circular buffer of complex samples
-  std::vector<std::vector<std::complex<float>>> delayBufferL;
-  std::vector<std::vector<std::complex<float>>> delayBufferR;
+  // Per-bin delay buffers (flattened for cache locality)
+  // Indexing: [binIndex * maxDelaySamples + writePos]
+  std::vector<std::complex<float>> delayBufferL;
+  std::vector<std::complex<float>> delayBufferR;
   std::vector<int> delayWritePosL; // Write position for each bin (L)
   std::vector<int> delayWritePosR; // Write position for each bin (R)
   int maxDelaySamples = 0;         // Max delay in STFT frames
@@ -258,15 +258,14 @@ private:
   // For thread safety
   juce::SpinLock paramLock;
 
-  // Output spectrum analyzer (analyzes signal after mix)
-  std::unique_ptr<juce::dsp::FFT> outputFFT;
-  std::vector<float> outputFFTBuffer;
-  std::vector<float> outputWindow;
+  // Visualization data (double buffered / atomic swap)
   std::vector<float> outputMagnitudeSpectrum;
-  std::vector<float> visualizationMagnitudeSpectrum; // Copy for UI thread
-  std::vector<float> inputMagnitudeSpectrum;         // Captures input
-  std::vector<float> visualizationInputSpectrum;     // Copy for UI thread
-  mutable std::mutex spectrumMutex; // Protects visualization spectrums
+  std::vector<float> visualizationMagnitudeSpectrum;
+  std::vector<float> visualizationInputSpectrum; // Kept as placeholder/empty
+                                                 // for interface compatibility
+
+  std::mutex spectrumMutex; // Kept for interface compatibility, but usage will
+                            // be minimized
 
   // Delay mode (false = Phase rotation, true = Frame delay)
   std::atomic<bool> useDelayMode{true};

@@ -108,7 +108,7 @@ public:
    * Get value range based on current points.
    */
   void getValueRange(float &minValue, float &maxValue, float minFreq = 20.0f,
-                     float maxFreq = 20000.0f) const;
+                     float maxFreq = 22000.0f) const;
 
   /**
    * Serialize points to a string for DAW state saving.
@@ -124,6 +124,9 @@ private:
   mutable std::recursive_mutex curveMutex;
   std::vector<CurvePoint> points;
   float defaultValue = 100.0f; // Default for gain (100%), phase would use 0.0f
+
+  // Internal helper that assumes mutex is already locked
+  float getValueAtFrequencyInternal(float frequency) const;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ParameterCurve)
 };

@@ -107,7 +107,7 @@ void CustomLookAndFeel::drawRotarySlider(juce::Graphics &g, int x, int y,
                   knobRadius * 2.0f);
 
     // Inner bezel (thin ring reflection)
-    g.setColour(textPrimary.withAlpha(0.1f));
+    g.setColour(textPrimary.withAlpha(0.2f));
     g.drawEllipse(centreX - knobRadius, centreY - knobRadius, knobRadius * 2.0f,
                   knobRadius * 2.0f, 1.0f);
   }
@@ -214,7 +214,7 @@ void CustomLookAndFeel::drawButtonBackground(
   g.setColour(baseColour);
   g.fillRoundedRectangle(bounds, 6.0f);
 
-  g.setColour(textPrimary.withAlpha(0.1f));
+  g.setColour(textPrimary.withAlpha(0.2f));
   g.drawRoundedRectangle(bounds, 6.0f, 1.0f);
 }
 
@@ -246,7 +246,7 @@ void CustomLookAndFeel::drawComboBox(juce::Graphics &g, int width, int height,
   g.setColour(backgroundMedium);
   g.fillRoundedRectangle(bounds, 6.0f);
 
-  g.setColour(textPrimary.withAlpha(0.1f));
+  g.setColour(textPrimary.withAlpha(0.2f));
   g.drawRoundedRectangle(bounds, 6.0f, 1.0f);
 
   // Arrow
@@ -269,7 +269,7 @@ void CustomLookAndFeel::drawPopupMenuItem(
     auto r = area.reduced(5, 0);
     r.removeFromTop(r.getHeight() / 2 - 1);
 
-    g.setColour(textPrimary.withAlpha(0.1f));
+    g.setColour(textPrimary.withAlpha(0.2f));
     g.fillRect(r.removeFromTop(1));
   } else {
     auto r = area.reduced(1);
@@ -280,7 +280,7 @@ void CustomLookAndFeel::drawPopupMenuItem(
 
       g.setColour(backgroundDark);
     } else {
-      g.setColour(isActive ? textPrimary : textPrimary.withAlpha(0.6f));
+      g.setColour(isActive ? textPrimary : getTextSecondary());
     }
 
     r.reduce(juce::jmin(5, area.getWidth() / 20), 0);

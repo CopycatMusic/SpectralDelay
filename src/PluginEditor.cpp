@@ -27,7 +27,7 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
   titleLabel.setFont(
       juce::Font(montserratTypeface).withHeight(UIConstants::kTitleFontSize));
   titleLabel.setColour(juce::Label::textColourId,
-                       CustomLookAndFeel::getTextPrimary().withAlpha(0.6f));
+                       CustomLookAndFeel::getTextSecondary());
   titleLabel.setJustificationType(juce::Justification::centredLeft);
   addAndMakeVisible(titleLabel);
 
@@ -71,6 +71,11 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
             processorRef.getParameters().getParameter("displayMode")) {
       param->setValueNotifyingHost(isBar ? 1.0f : 0.0f);
     }
+  };
+
+  // Connect grid display toggle
+  controlPanel.onGridDisplayChanged = [this](bool showGrid) {
+    spectrumDisplay.setShowFrequencyGrid(showGrid);
   };
 
   // Connect spectrum source toggle

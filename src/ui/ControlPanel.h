@@ -81,6 +81,9 @@ public:
   // Callback when gain post mode changes
   std::function<void(bool)> onGainPostModeChanged;
 
+  // Callback when grid display changes
+  std::function<void(bool)> onGridDisplayChanged;
+
   // Get currently active LFO sync mode
   SyncMode getLfoSyncMode() const {
     if (onGetLfoSyncMode)
@@ -176,6 +179,9 @@ private:
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
       displayModeAttachment;
 
+  // Grid display toggle
+  juce::TextButton gridButton{"Grid"};
+
   // Spectrum source toggle
   juce::Label spectrumSourceLabel;
   juce::TextButton spectrumSourceButton;
@@ -240,6 +246,8 @@ private:
   juce::Slider lfoHGridSlider;
   juce::Label lfoVGridLabel;
   juce::Slider lfoVGridSlider;
+
+  bool isUpdating = false;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ControlPanel)
 };
