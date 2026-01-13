@@ -315,7 +315,7 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
   }
 
   // Draw vertical divider line at right edge
-  g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.3f));
+  g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.1f));
   g.fillRect(getWidth() - 1, 0, 1, getHeight());
 }
 

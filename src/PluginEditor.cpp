@@ -277,9 +277,12 @@ void CopyCatSpectralDelayEditor::updateAxisLabel() {
   int paramType = controlPanel.getCurrentParameterType();
 
   if (paramType == 0) {
-    // Gain: base max 200%, scaled by gainMult (0-100%)
+    // Gain: base max 200%, scaled by gainMult (dB converted to linear)
     auto *gainMultParam = parameters.getRawParameterValue("gainMult");
-    float mult = gainMultParam ? (*gainMultParam / 100.0f) : 1.0f;
+    float mult =
+        gainMultParam
+            ? juce::Decibels::decibelsToGain(gainMultParam->load(), -64.0f)
+            : 1.0f;
     float displayMax = 200.0f * mult;
     spectrumDisplay.setAxisLabel("%", displayMax);
   } else if (paramType == 1) {
@@ -310,6 +313,10 @@ void CopyCatSpectralDelayEditor::paint(juce::Graphics &g) {
                                 0.0f, static_cast<float>(getHeight()), false);
   g.setGradientFill(gradient);
   g.fillAll();
+
+  // Draw separator below title bar
+  g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.1f));
+  g.fillRect(0, UIConstants::kTitleBarHeight - 1, getWidth(), 1);
 }
 
 void CopyCatSpectralDelayEditor::resized() {

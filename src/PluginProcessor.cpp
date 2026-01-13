@@ -51,19 +51,82 @@ CopyCatSpectralDelayProcessor::createParameterLayout() {
       juce::String(), juce::AudioProcessorParameter::genericParameter,
       [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
 
-  // Gain Multiplier (0-100%, default 100%)
+  // Gain Multiplier (dB, default 0 dB)
+  // Custom mapping: 0dB at center (0.5), with enhanced precision near 0dB
+  // The negative range uses a quadratic curve to "zoom in" on the 0dB point.
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "gainMult", "Gain Multiplier",
-      juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f), 100.0f,
+      "gainMult", "Gain",
+      juce::NormalisableRange<float>(
+          -64.0f, 18.0f,
+          [](float min, float max, float norm) {
+            if (norm <= 0.5f) {
+              // Map [0, 0.5] to [-64, 0] with extreme precision near 0
+              float t = 1.0f - (norm / 0.5f); // t=1 at norm 0, t=0 at norm 0.5
+              return -64.0f * (t * t);
+            } else {
+              // Map [0.5, 1.0] to [0, 18] linearly
+              return 18.0f * ((norm - 0.5f) / 0.5f);
+            }
+          },
+          [](float min, float max, float value) {
+            if (value <= 0.0f) {
+              float t = std::sqrt(std::max(0.0f, value / -64.0f));
+              return (1.0f - t) * 0.5f;
+            } else {
+              return 0.5f + (value / 18.0f) * 0.5f;
+            }
+          }),
+      0.0f, juce::String(), juce::AudioProcessorParameter::genericParameter,
+      [](float value, int) {
+        if (value <= -63.9f)
+          return juce::String("-inf dB");
+        if (std::abs(value) < 0.05f)
+          return juce::String("0.0 dB");
+        return juce::String(value, 1) + " dB";
+      },
+      [](const juce::String &text) {
+        if (text.containsIgnoreCase("inf"))
+          return -64.0f;
+        return text.getFloatValue();
+      }));
+
+  // Gate (dB, default -60 dB)
+  params.push_back(std::make_unique<juce::AudioParameterFloat>(
+      "gate", "Gate", juce::NormalisableRange<float>(-100.0f, 0.0f, 0.0f, 1.0f),
+      -60.0f, juce::String(), juce::AudioProcessorParameter::genericParameter,
+      [](float value, int) {
+        if (value <= -99.9f)
+          return juce::String("-inf dB");
+        return juce::String(value, 1) + " dB";
+      },
+      [](const juce::String &text) {
+        if (text.containsIgnoreCase("inf"))
+          return -100.0f;
+        return text.getFloatValue();
+      }));
+
+  // Compress (0-100%)
+  params.push_back(std::make_unique<juce::AudioParameterFloat>(
+      "compress", "Compress",
+      juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f, 1.0f), 0.0f,
       juce::String(), juce::AudioProcessorParameter::genericParameter,
       [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
 
+  // Compress Post (Boolean)
+  params.push_back(std::make_unique<juce::AudioParameterBool>(
+      "compressPost", "Compress Post", false));
+
   // Delay Multiplier (0-100%, default 20%, non-linear for finer control near 0)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "delayMult", "Delay Multiplier",
+      "delayMult", "Max Delay",
       juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f, 0.5f), 20.0f,
       juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
+      [](float value, int) {
+        float ms = value * 20.0f;
+        return (ms >= 10.0f) ? juce::String(static_cast<int>(ms)) + " ms"
+                             : juce::String(ms, 1) + " ms";
+      },
+      [](const juce::String &text) { return text.getFloatValue() / 20.0f; }));
 
   return {params.begin(), params.end()};
 }
@@ -122,6 +185,8 @@ void CopyCatSpectralDelayProcessor::prepareToPlay(double sampleRate,
   smoothedGainMult.reset(sampleRate, smoothingTimeSeconds);
   smoothedFeedbackMult.reset(sampleRate, smoothingTimeSeconds);
   smoothedDelayMult.reset(sampleRate, smoothingTimeSeconds);
+  smoothedGate.reset(sampleRate, smoothingTimeSeconds);
+  smoothedCompress.reset(sampleRate, smoothingTimeSeconds);
 
   // Set initial values (no smoothing on first set)
   auto *gainMultParam = parameters.getRawParameterValue("gainMult");
@@ -129,11 +194,21 @@ void CopyCatSpectralDelayProcessor::prepareToPlay(double sampleRate,
   auto *delayMultParam = parameters.getRawParameterValue("delayMult");
 
   smoothedGainMult.setCurrentAndTargetValue(
-      gainMultParam ? gainMultParam->load() : 100.0f);
+      gainMultParam
+          ? juce::Decibels::decibelsToGain(gainMultParam->load(), -64.0f) *
+                100.0f
+          : 100.0f);
   smoothedFeedbackMult.setCurrentAndTargetValue(
       feedbackMultParam ? feedbackMultParam->load() : 100.0f);
   smoothedDelayMult.setCurrentAndTargetValue(
       delayMultParam ? delayMultParam->load() : 20.0f);
+
+  auto *gateParam = parameters.getRawParameterValue("gate");
+  auto *compressParam = parameters.getRawParameterValue("compress");
+
+  smoothedGate.setCurrentAndTargetValue(gateParam ? gateParam->load() : -60.0f);
+  smoothedCompress.setCurrentAndTargetValue(
+      compressParam ? compressParam->load() : 0.0f);
 }
 
 void CopyCatSpectralDelayProcessor::releaseResources() { engine.reset(); }
@@ -187,7 +262,9 @@ void CopyCatSpectralDelayProcessor::processBlock(
   auto *delayMultParam = parameters.getRawParameterValue("delayMult");
 
   float feedbackMult = feedbackMultParam ? feedbackMultParam->load() : 100.0f;
-  float gainMult = gainMultParam ? gainMultParam->load() : 100.0f;
+  float gainDb = gainMultParam ? gainMultParam->load() : 0.0f;
+  float gainMult = juce::Decibels::decibelsToGain(gainDb, -64.0f) *
+                   100.0f; // Scale to 100% for engine
   float delayMult = delayMultParam ? delayMultParam->load() : 20.0f;
 
   // Apply LFO modulation to multipliers
@@ -234,6 +311,29 @@ void CopyCatSpectralDelayProcessor::processBlock(
   engine.setGainMultiplier(smoothedGainMult.getCurrentValue());
   engine.setFeedbackMultiplier(smoothedFeedbackMult.getCurrentValue());
   engine.setDelayMultiplier(smoothedDelayMult.getCurrentValue());
+
+  // Update Spectral Dynamics parameters
+  auto *gateParam = parameters.getRawParameterValue("gate");
+  auto *compressParam = parameters.getRawParameterValue("compress");
+  auto *compressPostParam = parameters.getRawParameterValue("compressPost");
+
+  if (gateParam) {
+    smoothedGate.setTargetValue(gateParam->load());
+  }
+  if (compressParam) {
+    smoothedCompress.setTargetValue(compressParam->load());
+  }
+
+  smoothedGate.skip(numSamples);
+  smoothedCompress.skip(numSamples);
+
+  engine.setGateLevel(smoothedGate.getCurrentValue());
+  engine.setCompressAmount(smoothedCompress.getCurrentValue());
+  engine.setGainTargetDb(
+      gainDb); // Use unsmoothed gainDb for compression target
+  if (compressPostParam) {
+    engine.setCompressPostMode(compressPostParam->load() > 0.5f);
+  }
 
   // Update latency if it changed
   int newLatency = engine.getLatencyInSamples();

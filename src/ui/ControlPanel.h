@@ -204,6 +204,21 @@ private:
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       gainMultAttachment;
 
+  // Gate control
+  juce::Label gateLabel;
+  juce::Slider gateSlider;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+      gateAttachment;
+
+  // Compress control
+  juce::Label compressLabel;
+  juce::Slider compressSlider;
+  juce::TextButton compressPostButton{"Pre"}; // Pre/Post compress mode
+  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+      compressAttachment;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
+      compressPostAttachment;
+
   // Delay multiply control
   juce::Label delayMultLabel;
   juce::Slider delayMultSlider;

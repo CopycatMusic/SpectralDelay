@@ -14,10 +14,10 @@ public:
 
   // Static color getters for use throughout the application
   static juce::Colour getBackgroundPanel() { return juce::Colour(0xFF0a131f); }
-  static juce::Colour getBackgroundDark() { return juce::Colour(0xFF14253D); }
-  static juce::Colour getBackgroundMedium() { return juce::Colour(0xFF192E4D); }
+  static juce::Colour getBackgroundDark() { return juce::Colour(0xFF0F1C2E); }
+  static juce::Colour getBackgroundMedium() { return juce::Colour(0xFF0f1c2e); }
 
-  static juce::Colour getAccentPrimary() { return juce::Colour(0xFF45D4ED); }
+  static juce::Colour getAccentPrimary() { return juce::Colour(0xFF56D9F0); }
   // Sky Blue
   static juce::Colour getAccentSecondary() { return juce::Colour(0xFFE63946); }
   // Punch Red
@@ -28,9 +28,9 @@ public:
 
   // https://coolors.co/0d1117-161b22-00d4ff-ff6b6b-ffd93d-ffffff
   // new color version
-  // https://coolors.co/0f1c2e-0D1827-0a131f-45D4ED-E63946-ffd93d-f5f5f5-999999
+  // https://coolors.co/0a131f-0d1827-0f1c2e-45d4ed-e63946-ffd93d-f5f5f5-999999
   // DO NOT CHANGE THIS LINK
-  // https://coolors.co/0a131f-14253d-192e4d-999999-f5f5f5-07cbed-e63946-ffd93d
+  // https://coolors.co/0a131f-0d1827-0f1c2e-56d9f0-e63946-ffd93d-f5f5f5-999999
   // new(ver3)
 
   // Slider

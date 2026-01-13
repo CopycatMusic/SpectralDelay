@@ -105,11 +105,31 @@ public:
   void setGainPostMode(bool post) { gainPostMode = post; }
   bool isGainPostMode() const { return gainPostMode.load(); }
 
-  /**
-   * Set delay multiplier (0-100%).
-   */
   void setDelayMultiplier(float mult) { delayMultiplier = mult / 100.0f; }
   float getDelayMultiplier() const { return delayMultiplier * 100.0f; }
+
+  /**
+   * Set spectral gate level in decibels (-100 to 0).
+   */
+  void setGateLevel(float db) { gateLevel = db; }
+  float getGateLevel() const { return gateLevel.load(); }
+
+  /**
+   * Set spectral compression amount (0-100%).
+   */
+  void setCompressAmount(float amount) { compressAmount = amount / 100.0f; }
+  float getCompressAmount() const { return compressAmount * 100.0f; }
+
+  /**
+   * Set target gain in dB for compression.
+   */
+  void setGainTargetDb(float db) { gainTargetDb = db; }
+
+  /**
+   * Set compression post mode (false = Pre, true = Post).
+   */
+  void setCompressPostMode(bool post) { compressPostMode = post; }
+  bool isCompressPostMode() const { return compressPostMode.load(); }
 
   /**
    * Set stereo width amount (0-100%).
@@ -163,6 +183,8 @@ private:
   void applyDelay(std::complex<float> *spectrum, int numBins,
                   std::vector<std::complex<float>> &delayBuffer,
                   std::vector<int> &writePos);
+  void applySpectralGate(std::complex<float> *spectrum, int numBins);
+  void applySpectralCompression(std::complex<float> *spectrum, int numBins);
   void storeFeedback(std::complex<float> *spectrum, int numBins,
                      std::vector<std::complex<float>> &feedbackBuffer);
   void applyStereoWidth(std::complex<float> *spectrumL,
@@ -213,6 +235,11 @@ private:
   // Delay multiplier (default 20%)
   std::atomic<float> delayMultiplier{0.2f};
 
+  // Spectral dynamics parameters
+  std::atomic<float> gateLevel{-60.0f};    // dB
+  std::atomic<float> compressAmount{0.0f}; // 0.0-1.0
+  std::atomic<float> gainTargetDb{0.0f};   // Target for compression
+  std::atomic<bool> compressPostMode{false};
   // Stereo width parameters
   std::atomic<float> stereoAmount{0.0f};   // 0.0-1.0 (stored as ratio)
   std::atomic<float> stereoLowCut{150.0f}; // Hz

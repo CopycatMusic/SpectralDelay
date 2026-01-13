@@ -140,8 +140,15 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
         // storeFeedback Post: (+Feedback) -> [Phase or Delay] -> Stereo ->
         // storeFeedback -> Gain
         bool isPostGain = gainPostMode.load();
+        bool isPostComp = compressPostMode.load();
 
-        // Apply gain only in Pre mode (before feedback)
+        // 1. Gate (Always first)
+        applySpectralGate(spectrum, numBins);
+
+        // 2. Pre-Dynamics (Comp -> Gain)
+        if (!isPostComp) {
+          applySpectralCompression(spectrum, numBins);
+        }
         if (!isPostGain) {
           applyGainModulation(spectrum, numBins);
         }
@@ -158,9 +165,13 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
         // Apply stereo width (left channel)
         applyStereoWidthChannel(spectrum, numBins, true);
 
+        // 3. Post-Dynamics (Comp -> Store -> Gain)
+        if (isPostComp) {
+          applySpectralCompression(spectrum, numBins);
+        }
+
         storeFeedback(spectrum, numBins, feedbackSpectrumL);
 
-        // Apply gain in Post mode (after storeFeedback)
         if (isPostGain) {
           applyGainModulation(spectrum, numBins);
         }
@@ -187,11 +198,16 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
 
   stftProcessorR.process(rightIn, rightOut, numSamples,
                          [this](std::complex<float> *spectrum, int numBins) {
-                           // DSP flow depends on gain mode (same as left
-                           // channel)
                            bool isPostGain = gainPostMode.load();
+                           bool isPostComp = compressPostMode.load();
 
-                           // Apply gain only in Pre mode (before feedback)
+                           // 1. Gate
+                           applySpectralGate(spectrum, numBins);
+
+                           // 2. Pre-Dynamics
+                           if (!isPostComp) {
+                             applySpectralCompression(spectrum, numBins);
+                           }
                            if (!isPostGain) {
                              applyGainModulation(spectrum, numBins);
                            }
@@ -208,9 +224,13 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
                            // Apply stereo width (right channel)
                            applyStereoWidthChannel(spectrum, numBins, false);
 
+                           // 3. Post-Dynamics
+                           if (isPostComp) {
+                             applySpectralCompression(spectrum, numBins);
+                           }
+
                            storeFeedback(spectrum, numBins, feedbackSpectrumR);
 
-                           // Apply gain in Post mode (after storeFeedback)
                            if (isPostGain) {
                              applyGainModulation(spectrum, numBins);
                            }
@@ -637,10 +657,53 @@ void SpectralDelayEngine::applyStereoWidthChannel(std::complex<float> *spectrum,
     // Apply phase rotation using complex multiplication
     float cosVal = std::cos(phaseShift);
     float sinVal = std::sin(phaseShift);
-
     float real = spectrum[bin].real();
     float imag = spectrum[bin].imag();
+
     spectrum[bin] = std::complex<float>(real * cosVal - imag * sinVal,
                                         real * sinVal + imag * cosVal);
+  }
+}
+
+void SpectralDelayEngine::applySpectralGate(std::complex<float> *spectrum,
+                                            int numBins) {
+  // Convert dB threshold to linear gain
+  float threshold = juce::Decibels::decibelsToGain(gateLevel.load(), -100.0f);
+
+  for (int i = 0; i < numBins; ++i) {
+    if (std::abs(spectrum[i]) < threshold) {
+      spectrum[i] = 0.0f;
+    }
+  }
+}
+
+void SpectralDelayEngine::applySpectralCompression(
+    std::complex<float> *spectrum, int numBins) {
+  float amount = compressAmount.load();
+  if (amount <= 0.0001f)
+    return;
+
+  // Target linear gain from the Gain knob setting
+  float targetGainLinear =
+      juce::Decibels::decibelsToGain(gainTargetDb.load(), -64.0f);
+
+  // Noise floor threshold (-60dB) as requested to prevent boosting silence
+  const float noiseFloor = 0.001f; // juce::Decibels::decibelsToGain(-60.0f)
+
+  for (int i = 0; i < numBins; ++i) {
+    float mag = std::abs(spectrum[i]);
+
+    if (mag > noiseFloor) {
+      // Pull magnitude towards target
+      float diff = targetGainLinear - mag;
+      float newMag = mag + (diff * amount);
+
+      // Avoid division by zero or negative magnitudes
+      newMag = std::max(0.0f, newMag);
+
+      if (mag > 0.0f) {
+        spectrum[i] *= (newMag / mag);
+      }
+    }
   }
 }

@@ -73,6 +73,9 @@ private:
       smoothedFeedbackMult;
   juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>
       smoothedDelayMult;
+  juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> smoothedGate;
+  juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>
+      smoothedCompress;
 
   // UI state storage (for DAW recall)
   int uiParameterType = 2;       // 0=Gain, 1=Feedback, 2=Time
