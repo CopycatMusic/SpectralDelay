@@ -227,6 +227,7 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
   // Draw frequency grid lines (only when not in LFO mode)
   if (!lfoMode && showFrequencyGrid) {
     drawFrequencyGrid(g);
+    drawAmplitudeGrid(g);
   }
 
   // Draw spectrum (only when not in LFO mode)
@@ -719,14 +720,25 @@ void SpectrumDisplay::drawFrequencyGrid(juce::Graphics &g) {
   auto graphBounds = getGraphBounds();
 
   // Major grid frequencies: 100Hz, 1kHz, 10kHz (alpha 0.2)
-  const float majorFreqs[] = {100.0f, 1000.0f, 10000.0f};
-  g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.2f));
+  const struct {
+    float freq;
+    juce::String label;
+  } majorFreqs[] = {{100.0f, "100"}, {1000.0f, "1k"}, {10000.0f, "10k"}};
 
-  for (float freq : majorFreqs) {
-    if (freq >= minFreq && freq <= maxFreq) {
+  for (const auto &item : majorFreqs) {
+    if (item.freq >= minFreq && item.freq <= maxFreq) {
       float x =
-          graphBounds.getX() + frequencyToX(freq) * graphBounds.getWidth();
+          graphBounds.getX() + frequencyToX(item.freq) * graphBounds.getWidth();
+
+      // Draw vertical line
+      g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.2f));
       g.drawLine(x, graphBounds.getY(), x, graphBounds.getBottom(), 1.0f);
+
+      // Draw frequency label (bottom-right of the line)
+      g.setFont(juce::Font(10.0f));
+      g.setColour(CustomLookAndFeel::getTextSecondary().withAlpha(0.6f));
+      g.drawText(item.label, x + 2, graphBounds.getBottom() - 12, 30, 10,
+                 juce::Justification::left);
     }
   }
 
@@ -761,5 +773,44 @@ void SpectrumDisplay::drawFrequencyGrid(juce::Graphics &g) {
           graphBounds.getX() + frequencyToX(freq) * graphBounds.getWidth();
       g.drawLine(x, graphBounds.getY(), x, graphBounds.getBottom(), 1.0f);
     }
+  }
+}
+
+void SpectrumDisplay::drawAmplitudeGrid(juce::Graphics &g) {
+  auto graphBounds = getGraphBounds();
+
+  // Define dB intervals to draw
+  // We want to draw lines at meaningful points: 0, -6, -12, -24, -48, -72 etc.
+  std::vector<float> gridDbs = {0.0f,   -6.0f,  -12.0f, -18.0f, -24.0f,
+                                -36.0f, -48.0f, -60.0f, -72.0f, -96.0f};
+
+  g.setFont(juce::Font(10.0f));
+
+  for (float db : gridDbs) {
+    if (db < minDb || db > maxDb)
+      continue;
+
+    float normalized = (db - minDb) / (maxDb - minDb);
+    float y = graphBounds.getBottom() - normalized * graphBounds.getHeight();
+
+    // Skip if y is out of bounds
+    if (y < graphBounds.getY() || y > graphBounds.getBottom())
+      continue;
+
+    // Set color based on level
+    if (std::abs(db) < 0.1f) {
+      g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.3f));
+    } else {
+      g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.15f));
+    }
+
+    g.drawLine(graphBounds.getX(), y, graphBounds.getRight(), y, 1.0f);
+
+    // Draw label
+    g.setColour(CustomLookAndFeel::getTextSecondary().withAlpha(0.6f));
+    juce::String labelText =
+        (db == 0.0f) ? "0 dB" : juce::String(static_cast<int>(db));
+    g.drawText(labelText, graphBounds.getRight() - 35, y - 12, 30, 10,
+               juce::Justification::right);
   }
 }

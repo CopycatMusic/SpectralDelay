@@ -135,58 +135,62 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
   stftProcessorL.process(
       leftIn, leftOut, numSamples,
       [this](std::complex<float> *spectrum, int numBins) {
-        // DSP flow depends on gain mode:
-        // Pre:  Gain -> (+Feedback) -> [Phase or Delay] -> Stereo ->
-        // storeFeedback Post: (+Feedback) -> [Phase or Delay] -> Stereo ->
-        // storeFeedback -> Gain
-        bool isPostGain = gainPostMode.load();
-        bool isPostComp = compressPostMode.load();
+        // 1. Spectral Dynamics (Fixed: Pre-Feedback) - Now occurs before
+        // Pre-Gain
+        applySpectralDynamics(spectrum, numBins);
 
-        // 1. Gate (Always first)
-        applySpectralGate(spectrum, numBins);
-
-        // 2. Pre-Dynamics (Comp -> Gain)
-        if (!isPostComp) {
-          applySpectralCompression(spectrum, numBins);
-        }
-        if (!isPostGain) {
+        // 2. Pre-Dynamics Gain (if in Pre mode)
+        if (!gainPostMode.load()) {
           applyGainModulation(spectrum, numBins);
         }
 
+        // 3. Feedback Mixing
         applyFeedback(spectrum, numBins, feedbackSpectrumL);
 
-        // Apply either Phase rotation or Delay buffer based on mode
+        // 4. Core Effect (Delay or Phase)
         if (useDelayMode) {
           applyDelay(spectrum, numBins, delayBufferL, delayWritePosL);
         } else {
           applyPhaseModulation(spectrum, numBins);
         }
 
-        // Apply stereo width (left channel)
+        // 5. Stereo Width
         applyStereoWidthChannel(spectrum, numBins, true);
 
-        // 3. Post-Dynamics (Comp -> Store -> Gain)
-        if (isPostComp) {
-          applySpectralCompression(spectrum, numBins);
-        }
-
+        // 6. Feedback Storing
         storeFeedback(spectrum, numBins, feedbackSpectrumL);
 
-        if (isPostGain) {
+        // 7. Post-Dynamics Gain (if in Post mode)
+        if (gainPostMode.load()) {
           applyGainModulation(spectrum, numBins);
         }
+
+        // capture visualization spectrum... (rest of the block)
 
         // Capture visualization spectrum (Left channel only)
         // Use try_lock to never block audio thread
         {
           std::unique_lock<std::mutex> lock(spectrumMutex, std::try_to_lock);
           if (lock.owns_lock()) {
-            float normFactor = 1.0f / static_cast<float>(currentFFTSize.load());
-            for (int bin = 0; bin < numBins && bin < currentNumBins.load();
+            float acNorm = 4.0f / static_cast<float>(currentFFTSize.load());
+            float dcNorm = 2.0f / static_cast<float>(currentFFTSize.load());
+
+            // DC (real)
+            outputMagnitudeSpectrum[0] = std::abs(spectrum[0].real()) * dcNorm;
+
+            // AC bins
+            for (int bin = 1; bin < numBins - 1 && bin < currentNumBins.load();
                  ++bin) {
               outputMagnitudeSpectrum[static_cast<size_t>(bin)] =
-                  std::abs(spectrum[bin]) * normFactor;
+                  std::abs(spectrum[bin]) * acNorm;
             }
+
+            // Nyquist (imag)
+            if (numBins > 0 && numBins <= (int)outputMagnitudeSpectrum.size()) {
+              outputMagnitudeSpectrum[static_cast<size_t>(numBins - 1)] =
+                  std::abs(spectrum[0].imag()) * dcNorm;
+            }
+
             // Atomic swap / copy to visualization buffer
             visualizationMagnitudeSpectrum = outputMagnitudeSpectrum;
           }
@@ -198,22 +202,18 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
 
   stftProcessorR.process(rightIn, rightOut, numSamples,
                          [this](std::complex<float> *spectrum, int numBins) {
-                           bool isPostGain = gainPostMode.load();
-                           bool isPostComp = compressPostMode.load();
+                           // 1. Spectral Dynamics
+                           applySpectralDynamics(spectrum, numBins);
 
-                           // 1. Gate
-                           applySpectralGate(spectrum, numBins);
-
-                           // 2. Pre-Dynamics
-                           if (!isPostComp) {
-                             applySpectralCompression(spectrum, numBins);
-                           }
-                           if (!isPostGain) {
+                           // 2. Pre-Dynamics Gain
+                           if (!gainPostMode.load()) {
                              applyGainModulation(spectrum, numBins);
                            }
 
+                           // 3. Feedback Mixing
                            applyFeedback(spectrum, numBins, feedbackSpectrumR);
 
+                           // 4. Core Effect
                            if (useDelayMode) {
                              applyDelay(spectrum, numBins, delayBufferR,
                                         delayWritePosR);
@@ -221,17 +221,14 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
                              applyPhaseModulation(spectrum, numBins);
                            }
 
-                           // Apply stereo width (right channel)
+                           // 5. Stereo Width
                            applyStereoWidthChannel(spectrum, numBins, false);
 
-                           // 3. Post-Dynamics
-                           if (isPostComp) {
-                             applySpectralCompression(spectrum, numBins);
-                           }
-
+                           // 6. Feedback Storing
                            storeFeedback(spectrum, numBins, feedbackSpectrumR);
 
-                           if (isPostGain) {
+                           // 7. Post-Dynamics Gain
+                           if (gainPostMode.load()) {
                              applyGainModulation(spectrum, numBins);
                            }
                          });
@@ -665,45 +662,76 @@ void SpectralDelayEngine::applyStereoWidthChannel(std::complex<float> *spectrum,
   }
 }
 
+void SpectralDelayEngine::applySpectralDynamics(std::complex<float> *spectrum,
+                                                int numBins) {
+  float amount = compressAmount.load();
+  float Tg = gateLevel.load();
+
+  // Mapping amount (0.0-1.0) to R_comp (1.0 to 4.0 as requested)
+  float R_comp = 1.0f + amount * 3.0f;
+  const float R_exp = 10.0f; // Fixed expansion ratio
+
+  float acNorm = 4.0f / static_cast<float>(currentFFTSize.load());
+  float dcNorm = 2.0f / static_cast<float>(currentFFTSize.load());
+
+  auto applyDynamicsToValue = [&](float &value, float norm) {
+    float mag = std::abs(value);
+    if (mag < 1e-9f)
+      return;
+
+    float x = juce::Decibels::gainToDecibels(mag * norm, -120.0f);
+    const float A = -36.0f; // Anchor point at -36dB as requested
+    float y;
+
+    if (x >= Tg) {
+      // Compression zone: x pulled towards anchor A
+      y = A + (x - A) / R_comp;
+    } else {
+      // Expansion zone: x pushed away from inflection point
+      y = (A + (Tg - A) / R_comp) + R_exp * (x - Tg);
+    }
+
+    float newMag = juce::Decibels::decibelsToGain(y, -120.0f);
+    value *= (newMag / (mag * norm));
+  };
+
+  // Dynamics DC
+  float dc = spectrum[0].real();
+  applyDynamicsToValue(dc, dcNorm);
+  spectrum[0].real(dc);
+
+  // Dynamics AC bins
+  for (int i = 1; i < numBins - 1; ++i) {
+    float rawMag = std::abs(spectrum[i]);
+    if (rawMag < 1e-9f)
+      continue;
+
+    float x = juce::Decibels::gainToDecibels(rawMag * acNorm, -120.0f);
+    const float A = -36.0f; // Anchor point at -36dB as requested
+    float y;
+
+    if (x >= Tg) {
+      y = A + (x - A) / R_comp;
+    } else {
+      y = (A + (Tg - A) / R_comp) + R_exp * (x - Tg);
+    }
+
+    float newMag = juce::Decibels::decibelsToGain(y, -120.0f);
+    spectrum[i] *= (newMag / (rawMag * acNorm));
+  }
+
+  // Dynamics Nyquist
+  float nyquist = spectrum[0].imag();
+  applyDynamicsToValue(nyquist, dcNorm);
+  spectrum[0].imag(nyquist);
+}
+
 void SpectralDelayEngine::applySpectralGate(std::complex<float> *spectrum,
                                             int numBins) {
-  // Convert dB threshold to linear gain
-  float threshold = juce::Decibels::decibelsToGain(gateLevel.load(), -100.0f);
-
-  for (int i = 0; i < numBins; ++i) {
-    if (std::abs(spectrum[i]) < threshold) {
-      spectrum[i] = 0.0f;
-    }
-  }
+  // Logic merged into applySpectralDynamics - legacy stub
 }
 
 void SpectralDelayEngine::applySpectralCompression(
     std::complex<float> *spectrum, int numBins) {
-  float amount = compressAmount.load();
-  if (amount <= 0.0001f)
-    return;
-
-  // Target linear gain from the Gain knob setting
-  float targetGainLinear =
-      juce::Decibels::decibelsToGain(gainTargetDb.load(), -64.0f);
-
-  // Noise floor threshold (-60dB) as requested to prevent boosting silence
-  const float noiseFloor = 0.001f; // juce::Decibels::decibelsToGain(-60.0f)
-
-  for (int i = 0; i < numBins; ++i) {
-    float mag = std::abs(spectrum[i]);
-
-    if (mag > noiseFloor) {
-      // Pull magnitude towards target
-      float diff = targetGainLinear - mag;
-      float newMag = mag + (diff * amount);
-
-      // Avoid division by zero or negative magnitudes
-      newMag = std::max(0.0f, newMag);
-
-      if (mag > 0.0f) {
-        spectrum[i] *= (newMag / mag);
-      }
-    }
-  }
+  // Logic merged into applySpectralDynamics - legacy stub
 }

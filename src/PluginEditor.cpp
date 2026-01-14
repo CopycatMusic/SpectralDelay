@@ -76,6 +76,7 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
   // Connect grid display toggle
   controlPanel.onGridDisplayChanged = [this](bool showGrid) {
     spectrumDisplay.setShowFrequencyGrid(showGrid);
+    processorRef.setShowFrequencyGrid(showGrid);
   };
 
   // Connect spectrum source toggle
@@ -106,8 +107,8 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
   };
 
   // Connect LFO mode toggle
-  controlPanel.onLfoModeChanged = [this](bool isLfo) {
-    processorRef.setUILfoMode(isLfo);
+  controlPanel.onLfoModeChanged = [this](bool isLfoMode) {
+    processorRef.setUILfoMode(isLfoMode);
     updateEditingCurve();
   };
 
@@ -159,9 +160,11 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
   // Connect LFO grid controls
   controlPanel.onLfoHGridChanged = [this](int divisions) {
     spectrumDisplay.setLfoHGrid(divisions);
+    processorRef.setLfoHGrid(divisions);
   };
   controlPanel.onLfoVGridChanged = [this](int divisions) {
     spectrumDisplay.setLfoVGrid(divisions);
+    processorRef.setLfoVGrid(divisions);
   };
 
   // Connect stereo width controls
@@ -194,6 +197,17 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
   controlPanel.setLfoMode(processorRef.getUILfoMode());
   controlPanel.setDisplayMode(processorRef.getUIDisplayModeBar());
   controlPanel.setShowInputSpectrum(processorRef.getUIShowInputSpectrum());
+
+  // Restore LFO Grid state
+  spectrumDisplay.setLfoHGrid(processorRef.getLfoHGrid());
+  spectrumDisplay.setLfoVGrid(processorRef.getLfoVGrid());
+  controlPanel.setLfoHGrid(processorRef.getLfoHGrid());
+  controlPanel.setLfoVGrid(processorRef.getLfoVGrid());
+
+  // Restore Frequency Grid state
+  spectrumDisplay.setShowFrequencyGrid(processorRef.isShowFrequencyGrid());
+  controlPanel.setGridDisplay(processorRef.isShowFrequencyGrid());
+
   spectrumDisplay.setDisplayMode(processorRef.getUIDisplayModeBar()
                                      ? SpectrumDisplay::DisplayMode::Bar
                                      : SpectrumDisplay::DisplayMode::Line);
@@ -277,13 +291,15 @@ void CopyCatSpectralDelayEditor::updateAxisLabel() {
   int paramType = controlPanel.getCurrentParameterType();
 
   if (paramType == 0) {
-    // Gain: base max 200%, scaled by gainMult (dB converted to linear)
+    // Gain: base max 100%, scaled by gainMult (dB converted to linear)
+    // Note: The underlying DSP still treats this as 0-200% (0.0 to 2.0x boost)
+    // but the display is scaled to 100% for user preference.
     auto *gainMultParam = parameters.getRawParameterValue("gainMult");
     float mult =
         gainMultParam
             ? juce::Decibels::decibelsToGain(gainMultParam->load(), -64.0f)
             : 1.0f;
-    float displayMax = 200.0f * mult;
+    float displayMax = 100.0f * mult;
     spectrumDisplay.setAxisLabel("%", displayMax);
   } else if (paramType == 1) {
     // Feedback: base max 100%, scaled by feedbackMult (0-100%)

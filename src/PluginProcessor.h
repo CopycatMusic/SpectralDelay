@@ -82,6 +82,9 @@ private:
   bool uiDisplayModeBar = false; // false=Line, true=Bar
   bool uiShowInputSpectrum = false;
   bool uiLfoMode = false; // false=Normal, true=LFO editing mode
+  int lfoHGrid = 0;
+  int lfoVGrid = 0;
+  bool showFrequencyGrid = true;
 
 public:
   // UI state accessors
@@ -93,6 +96,14 @@ public:
   void setUIShowInputSpectrum(bool input) { uiShowInputSpectrum = input; }
   bool getUILfoMode() const { return uiLfoMode; }
   void setUILfoMode(bool lfoMode) { uiLfoMode = lfoMode; }
+
+  int getLfoHGrid() const { return lfoHGrid; }
+  void setLfoHGrid(int divisions) { lfoHGrid = divisions; }
+  int getLfoVGrid() const { return lfoVGrid; }
+  void setLfoVGrid(int divisions) { lfoVGrid = divisions; }
+
+  bool isShowFrequencyGrid() const { return showFrequencyGrid; }
+  void setShowFrequencyGrid(bool show) { showFrequencyGrid = show; }
 
   // LFO Engine access for UI
   LFOEngine &getLfoEngine() { return lfoEngine; }

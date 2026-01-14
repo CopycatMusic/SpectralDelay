@@ -152,10 +152,22 @@ void STFTProcessor::processFrame(
 
   // Update magnitude spectrum for visualization AFTER processing
   // This shows the actual output spectrum
-  float normFactor = 1.0f / static_cast<float>(fftSize);
-  for (int i = 0; i < numBins; ++i) {
-    magnitudeSpectrum[i] = std::abs(spectrum[i]) * normFactor;
+  // Using 4/N for AC and 2/N for DC/Nyquist to compensate for:
+  // 1. Hann window loss (0.5)
+  // 2. Real FFT energy split (0.5 for AC, no split for DC/Nyquist)
+  float acNormFactor = 4.0f / static_cast<float>(fftSize);
+  float dcNormFactor = 2.0f / static_cast<float>(fftSize);
+
+  // DC bin (real part of spectrum[0])
+  magnitudeSpectrum[0] = std::abs(spectrum[0].real()) * dcNormFactor;
+
+  // Intermediate bins (Bin 1 to numBins - 2)
+  for (int i = 1; i < numBins - 1; ++i) {
+    magnitudeSpectrum[i] = std::abs(spectrum[i]) * acNormFactor;
   }
+
+  // Nyquist bin (imaginary part of spectrum[0])
+  magnitudeSpectrum[numBins - 1] = std::abs(spectrum[0].imag()) * dcNormFactor;
 
   // Perform the inverse FFT
   fft->performRealOnlyInverseTransform(fftPtr);

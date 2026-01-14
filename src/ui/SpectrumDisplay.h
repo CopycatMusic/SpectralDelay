@@ -169,8 +169,11 @@ private:
   // Draw curve points and lines
   void drawCurve(juce::Graphics &g);
 
-  // Draw frequency grid lines (only in normal spectrum mode)
+  // Draw frequency grid lines (vertical)
   void drawFrequencyGrid(juce::Graphics &g);
+
+  // Draw amplitude grid lines (horizontal)
+  void drawAmplitudeGrid(juce::Graphics &g);
 
   // Helper to draw a single curve
   // useFrequencyAxis: if true, use logarithmic frequency axis even in LFO mode

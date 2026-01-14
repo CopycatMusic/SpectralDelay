@@ -90,10 +90,10 @@ CopyCatSpectralDelayProcessor::createParameterLayout() {
         return text.getFloatValue();
       }));
 
-  // Gate (dB, default -60 dB)
+  // Gate (dB, default -100 dB)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "gate", "Gate", juce::NormalisableRange<float>(-100.0f, 0.0f, 0.0f, 1.0f),
-      -60.0f, juce::String(), juce::AudioProcessorParameter::genericParameter,
+      "gate", "Gate", juce::NormalisableRange<float>(-100.0f, 0.0f, 0.0f, 0.6f),
+      -100.0f, juce::String(), juce::AudioProcessorParameter::genericParameter,
       [](float value, int) {
         if (value <= -99.9f)
           return juce::String("-inf dB");
@@ -111,10 +111,6 @@ CopyCatSpectralDelayProcessor::createParameterLayout() {
       juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f, 1.0f), 0.0f,
       juce::String(), juce::AudioProcessorParameter::genericParameter,
       [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
-
-  // Compress Post (Boolean)
-  params.push_back(std::make_unique<juce::AudioParameterBool>(
-      "compressPost", "Compress Post", false));
 
   // Delay Multiplier (0-100%, default 20%, non-linear for finer control near 0)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
@@ -315,7 +311,6 @@ void CopyCatSpectralDelayProcessor::processBlock(
   // Update Spectral Dynamics parameters
   auto *gateParam = parameters.getRawParameterValue("gate");
   auto *compressParam = parameters.getRawParameterValue("compress");
-  auto *compressPostParam = parameters.getRawParameterValue("compressPost");
 
   if (gateParam) {
     smoothedGate.setTargetValue(gateParam->load());
@@ -331,9 +326,6 @@ void CopyCatSpectralDelayProcessor::processBlock(
   engine.setCompressAmount(smoothedCompress.getCurrentValue());
   engine.setGainTargetDb(
       gainDb); // Use unsmoothed gainDb for compression target
-  if (compressPostParam) {
-    engine.setCompressPostMode(compressPostParam->load() > 0.5f);
-  }
 
   // Update latency if it changed
   int newLatency = engine.getLatencyInSamples();
@@ -370,9 +362,13 @@ void CopyCatSpectralDelayProcessor::getStateInformation(
   xml->setAttribute("delayMode", engine.isDelayMode());
 
   // Save UI state
-  xml->setAttribute("uiParameterType", uiParameterType);
   xml->setAttribute("uiDisplayModeBar", uiDisplayModeBar);
   xml->setAttribute("uiShowInputSpectrum", uiShowInputSpectrum);
+  xml->setAttribute("uiLfoMode", uiLfoMode);
+  xml->setAttribute("lfoHGrid", lfoHGrid);
+  xml->setAttribute("lfoVGrid", lfoVGrid);
+  xml->setAttribute("uiParameterType", uiParameterType);
+  xml->setAttribute("showFrequencyGrid", showFrequencyGrid);
 
   // Save feedback invert state
   xml->setAttribute("feedbackInvert", engine.isFeedbackInvert());
@@ -393,8 +389,12 @@ void CopyCatSpectralDelayProcessor::getStateInformation(
   // Gain LFO
   xml->setAttribute("lfoGainAmount", static_cast<double>(lfoEngine.getAmount(
                                          LFOEngine::Parameter::Gain)));
-  xml->setAttribute("lfoGainSpeed", static_cast<double>(lfoEngine.getSpeed(
-                                        LFOEngine::Parameter::Gain)));
+  xml->setAttribute(
+      "lfoGainTimeSpeed",
+      static_cast<double>(lfoEngine.getTimeSpeed(LFOEngine::Parameter::Gain)));
+  xml->setAttribute("lfoGainSyncInterval",
+                    static_cast<double>(
+                        lfoEngine.getSyncInterval(LFOEngine::Parameter::Gain)));
   xml->setAttribute("lfoGainSmooth", static_cast<double>(lfoEngine.getSmooth(
                                          LFOEngine::Parameter::Gain)));
   xml->setAttribute("lfoGainSyncMode", static_cast<int>(lfoEngine.getSyncMode(
@@ -409,8 +409,12 @@ void CopyCatSpectralDelayProcessor::getStateInformation(
   xml->setAttribute(
       "lfoFeedbackAmount",
       static_cast<double>(lfoEngine.getAmount(LFOEngine::Parameter::Feedback)));
-  xml->setAttribute("lfoFeedbackSpeed", static_cast<double>(lfoEngine.getSpeed(
-                                            LFOEngine::Parameter::Feedback)));
+  xml->setAttribute("lfoFeedbackTimeSpeed",
+                    static_cast<double>(lfoEngine.getTimeSpeed(
+                        LFOEngine::Parameter::Feedback)));
+  xml->setAttribute("lfoFeedbackSyncInterval",
+                    static_cast<double>(lfoEngine.getSyncInterval(
+                        LFOEngine::Parameter::Feedback)));
   xml->setAttribute(
       "lfoFeedbackSmooth",
       static_cast<double>(lfoEngine.getSmooth(LFOEngine::Parameter::Feedback)));
@@ -426,8 +430,12 @@ void CopyCatSpectralDelayProcessor::getStateInformation(
   // Time LFO
   xml->setAttribute("lfoTimeAmount", static_cast<double>(lfoEngine.getAmount(
                                          LFOEngine::Parameter::Time)));
-  xml->setAttribute("lfoTimeSpeed", static_cast<double>(lfoEngine.getSpeed(
-                                        LFOEngine::Parameter::Time)));
+  xml->setAttribute(
+      "lfoTimeTimeSpeed",
+      static_cast<double>(lfoEngine.getTimeSpeed(LFOEngine::Parameter::Time)));
+  xml->setAttribute("lfoTimeSyncInterval",
+                    static_cast<double>(
+                        lfoEngine.getSyncInterval(LFOEngine::Parameter::Time)));
   xml->setAttribute("lfoTimeSmooth", static_cast<double>(lfoEngine.getSmooth(
                                          LFOEngine::Parameter::Time)));
   xml->setAttribute("lfoTimeSyncMode", static_cast<int>(lfoEngine.getSyncMode(
@@ -492,6 +500,18 @@ void CopyCatSpectralDelayProcessor::setStateInformation(const void *data,
       uiShowInputSpectrum =
           xmlState->getBoolAttribute("uiShowInputSpectrum", false);
     }
+    if (xmlState->hasAttribute("uiLfoMode")) {
+      uiLfoMode = xmlState->getBoolAttribute("uiLfoMode", false);
+    }
+    if (xmlState->hasAttribute("lfoHGrid")) {
+      lfoHGrid = xmlState->getIntAttribute("lfoHGrid", 0);
+    }
+    if (xmlState->hasAttribute("lfoVGrid")) {
+      lfoVGrid = xmlState->getIntAttribute("lfoVGrid", 0);
+    }
+    if (xmlState->hasAttribute("showFrequencyGrid")) {
+      showFrequencyGrid = xmlState->getBoolAttribute("showFrequencyGrid", true);
+    }
 
     // Restore feedback invert state
     if (xmlState->hasAttribute("feedbackInvert")) {
@@ -520,34 +540,47 @@ void CopyCatSpectralDelayProcessor::setStateInformation(const void *data,
           xmlState->getDoubleAttribute("stereoLowCut", 150.0)));
     }
 
-    // Restore LFO state for each parameter type
     // Gain LFO
-    if (xmlState->hasAttribute("lfoGainAmount")) {
-      lfoEngine.setAmount(LFOEngine::Parameter::Gain,
-                          static_cast<float>(xmlState->getDoubleAttribute(
-                              "lfoGainAmount", 0.0)));
-    }
-    if (xmlState->hasAttribute("lfoGainSpeed")) {
-      lfoEngine.setSpeed(LFOEngine::Parameter::Gain,
-                         static_cast<float>(xmlState->getDoubleAttribute(
-                             "lfoGainSpeed", 500.0)));
-    }
-    if (xmlState->hasAttribute("lfoGainSmooth")) {
-      lfoEngine.setSmooth(LFOEngine::Parameter::Gain,
-                          static_cast<float>(xmlState->getDoubleAttribute(
-                              "lfoGainSmooth", 0.0)));
-    }
     if (xmlState->hasAttribute("lfoGainSyncMode")) {
       lfoEngine.setSyncMode(
           LFOEngine::Parameter::Gain,
           static_cast<LFOEngine::SyncMode>(
               xmlState->getIntAttribute("lfoGainSyncMode", 0)));
     } else if (xmlState->hasAttribute("lfoGainBeatMode")) {
-      // Legacy compatibility: convert old bool to new enum
       bool wasBeat = xmlState->getBoolAttribute("lfoGainBeatMode", false);
       lfoEngine.setSyncMode(LFOEngine::Parameter::Gain,
                             wasBeat ? LFOEngine::SyncMode::Note
                                     : LFOEngine::SyncMode::Time);
+    }
+    if (xmlState->hasAttribute("lfoGainTimeSpeed")) {
+      lfoEngine.setTimeSpeed(LFOEngine::Parameter::Gain,
+                             static_cast<float>(xmlState->getDoubleAttribute(
+                                 "lfoGainTimeSpeed", 500.0)));
+    } else if (xmlState->hasAttribute("lfoGainSpeed")) {
+      // Compatibility fallback
+      lfoEngine.setTimeSpeed(LFOEngine::Parameter::Gain,
+                             static_cast<float>(xmlState->getDoubleAttribute(
+                                 "lfoGainSpeed", 500.0)));
+    }
+    if (xmlState->hasAttribute("lfoGainSyncInterval")) {
+      lfoEngine.setSyncInterval(LFOEngine::Parameter::Gain,
+                                static_cast<float>(xmlState->getDoubleAttribute(
+                                    "lfoGainSyncInterval", 4.0)));
+    } else if (xmlState->hasAttribute("lfoGainSpeed")) {
+      // Compatibility fallback
+      lfoEngine.setSyncInterval(LFOEngine::Parameter::Gain,
+                                static_cast<float>(xmlState->getDoubleAttribute(
+                                    "lfoGainSpeed", 4.0)));
+    }
+    if (xmlState->hasAttribute("lfoGainAmount")) {
+      lfoEngine.setAmount(LFOEngine::Parameter::Gain,
+                          static_cast<float>(xmlState->getDoubleAttribute(
+                              "lfoGainAmount", 0.0)));
+    }
+    if (xmlState->hasAttribute("lfoGainSmooth")) {
+      lfoEngine.setSmooth(LFOEngine::Parameter::Gain,
+                          static_cast<float>(xmlState->getDoubleAttribute(
+                              "lfoGainSmooth", 0.0)));
     }
     if (xmlState->hasAttribute("lfoGainSynced")) {
       lfoEngine.setSynced(LFOEngine::Parameter::Gain,
@@ -559,21 +592,6 @@ void CopyCatSpectralDelayProcessor::setStateInformation(const void *data,
     }
 
     // Feedback LFO
-    if (xmlState->hasAttribute("lfoFeedbackAmount")) {
-      lfoEngine.setAmount(LFOEngine::Parameter::Feedback,
-                          static_cast<float>(xmlState->getDoubleAttribute(
-                              "lfoFeedbackAmount", 0.0)));
-    }
-    if (xmlState->hasAttribute("lfoFeedbackSpeed")) {
-      lfoEngine.setSpeed(LFOEngine::Parameter::Feedback,
-                         static_cast<float>(xmlState->getDoubleAttribute(
-                             "lfoFeedbackSpeed", 500.0)));
-    }
-    if (xmlState->hasAttribute("lfoFeedbackSmooth")) {
-      lfoEngine.setSmooth(LFOEngine::Parameter::Feedback,
-                          static_cast<float>(xmlState->getDoubleAttribute(
-                              "lfoFeedbackSmooth", 0.0)));
-    }
     if (xmlState->hasAttribute("lfoFeedbackSyncMode")) {
       lfoEngine.setSyncMode(
           LFOEngine::Parameter::Feedback,
@@ -585,6 +603,34 @@ void CopyCatSpectralDelayProcessor::setStateInformation(const void *data,
                             wasBeat ? LFOEngine::SyncMode::Note
                                     : LFOEngine::SyncMode::Time);
     }
+    if (xmlState->hasAttribute("lfoFeedbackTimeSpeed")) {
+      lfoEngine.setTimeSpeed(LFOEngine::Parameter::Feedback,
+                             static_cast<float>(xmlState->getDoubleAttribute(
+                                 "lfoFeedbackTimeSpeed", 500.0)));
+    } else if (xmlState->hasAttribute("lfoFeedbackSpeed")) {
+      lfoEngine.setTimeSpeed(LFOEngine::Parameter::Feedback,
+                             static_cast<float>(xmlState->getDoubleAttribute(
+                                 "lfoFeedbackSpeed", 500.0)));
+    }
+    if (xmlState->hasAttribute("lfoFeedbackSyncInterval")) {
+      lfoEngine.setSyncInterval(LFOEngine::Parameter::Feedback,
+                                static_cast<float>(xmlState->getDoubleAttribute(
+                                    "lfoFeedbackSyncInterval", 4.0)));
+    } else if (xmlState->hasAttribute("lfoFeedbackSpeed")) {
+      lfoEngine.setSyncInterval(LFOEngine::Parameter::Feedback,
+                                static_cast<float>(xmlState->getDoubleAttribute(
+                                    "lfoFeedbackSpeed", 4.0)));
+    }
+    if (xmlState->hasAttribute("lfoFeedbackAmount")) {
+      lfoEngine.setAmount(LFOEngine::Parameter::Feedback,
+                          static_cast<float>(xmlState->getDoubleAttribute(
+                              "lfoFeedbackAmount", 0.0)));
+    }
+    if (xmlState->hasAttribute("lfoFeedbackSmooth")) {
+      lfoEngine.setSmooth(LFOEngine::Parameter::Feedback,
+                          static_cast<float>(xmlState->getDoubleAttribute(
+                              "lfoFeedbackSmooth", 0.0)));
+    }
     if (xmlState->hasAttribute("lfoFeedbackSynced")) {
       lfoEngine.setSynced(LFOEngine::Parameter::Feedback,
                           xmlState->getBoolAttribute("lfoFeedbackSynced"));
@@ -595,21 +641,6 @@ void CopyCatSpectralDelayProcessor::setStateInformation(const void *data,
     }
 
     // Time LFO
-    if (xmlState->hasAttribute("lfoTimeAmount")) {
-      lfoEngine.setAmount(LFOEngine::Parameter::Time,
-                          static_cast<float>(xmlState->getDoubleAttribute(
-                              "lfoTimeAmount", 0.0)));
-    }
-    if (xmlState->hasAttribute("lfoTimeSpeed")) {
-      lfoEngine.setSpeed(LFOEngine::Parameter::Time,
-                         static_cast<float>(xmlState->getDoubleAttribute(
-                             "lfoTimeSpeed", 500.0)));
-    }
-    if (xmlState->hasAttribute("lfoTimeSmooth")) {
-      lfoEngine.setSmooth(LFOEngine::Parameter::Time,
-                          static_cast<float>(xmlState->getDoubleAttribute(
-                              "lfoTimeSmooth", 0.0)));
-    }
     if (xmlState->hasAttribute("lfoTimeSyncMode")) {
       lfoEngine.setSyncMode(
           LFOEngine::Parameter::Time,
@@ -620,6 +651,34 @@ void CopyCatSpectralDelayProcessor::setStateInformation(const void *data,
       lfoEngine.setSyncMode(LFOEngine::Parameter::Time,
                             wasBeat ? LFOEngine::SyncMode::Note
                                     : LFOEngine::SyncMode::Time);
+    }
+    if (xmlState->hasAttribute("lfoTimeTimeSpeed")) {
+      lfoEngine.setTimeSpeed(LFOEngine::Parameter::Time,
+                             static_cast<float>(xmlState->getDoubleAttribute(
+                                 "lfoTimeTimeSpeed", 500.0)));
+    } else if (xmlState->hasAttribute("lfoTimeSpeed")) {
+      lfoEngine.setTimeSpeed(LFOEngine::Parameter::Time,
+                             static_cast<float>(xmlState->getDoubleAttribute(
+                                 "lfoTimeSpeed", 500.0)));
+    }
+    if (xmlState->hasAttribute("lfoTimeSyncInterval")) {
+      lfoEngine.setSyncInterval(LFOEngine::Parameter::Time,
+                                static_cast<float>(xmlState->getDoubleAttribute(
+                                    "lfoTimeSyncInterval", 4.0)));
+    } else if (xmlState->hasAttribute("lfoTimeSpeed")) {
+      lfoEngine.setSyncInterval(LFOEngine::Parameter::Time,
+                                static_cast<float>(xmlState->getDoubleAttribute(
+                                    "lfoTimeSpeed", 4.0)));
+    }
+    if (xmlState->hasAttribute("lfoTimeAmount")) {
+      lfoEngine.setAmount(LFOEngine::Parameter::Time,
+                          static_cast<float>(xmlState->getDoubleAttribute(
+                              "lfoTimeAmount", 0.0)));
+    }
+    if (xmlState->hasAttribute("lfoTimeSmooth")) {
+      lfoEngine.setSmooth(LFOEngine::Parameter::Time,
+                          static_cast<float>(xmlState->getDoubleAttribute(
+                              "lfoTimeSmooth", 0.0)));
     }
     if (xmlState->hasAttribute("lfoTimeSynced")) {
       lfoEngine.setSynced(LFOEngine::Parameter::Time,

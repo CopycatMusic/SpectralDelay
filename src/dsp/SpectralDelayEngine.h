@@ -126,12 +126,6 @@ public:
   void setGainTargetDb(float db) { gainTargetDb = db; }
 
   /**
-   * Set compression post mode (false = Pre, true = Post).
-   */
-  void setCompressPostMode(bool post) { compressPostMode = post; }
-  bool isCompressPostMode() const { return compressPostMode.load(); }
-
-  /**
    * Set stereo width amount (0-100%).
    */
   void setStereoAmount(float amount) { stereoAmount = amount / 100.0f; }
@@ -183,6 +177,7 @@ private:
   void applyDelay(std::complex<float> *spectrum, int numBins,
                   std::vector<std::complex<float>> &delayBuffer,
                   std::vector<int> &writePos);
+  void applySpectralDynamics(std::complex<float> *spectrum, int numBins);
   void applySpectralGate(std::complex<float> *spectrum, int numBins);
   void applySpectralCompression(std::complex<float> *spectrum, int numBins);
   void storeFeedback(std::complex<float> *spectrum, int numBins,
@@ -236,10 +231,9 @@ private:
   std::atomic<float> delayMultiplier{0.2f};
 
   // Spectral dynamics parameters
-  std::atomic<float> gateLevel{-60.0f};    // dB
+  std::atomic<float> gateLevel{-100.0f};   // dB
   std::atomic<float> compressAmount{0.0f}; // 0.0-1.0
   std::atomic<float> gainTargetDb{0.0f};   // Target for compression
-  std::atomic<bool> compressPostMode{false};
   // Stereo width parameters
   std::atomic<float> stereoAmount{0.0f};   // 0.0-1.0 (stored as ratio)
   std::atomic<float> stereoLowCut{150.0f}; // Hz
@@ -298,7 +292,6 @@ private:
   std::atomic<bool> useDelayMode{true};
 
   std::vector<float> outputAccumBuffer; // Accumulated samples for FFT
-  int outputAccumPos = 0;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpectralDelayEngine)
 };

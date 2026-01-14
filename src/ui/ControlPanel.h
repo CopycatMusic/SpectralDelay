@@ -117,6 +117,11 @@ public:
     spectrumSourceButton.setButtonText(isInput ? "Input" : "Output");
   }
 
+  // Set grid display UI state (for restoring from saved state)
+  void setGridDisplay(bool show) {
+    gridButton.setToggleState(show, juce::dontSendNotification);
+  }
+
   // Set feedback invert UI state (for restoring from saved state)
   void setFeedbackInvert(bool invert) {
     feedbackInvertButton.setToggleState(invert, juce::dontSendNotification);
@@ -137,6 +142,8 @@ public:
    */
   void updateLfoControls(float amount, float speedOrIndex, float smoothMs,
                          SyncMode mode, bool isSynced);
+  void setLfoHGrid(int divisions);
+  void setLfoVGrid(int divisions);
 
 private:
   // Layout constants are now in UIConstants.h
@@ -213,11 +220,8 @@ private:
   // Compress control
   juce::Label compressLabel;
   juce::Slider compressSlider;
-  juce::TextButton compressPostButton{"Pre"}; // Pre/Post compress mode
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       compressAttachment;
-  std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
-      compressPostAttachment;
 
   // Delay multiply control
   juce::Label delayMultLabel;

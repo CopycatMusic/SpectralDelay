@@ -8,7 +8,7 @@ void LFOEngine::prepare(double newSampleRate) {
   sampleRate = newSampleRate;
   // Reinitialize smoothers with new sample rate
   for (int i = 0; i < kNumParams; ++i) {
-    float smoothSeconds = smoothMs[i] / 1000.0f;
+    float smoothSeconds = smoothMs[i].load() / 1000.0f;
     smoothedOutputs[i].reset(sampleRate, smoothSeconds);
   }
 }
@@ -73,19 +73,7 @@ float LFOEngine::getModulationValue(Parameter param) const {
     double beatsPerCycle = 1.0;
     if (syncModes[idx] != SyncMode::Time) {
       // In beat mode, the cycle duration is directly related to beats
-      static const float subdivisionBeats[] = {
-          0.125f, // 1/32
-          0.25f,  // 1/16
-          0.5f,   // 1/8
-          1.0f,   // 1/4
-          2.0f,   // 1/2
-          4.0f,   // 1
-          8.0f,   // 2
-          16.0f,  // 4
-          32.0f   // 8
-      };
-      int beatIdx = juce::jlimit(0, 8, static_cast<int>(syncIntervals[idx]));
-      beatsPerCycle = subdivisionBeats[beatIdx];
+      beatsPerCycle = getBeatsForIndex(static_cast<int>(syncIntervals[idx]));
 
       // Apply Triplet/Dotted multipliers
       if (syncModes[idx] == SyncMode::Triplet)
@@ -150,10 +138,7 @@ float LFOEngine::getFrameAveragedModulation(Parameter param,
     // advance
     double beatsPerCycle = 1.0;
     if (syncModes[idx] != SyncMode::Time) {
-      static const float subdivisionBeats[] = {0.125f, 0.25f, 0.5f,  1.0f, 2.0f,
-                                               4.0f,   8.0f,  16.0f, 32.0f};
-      int beatIdx = juce::jlimit(0, 8, static_cast<int>(syncIntervals[idx]));
-      beatsPerCycle = subdivisionBeats[beatIdx];
+      beatsPerCycle = getBeatsForIndex(static_cast<int>(syncIntervals[idx]));
 
       // Apply Triplet/Dotted multipliers
       if (syncModes[idx] == SyncMode::Triplet)
@@ -201,10 +186,7 @@ float LFOEngine::getPhase(Parameter param) const {
   if (isSynced[idx]) {
     double beatsPerCycle = 1.0;
     if (syncModes[idx] != SyncMode::Time) {
-      static const float subdivisionBeats[] = {0.125f, 0.25f, 0.5f,  1.0f, 2.0f,
-                                               4.0f,   8.0f,  16.0f, 32.0f};
-      int beatIdx = juce::jlimit(0, 8, static_cast<int>(syncIntervals[idx]));
-      beatsPerCycle = subdivisionBeats[beatIdx];
+      beatsPerCycle = getBeatsForIndex(static_cast<int>(syncIntervals[idx]));
 
       // Apply Triplet/Dotted multipliers
       if (syncModes[idx] == SyncMode::Triplet)
@@ -262,12 +244,38 @@ float LFOEngine::getSpeed(Parameter param) const {
     return timeModeSpeeds[idx];
 }
 
+void LFOEngine::setTimeSpeed(Parameter param, float speedMs) {
+  int idx = static_cast<int>(param);
+  if (idx >= 0 && idx < kNumParams) {
+    timeModeSpeeds[idx] = juce::jlimit(100.0f, 10000.0f, speedMs);
+  }
+}
+
+float LFOEngine::getTimeSpeed(Parameter param) const {
+  int idx = static_cast<int>(param);
+  return (idx >= 0 && idx < kNumParams) ? timeModeSpeeds[idx] : 500.0f;
+}
+
+void LFOEngine::setSyncInterval(Parameter param, float interval) {
+  int idx = static_cast<int>(param);
+  if (idx >= 0 && idx < kNumParams) {
+    syncIntervals[idx] = juce::jlimit(0.0f, 8.0f, interval);
+  }
+}
+
+float LFOEngine::getSyncInterval(Parameter param) const {
+  int idx = static_cast<int>(param);
+  return (idx >= 0 && idx < kNumParams) ? syncIntervals[idx] : 4.0f;
+}
+
 void LFOEngine::setSmooth(Parameter param, float smooth) {
   int idx = static_cast<int>(param);
   if (idx >= 0 && idx < kNumParams) {
-    smoothMs[idx] = juce::jlimit(0.0f, 200.0f, smooth);
-    float smoothSeconds = smoothMs[idx] / 1000.0f;
-    smoothedOutputs[idx].reset(sampleRate, smoothSeconds);
+    float newSmoothMs = juce::jlimit(0.0f, 200.0f, smooth);
+    if (std::abs(newSmoothMs - smoothMs[idx].load()) > 0.001f) {
+      smoothMs[idx].store(newSmoothMs);
+      smoothNeedsUpdate[idx].store(true);
+    }
   }
 }
 
@@ -275,7 +283,7 @@ float LFOEngine::getSmooth(Parameter param) const {
   int idx = static_cast<int>(param);
   if (idx < 0 || idx >= kNumParams)
     return 0.0f;
-  return smoothMs[idx];
+  return smoothMs[idx].load();
 }
 
 void LFOEngine::setSyncMode(Parameter param, SyncMode mode) {
@@ -283,9 +291,6 @@ void LFOEngine::setSyncMode(Parameter param, SyncMode mode) {
   if (idx >= 0 && idx < kNumParams) {
     if (syncModes[idx] != mode) {
       syncModes[idx] = mode;
-      // When switching, reset default
-      speeds[idx] =
-          (mode == SyncMode::Time) ? 500.0f : 3.0f; // Default 1/4 or 500ms
     }
   }
 }
@@ -308,10 +313,7 @@ bool LFOEngine::getSynced(Parameter param) const {
 }
 
 float LFOEngine::getBeatDurationMs(int beatIndex, double bpm, SyncMode mode) {
-  static const float subdivisionBeats[] = {0.125f, 0.25f, 0.5f,  1.0f, 2.0f,
-                                           4.0f,   8.0f,  16.0f, 32.0f};
-  int idx = juce::jlimit(0, 8, beatIndex);
-  float beats = subdivisionBeats[idx];
+  float beats = getBeatsForIndex(beatIndex);
 
   // Apply Triplet/Dotted multipliers
   if (mode == SyncMode::Triplet)
@@ -324,8 +326,8 @@ float LFOEngine::getBeatDurationMs(int beatIndex, double bpm, SyncMode mode) {
 }
 
 juce::String LFOEngine::getBeatString(int beatIndex, SyncMode mode) {
-  static const char *labels[] = {"1/32", "1/16", "1/8", "1/4", "1/2",
-                                 "1",    "2",    "4",   "8"};
+  static const char *labels[] = {"1/16", "1/8", "1/4", "1/2", "1",
+                                 "2",    "4",   "8",   "16"};
   int idx = juce::jlimit(0, 8, beatIndex);
   juce::String label = labels[idx];
 
@@ -348,6 +350,20 @@ void LFOEngine::updateSmoothedModulation(Parameter param, float targetValue,
   int idx = static_cast<int>(param);
   if (idx < 0 || idx >= kNumParams)
     return;
+
+  // Update ramp duration if it changed in UI
+  if (smoothNeedsUpdate[idx].load()) {
+    float smoothSeconds = smoothMs[idx].load() / 1000.0f;
+    if (smoothSeconds <= 0.0f) {
+      // Snap to target if smooth is 0. Explicitly set ramp to 0.0s.
+      smoothedOutputs[idx].reset(sampleRate, 0.0);
+      smoothedOutputs[idx].setCurrentAndTargetValue(targetValue);
+    } else {
+      // Set new ramp duration while preserving current progress
+      smoothedOutputs[idx].reset(sampleRate, smoothSeconds);
+    }
+    smoothNeedsUpdate[idx].store(false);
+  }
 
   smoothedOutputs[idx].setTargetValue(targetValue);
   smoothedOutputs[idx].skip(numSamples);
@@ -379,9 +395,17 @@ void LFOEngine::initializeDefaultCurves() {
   for (int i = 0; i < kNumParams; ++i) {
     curves[i].clearPoints();
     curves[i].setDefaultValue(100.0f);
+    smoothMs[i].store(0.0f);
+    smoothNeedsUpdate[i].store(false);
     smoothedOutputs[i].reset(sampleRate, 0.0);
     smoothedOutputs[i].setCurrentAndTargetValue(1.0f);
     syncModes[i] = SyncMode::Time;
     isSynced[i] = false;
   }
+}
+
+float LFOEngine::getBeatsForIndex(int beatIndex) {
+  static const float subdivisionBeats[] = {0.25f, 0.5f,  1.0f,  2.0f, 4.0f,
+                                           8.0f,  16.0f, 32.0f, 64.0f};
+  return subdivisionBeats[juce::jlimit(0, 8, beatIndex)];
 }

@@ -61,8 +61,14 @@ public:
   void setAmount(Parameter param, float amount); // 0-100%
   float getAmount(Parameter param) const;
 
-  void setSpeed(Parameter param, float speedMs); // 100-2000ms
+  void setSpeed(Parameter param, float speedMs);
   float getSpeed(Parameter param) const;
+
+  void setTimeSpeed(Parameter param, float speedMs);
+  float getTimeSpeed(Parameter param) const;
+
+  void setSyncInterval(Parameter param, float interval);
+  float getSyncInterval(Parameter param) const;
 
   void setSmooth(Parameter param, float smoothMs); // 0-100ms
   float getSmooth(Parameter param) const;
@@ -124,9 +130,9 @@ private:
 
   // Per-parameter LFO state
   float phases[kNumParams] = {0.0f, 0.0f, 0.0f};
-  float amounts[kNumParams] = {100.0f, 100.0f, 100.0f}; // Default 100%
-  float speeds[kNumParams] = {500.0f, 500.0f, 500.0f};  // Default 500ms
-  float smoothMs[kNumParams] = {0.0f, 0.0f, 0.0f}; // Default 0ms (no smooth)
+  float amounts[kNumParams] = {100.0f, 100.0f, 100.0f};
+  std::atomic<float> smoothMs[kNumParams];
+  std::atomic<bool> smoothNeedsUpdate[kNumParams];
 
   SyncMode syncModes[kNumParams] = {SyncMode::Time, SyncMode::Time,
                                     SyncMode::Time};
@@ -136,6 +142,13 @@ private:
   float timeModeSpeeds[kNumParams] = {500.0f, 500.0f, 500.0f}; // Default 500ms
   float syncIntervals[kNumParams] = {4.0f, 4.0f,
                                      4.0f}; // Default 1/4 note (index 4)
+
+  /**
+   * Get the number of beats for a given subdivision index.
+   * Matches labels in getBeatString: 0=1/16, 1=1/8, 2=1/4, 3=1/2, 4=1, etc.
+   * Based on 1 quarter note = 1.0 beat.
+   */
+  static float getBeatsForIndex(int beatIndex);
 
   // Smoothed LFO output values
   mutable juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear>

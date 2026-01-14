@@ -139,20 +139,6 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           parameters, "compress", compressSlider);
 
-  // Compress Pre/Post button
-  compressPostButton.setClickingTogglesState(true);
-  compressPostButton.setButtonText("Pre Comp");
-  compressPostButton.setColour(juce::TextButton::buttonOnColourId,
-                               CustomLookAndFeel::getAccentPrimary());
-  compressPostButton.onClick = [this]() {
-    compressPostButton.setButtonText(
-        compressPostButton.getToggleState() ? "Post Comp" : "Pre Comp");
-  };
-  compressPostAttachment =
-      std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
-          parameters, "compressPost", compressPostButton);
-  addChildComponent(compressPostButton);
-
   // Delay multiply control - initially hidden
   delayMultLabel.setText("Max Delay", juce::dontSendNotification);
   delayMultLabel.setJustificationType(juce::Justification::centred);
@@ -773,12 +759,7 @@ void ControlPanel::resized() {
         juce::Rectangle<int> buttonsRow(UIConstants::kMargin, buttonY,
                                         width - UIConstants::kMargin * 2,
                                         UIConstants::kRowHeight);
-        int halfButtonWidth =
-            (buttonsRow.getWidth() - UIConstants::kSpacing) / 2;
-
-        gainPostButton.setBounds(buttonsRow.removeFromLeft(halfButtonWidth));
-        buttonsRow.removeFromLeft(UIConstants::kSpacing);
-        compressPostButton.setBounds(buttonsRow);
+        gainPostButton.setBounds(buttonsRow);
 
         currentY = buttonY + UIConstants::kRowHeight + UIConstants::kSpacing;
 
@@ -891,7 +872,6 @@ void ControlPanel::selectParameter(int paramType) {
   gateSlider.setVisible(showGainControls);
   compressLabel.setVisible(showGainControls);
   compressSlider.setVisible(showGainControls);
-  compressPostButton.setVisible(showGainControls);
 
   // Show/hide delay multiply control (only when Delay mode is active, not
   // Phase)
@@ -1027,6 +1007,31 @@ void ControlPanel::updateLfoSpeedSliderSettings(SyncMode mode) {
       return text.getDoubleValue();
     };
   }
+}
+
+void ControlPanel::setLfoHGrid(int divisions) {
+  // Find index in gridValues[] = {0, 2, 3, 4, 6, 8, 12, 16, 32}
+  static const int gv[] = {0, 2, 3, 4, 6, 8, 12, 16, 32};
+  int idx = 0;
+  for (int i = 0; i < 9; ++i) {
+    if (gv[i] == divisions) {
+      idx = i;
+      break;
+    }
+  }
+  lfoHGridSlider.setValue(static_cast<double>(idx), juce::dontSendNotification);
+}
+
+void ControlPanel::setLfoVGrid(int divisions) {
+  static const int gv[] = {0, 2, 3, 4, 6, 8, 12, 16, 32};
+  int idx = 0;
+  for (int i = 0; i < 9; ++i) {
+    if (gv[i] == divisions) {
+      idx = i;
+      break;
+    }
+  }
+  lfoVGridSlider.setValue(static_cast<double>(idx), juce::dontSendNotification);
 }
 
 juce::String ControlPanel::getSyncModeString(SyncMode mode) {
