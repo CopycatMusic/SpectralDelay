@@ -1,0 +1,120 @@
+[  5%] Built target FontResources
+[  6%] Building CXX object CMakeFiles/CopyCatSpectralDelay.dir/src/PluginProcessor.cpp.o
+/Users/geng/Projects/CopyCatSpectralDelay/src/PluginProcessor.cpp:99:20: warning: unused parameter 'min' [-Wunused-parameter]
+   99 |           [](float min, float max, float norm) {
+      |                    ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/PluginProcessor.cpp:99:31: warning: unused parameter 'max' [-Wunused-parameter]
+   99 |           [](float min, float max, float norm) {
+      |                               ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/PluginProcessor.cpp:109:20: warning: unused parameter 'min' [-Wunused-parameter]
+  109 |           [](float min, float max, float value) {
+      |                    ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/PluginProcessor.cpp:109:31: warning: unused parameter 'max' [-Wunused-parameter]
+  109 |           [](float min, float max, float value) {
+      |                               ^
+4 warnings generated.
+/Users/geng/Projects/CopyCatSpectralDelay/src/PluginProcessor.cpp:99:20: warning: unused parameter 'min' [-Wunused-parameter]
+   99 |           [](float min, float max, float norm) {
+      |                    ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/PluginProcessor.cpp:99:31: warning: unused parameter 'max' [-Wunused-parameter]
+   99 |           [](float min, float max, float norm) {
+      |                               ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/PluginProcessor.cpp:109:20: warning: unused parameter 'min' [-Wunused-parameter]
+  109 |           [](float min, float max, float value) {
+      |                    ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/PluginProcessor.cpp:109:31: warning: unused parameter 'max' [-Wunused-parameter]
+  109 |           [](float min, float max, float value) {
+      |                               ^
+4 warnings generated.
+[  8%] Building CXX object CMakeFiles/CopyCatSpectralDelay.dir/src/PluginEditor.cpp.o
+/Users/geng/Projects/CopyCatSpectralDelay/src/PluginEditor.cpp:20:7: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+   20 |       juce::Font(montserratTypeface).withHeight(UIConstants::kTitleFontSize));
+      |       ^
+/Applications/JUCE/modules/juce_graphics/fonts/juce_Font.h:101:7: note: 'Font' has been explicitly marked deprecated here
+  101 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/PluginEditor.cpp:28:7: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+   28 |       juce::Font(montserratTypeface).withHeight(UIConstants::kTitleFontSize));
+      |       ^
+/Applications/JUCE/modules/juce_graphics/fonts/juce_Font.h:101:7: note: 'Font' has been explicitly marked deprecated here
+  101 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/PluginEditor.cpp:367:41: warning: 'getStringWidth' is deprecated: Use GlyphArrangement or TextLayout to compute text layouts [-Wdeprecated-declarations]
+  367 |   int brandWidth = brandLabel.getFont().getStringWidth(brandLabel.getText());
+      |                                         ^
+/Applications/JUCE/modules/juce_graphics/fonts/juce_Font.h:553:7: note: 'getStringWidth' has been explicitly marked deprecated here
+  553 |     [[deprecated ("Use GlyphArrangement or TextLayout to compute text layouts")]]
+      |       ^
+3 warnings generated.
+/Users/geng/Projects/CopyCatSpectralDelay/src/PluginEditor.cpp:20:7: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+   20 |       juce::Font(montserratTypeface).withHeight(UIConstants::kTitleFontSize));
+      |       ^
+/Applications/JUCE/modules/juce_graphics/fonts/juce_Font.h:101:7: note: 'Font' has been explicitly marked deprecated here
+  101 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/PluginEditor.cpp:28:7: warning: 'Font' is deprecated: Use the constructor that takes a FontOptions argument [-Wdeprecated-declarations]
+   28 |       juce::Font(montserratTypeface).withHeight(UIConstants::kTitleFontSize));
+      |       ^
+/Applications/JUCE/modules/juce_graphics/fonts/juce_Font.h:101:7: note: 'Font' has been explicitly marked deprecated here
+  101 |     [[deprecated ("Use the constructor that takes a FontOptions argument")]]
+      |       ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/PluginEditor.cpp:367:41: warning: 'getStringWidth' is deprecated: Use GlyphArrangement or TextLayout to compute text layouts [-Wdeprecated-declarations]
+  367 |   int brandWidth = brandLabel.getFont().getStringWidth(brandLabel.getText());
+      |                                         ^
+/Applications/JUCE/modules/juce_graphics/fonts/juce_Font.h:553:7: note: 'getStringWidth' has been explicitly marked deprecated here
+  553 |     [[deprecated ("Use GlyphArrangement or TextLayout to compute text layouts")]]
+      |       ^
+3 warnings generated.
+[ 10%] Building CXX object CMakeFiles/CopyCatSpectralDelay.dir/src/ui/ControlPanel.cpp.o
+/Users/geng/Projects/CopyCatSpectralDelay/src/ui/ControlPanel.cpp:402:20: warning: unused variable 'gridValues' [-Wunused-variable]
+  402 |   static const int gridValues[] = {0, 2, 3, 4, 6, 8, 12, 16, 32};
+      |                    ^~~~~~~~~~
+/Users/geng/Projects/CopyCatSpectralDelay/src/ui/ControlPanel.cpp:508:9: warning: variable 'middleSectionHeight' set but not used [-Wunused-but-set-variable]
+  508 |     int middleSectionHeight = 0;
+      |         ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/ui/ControlPanel.cpp:665:9: warning: declaration shadows a local variable [-Wshadow]
+  665 |     int textBoxWidth = 65;
+      |         ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/ui/ControlPanel.cpp:563:7: note: previous declaration is here
+  563 |   int textBoxWidth = 65;
+      |       ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/ui/ControlPanel.cpp:666:9: warning: declaration shadows a local variable [-Wshadow]
+  666 |     int textGap = 5;
+      |         ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/ui/ControlPanel.cpp:564:7: note: previous declaration is here
+  564 |   int textGap = 5;
+      |       ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/ui/ControlPanel.cpp:667:9: warning: declaration shadows a local variable [-Wshadow]
+  667 |     int sliderWidthWithText =
+      |         ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/ui/ControlPanel.cpp:565:7: note: previous declaration is here
+  565 |   int sliderWidthWithText =
+      |       ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/ui/ControlPanel.cpp:773:13: warning: declaration shadows a local variable [-Wshadow]
+  773 |         int textBoxWidth = 65;
+      |             ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/ui/ControlPanel.cpp:563:7: note: previous declaration is here
+  563 |   int textBoxWidth = 65;
+      |       ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/ui/ControlPanel.cpp:774:13: warning: declaration shadows a local variable [-Wshadow]
+  774 |         int textGap = 5;
+      |             ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/ui/ControlPanel.cpp:564:7: note: previous declaration is here
+  564 |   int textGap = 5;
+      |       ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/ui/ControlPanel.cpp:775:13: warning: declaration shadows a local variable [-Wshadow]
+  775 |         int sliderWidthWithText =
+      |             ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/ui/ControlPanel.cpp:565:7: note: previous declaration is here
+  565 |   int sliderWidthWithText =
+      |       ^
+/Users/geng/Projects/CopyCatSpectralDelay/src/ui/ControlPanel.cpp:778:64: warning: implicit conversion turns floating-point number into integer: 'float' to 'int' [-Wfloat-conversion]
+  778 |         int leftAreaWidth = (width - UIConstants::kMargin * 2) * 0.55f;
+      |             ~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~
+/Users/geng/Projects/CopyCatSpectralDelay/src/ui/ControlPanel.cpp:957:42: error: use of undeclared identifier 'isUpdating'
+  957 |   juce::ScopedValueSetter<bool> updating(isUpdating, true);
+      |                                          ^
+9 warnings and 1 error generated.
+make[2]: *** [CMakeFiles/CopyCatSpectralDelay.dir/src/ui/ControlPanel.cpp.o] Error 1
+make[1]: *** [CMakeFiles/CopyCatSpectralDelay.dir/all] Error 2
+make: *** [all] Error 2

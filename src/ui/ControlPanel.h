@@ -71,8 +71,8 @@ public:
   // Callback when feedback multiplier changes
   std::function<void(float)> onFeedbackMultiplierChanged;
 
-  // Callback when stereo width changes
-  std::function<void(float)> onStereoChanged;       // 0-100%
+  // Callback when diffuse width changes
+  std::function<void(float)> onDiffuseChanged;      // 0-100%
   std::function<void(float)> onStereoLowCutChanged; // Hz
 
   // Callback when high precision delay mode changes
@@ -145,6 +145,10 @@ public:
   void setLfoHGrid(int divisions);
   void setLfoVGrid(int divisions);
 
+  // Set Diffuse parameters UI state
+  void setDiffuseAmount(float amount);
+  void setStereoLowCut(float freq);
+
 private:
   // Layout constants are now in UIConstants.h
   // Use UIConstants::kMargin, UIConstants::kSpacing, etc.
@@ -167,8 +171,8 @@ private:
 
   // FFT settings
   juce::Label fftSizeLabel;
-  juce::Slider fftSizeSelector;
-  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+  juce::ComboBox fftSizeSelector;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>
       fftSizeAttachment;
 
   // Mix control
@@ -229,9 +233,9 @@ private:
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       delayMultAttachment;
 
-  // Stereo width controls (for Time/Delay parameter)
-  juce::Label stereoLabel;
-  juce::Slider stereoSlider;
+  // Diffuse controls (for Time/Delay parameter)
+  juce::Label diffuseLabel;
+  juce::Slider diffuseSlider;
   juce::Label stereoLowCutLabel;
   juce::Slider stereoLowCutSlider;
 

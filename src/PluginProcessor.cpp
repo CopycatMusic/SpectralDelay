@@ -522,7 +522,7 @@ void CopyCatSpectralDelayProcessor::setStateInformation(const void *data,
     // Restore high precision delay mode
     if (xmlState->hasAttribute("highPrecisionDelay")) {
       engine.setHighPrecisionDelay(
-          xmlState->getBoolAttribute("highPrecisionDelay", false));
+          xmlState->getBoolAttribute("highPrecisionDelay", true));
     }
 
     // Restore gain post mode

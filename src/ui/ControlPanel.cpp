@@ -162,26 +162,26 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           parameters, "delayMult", delayMultSlider);
 
-  // Stereo width control - only visible for Time/Delay parameter
-  stereoLabel.setText("Stereo", juce::dontSendNotification);
-  stereoLabel.setJustificationType(juce::Justification::centred);
-  stereoLabel.setColour(juce::Label::textColourId,
-                        CustomLookAndFeel::getTextPrimary());
-  addChildComponent(stereoLabel);
+  // Diffuse width control - only visible for Time/Delay parameter
+  diffuseLabel.setText("Diffuse", juce::dontSendNotification);
+  diffuseLabel.setJustificationType(juce::Justification::centred);
+  diffuseLabel.setColour(juce::Label::textColourId,
+                         CustomLookAndFeel::getTextPrimary());
+  addChildComponent(diffuseLabel);
 
-  stereoSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  stereoSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 65, 15);
-  stereoSlider.setMouseDragSensitivity(250);
-  stereoSlider.setRange(0.0, 100.0, 0.0);
-  stereoSlider.setNumDecimalPlacesToDisplay(0);
-  stereoSlider.setValue(0.0);
-  stereoSlider.setTextValueSuffix("%");
-  stereoSlider.onValueChange = [this]() {
-    if (onStereoChanged) {
-      onStereoChanged(static_cast<float>(stereoSlider.getValue()));
+  diffuseSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+  diffuseSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 65, 15);
+  diffuseSlider.setMouseDragSensitivity(250);
+  diffuseSlider.setRange(0.0, 100.0, 0.1);
+  diffuseSlider.setNumDecimalPlacesToDisplay(1);
+  diffuseSlider.setValue(0.0);
+  diffuseSlider.setTextValueSuffix("ms");
+  diffuseSlider.onValueChange = [this]() {
+    if (onDiffuseChanged) {
+      onDiffuseChanged(static_cast<float>(diffuseSlider.getValue()));
     }
   };
-  addChildComponent(stereoSlider);
+  addChildComponent(diffuseSlider);
 
   // Stereo Cutoff control
   stereoLowCutLabel.setText("Cutoff", juce::dontSendNotification);
@@ -193,7 +193,8 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   stereoLowCutSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   stereoLowCutSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 65, 15);
   stereoLowCutSlider.setMouseDragSensitivity(250);
-  stereoLowCutSlider.setRange(20.0, 500.0, 0.0);
+  stereoLowCutSlider.setRange(20.0, 5000.0, 0.0);
+  stereoLowCutSlider.setSkewFactorFromMidPoint(500.0);
   stereoLowCutSlider.setNumDecimalPlacesToDisplay(0);
   stereoLowCutSlider.setValue(150.0);
   stereoLowCutSlider.setTextValueSuffix("Hz");
@@ -204,32 +205,20 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   };
   addChildComponent(stereoLowCutSlider);
 
-  // FFT settings (now a knob)
+  // FFT settings (now a dropdown)
   fftSizeLabel.setText("FFT Size", juce::dontSendNotification);
   fftSizeLabel.setJustificationType(juce::Justification::centred);
   fftSizeLabel.setColour(juce::Label::textColourId,
                          CustomLookAndFeel::getTextPrimary());
   addAndMakeVisible(fftSizeLabel);
 
-  fftSizeSelector.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  fftSizeSelector.setTextBoxStyle(juce::Slider::TextBoxLeft, false, 65, 15);
-  fftSizeSelector.setMouseDragSensitivity(
-      200); // Choice parameters need less sensitivity
-  // Range 0-9 corresponds to 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192,
-  // 16384
-  fftSizeSelector.setRange(0.0, 9.0, 1.0);
-  // Custom text display for FFT sizes
-  fftSizeSelector.textFromValueFunction = [](double value) {
-    int index = static_cast<int>(value);
-    int size = 32; // Start from 32
-    for (int i = 0; i < index; ++i)
-      size *= 2;
-    return juce::String(size);
-  };
+  fftSizeSelector.addItemList({"32", "64", "128", "256", "512", "1024", "2048",
+                               "4096", "8192", "16384"},
+                              1);
   addAndMakeVisible(fftSizeSelector);
 
   fftSizeAttachment =
-      std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+      std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
           parameters, "fftSize", fftSizeSelector);
 
   // Mix control
@@ -250,6 +239,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   // High precision delay mode button
   hiResButton.setClickingTogglesState(true);
+  hiResButton.setToggleState(true, juce::dontSendNotification); // Default: on
   hiResButton.setColour(juce::TextButton::buttonOnColourId,
                         CustomLookAndFeel::getAccentPrimary());
   hiResButton.onClick = [this]() {
@@ -579,13 +569,13 @@ void ControlPanel::resized() {
   int sliderWidthWithText =
       UIConstants::kSmallKnobSize + textBoxWidth + textGap;
 
-  // FFT Knob (LEFT-WING: Text on Left, Knob on Right)
-  int fftX = UIConstants::kMargin + (halfWidth - sliderWidthWithText) / 2;
-  // LookAndFeel shifts TextBox to 27-42px. We put Label at 12-27px.
-  fftSizeLabel.setBounds(fftX, bottomY + 12, textBoxWidth,
+  // FFT Dropdown (LEFT-WING)
+  int comboWidth = 90;
+  int comboHeight = 22;
+  int fftX = UIConstants::kMargin + (halfWidth - comboWidth) / 2;
+  fftSizeLabel.setBounds(fftX, bottomY + 2, comboWidth,
                          UIConstants::kLabelHeight);
-  fftSizeSelector.setBounds(fftX, bottomY, sliderWidthWithText,
-                            UIConstants::kSmallKnobSize);
+  fftSizeSelector.setBounds(fftX, bottomY + 18, comboWidth, comboHeight);
 
   // Mix Knob (RIGHT-WING: Knob on Left, Text on Right)
   int mixX =
@@ -807,17 +797,18 @@ void ControlPanel::resized() {
             UIConstants::kLargeKnobSize, largeKnobWithTextHeight);
 
         int rightX = UIConstants::kMargin + leftAreaWidth;
-        int stereoKnobY = currentY;
-        stereoSlider.setBounds(
-            rightX + (rightAreaWidth - sliderWidthWithText) / 2, stereoKnobY,
+        int diffuseKnobY = currentY;
+        diffuseSlider.setBounds(
+            rightX + (rightAreaWidth - sliderWidthWithText) / 2, diffuseKnobY,
             sliderWidthWithText, UIConstants::kSmallKnobSize);
-        stereoLabel.setBounds(
+        // Note: diffuseLabel is on the right of the knob in this layout
+        diffuseLabel.setBounds(
             rightX + (rightAreaWidth - sliderWidthWithText) / 2 +
                 UIConstants::kSmallKnobSize + textGap,
-            stereoKnobY + 12, textBoxWidth, UIConstants::kLabelHeight);
+            diffuseKnobY + 12, textBoxWidth, UIConstants::kLabelHeight);
 
         int cutoffKnobY =
-            stereoKnobY + UIConstants::kSmallKnobSize + UIConstants::kSpacing;
+            diffuseKnobY + UIConstants::kSmallKnobSize + UIConstants::kSpacing;
         stereoLowCutSlider.setBounds(
             rightX + (rightAreaWidth - sliderWidthWithText) / 2, cutoffKnobY,
             sliderWidthWithText, UIConstants::kSmallKnobSize);
@@ -879,12 +870,12 @@ void ControlPanel::selectParameter(int paramType) {
   delayMultLabel.setVisible(showDelayControls);
   delayMultSlider.setVisible(showDelayControls);
 
-  // Show/hide stereo width controls (only for Time/Delay parameter)
-  bool showStereoControls = (paramType == 2) && !currentLfoMode;
-  stereoLabel.setVisible(showStereoControls);
-  stereoSlider.setVisible(showStereoControls);
-  stereoLowCutLabel.setVisible(showStereoControls);
-  stereoLowCutSlider.setVisible(showStereoControls);
+  // Show/hide diffuse width controls (only for Time/Delay parameter)
+  bool showDiffuseControls = (paramType == 2) && !currentLfoMode;
+  diffuseLabel.setVisible(showDiffuseControls);
+  diffuseSlider.setVisible(showDiffuseControls);
+  stereoLowCutLabel.setVisible(showDiffuseControls);
+  stereoLowCutSlider.setVisible(showDiffuseControls);
 
   // Show/hide LFO controls based on LFO mode
   lfoAmountLabel.setVisible(currentLfoMode);
@@ -1046,4 +1037,12 @@ juce::String ControlPanel::getSyncModeString(SyncMode mode) {
     return "Dotted";
   }
   return "Time";
+}
+
+void ControlPanel::setDiffuseAmount(float amount) {
+  diffuseSlider.setValue(amount, juce::dontSendNotification);
+}
+
+void ControlPanel::setStereoLowCut(float freq) {
+  stereoLowCutSlider.setValue(freq, juce::dontSendNotification);
 }

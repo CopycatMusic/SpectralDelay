@@ -295,7 +295,9 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
         g.fillPath(fillPath);
 
         g.setColour(spectrumColour);
-        g.strokePath(spectrumPath, juce::PathStrokeType(1.5f));
+        g.strokePath(spectrumPath,
+                     juce::PathStrokeType(1.5f, juce::PathStrokeType::curved,
+                                          juce::PathStrokeType::rounded));
       }
     }
   }
@@ -453,7 +455,10 @@ void SpectrumDisplay::drawParameterCurve(juce::Graphics &g,
     // Last segment: horizontal to right edge
     curvePath.lineTo(graphBounds.getRight(), screenY);
 
-    g.strokePath(curvePath, juce::PathStrokeType(isActive ? 3.0f : 2.5f));
+    g.strokePath(curvePath,
+                 juce::PathStrokeType(isActive ? 3.0f : 2.5f,
+                                      juce::PathStrokeType::curved,
+                                      juce::PathStrokeType::rounded));
   }
 
   // Draw points only for the active curve

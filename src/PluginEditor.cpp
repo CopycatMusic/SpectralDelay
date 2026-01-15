@@ -167,8 +167,8 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
     processorRef.setLfoVGrid(divisions);
   };
 
-  // Connect stereo width controls
-  controlPanel.onStereoChanged = [this](float amount) {
+  // Connect diffuse width controls
+  controlPanel.onDiffuseChanged = [this](float amount) {
     processorRef.getEngine().setStereoAmount(amount);
   };
   controlPanel.onStereoLowCutChanged = [this](float freq) {
@@ -208,10 +208,29 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
   spectrumDisplay.setShowFrequencyGrid(processorRef.isShowFrequencyGrid());
   controlPanel.setGridDisplay(processorRef.isShowFrequencyGrid());
 
+  // Restore Diffuse parameter state
+  controlPanel.setDiffuseAmount(processorRef.getEngine().getStereoAmount());
+  controlPanel.setStereoLowCut(processorRef.getEngine().getStereoLowCut());
+
   spectrumDisplay.setDisplayMode(processorRef.getUIDisplayModeBar()
                                      ? SpectrumDisplay::DisplayMode::Bar
                                      : SpectrumDisplay::DisplayMode::Line);
   showInputSpectrum = processorRef.getUIShowInputSpectrum();
+
+  // Sync LFO controls for current parameter
+  int paramType = processorRef.getUIParameterType();
+  LFOEngine::Parameter lfoParam = static_cast<LFOEngine::Parameter>(paramType);
+  auto &lfoEngine = processorRef.getLfoEngine();
+
+  float amount = lfoEngine.getAmount(lfoParam);
+  float speed = lfoEngine.getSynced(lfoParam)
+                    ? lfoEngine.getSyncInterval(lfoParam)
+                    : lfoEngine.getTimeSpeed(lfoParam);
+  float smooth = lfoEngine.getSmooth(lfoParam);
+  LFOEngine::SyncMode syncMode = lfoEngine.getSyncMode(lfoParam);
+  bool isSynced = lfoEngine.getSynced(lfoParam);
+
+  controlPanel.updateLfoControls(amount, speed, smooth, syncMode, isSynced);
 
   // Initial curve setup (uses the restored parameter type)
   updateEditingCurve();

@@ -8,6 +8,7 @@ SpectralDelayEngine::SpectralDelayEngine() {
   gainCurve.setDefaultValue(100.0f);   // Default: unity gain (100%)
   feedbackCurve.setDefaultValue(0.0f); // Default: no feedback
   delayCurve.setDefaultValue(0.0f);    // Default: no delay
+  diffuseTime.store(0.0f);             // Initialize time accumulator
 }
 
 SpectralDelayEngine::~SpectralDelayEngine() {}
@@ -147,15 +148,14 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
         // 3. Feedback Mixing
         applyFeedback(spectrum, numBins, feedbackSpectrumL);
 
-        // 4. Core Effect (Delay or Phase)
+        // 4. Core Effect (Delay or Phase) - includes diffuse jitter
         if (useDelayMode) {
-          applyDelay(spectrum, numBins, delayBufferL, delayWritePosL);
+          applyDelay(spectrum, numBins, delayBufferL, delayWritePosL, true);
         } else {
           applyPhaseModulation(spectrum, numBins);
         }
 
-        // 5. Stereo Width
-        applyStereoWidthChannel(spectrum, numBins, true);
+        // 5. (Stereo Width now integrated into applyDelay)
 
         // 6. Feedback Storing
         storeFeedback(spectrum, numBins, feedbackSpectrumL);
@@ -213,16 +213,15 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
                            // 3. Feedback Mixing
                            applyFeedback(spectrum, numBins, feedbackSpectrumR);
 
-                           // 4. Core Effect
+                           // 4. Core Effect - includes diffuse jitter
                            if (useDelayMode) {
                              applyDelay(spectrum, numBins, delayBufferR,
-                                        delayWritePosR);
+                                        delayWritePosR, false);
                            } else {
                              applyPhaseModulation(spectrum, numBins);
                            }
 
-                           // 5. Stereo Width
-                           applyStereoWidthChannel(spectrum, numBins, false);
+                           // 5. (Stereo Width now integrated into applyDelay)
 
                            // 6. Feedback Storing
                            storeFeedback(spectrum, numBins, feedbackSpectrumR);
@@ -517,7 +516,8 @@ void SpectralDelayEngine::updateDelayValues() {
 
 void SpectralDelayEngine::applyDelay(
     std::complex<float> *spectrum, int numBins,
-    std::vector<std::complex<float>> &delayBuffer, std::vector<int> &writePos) {
+    std::vector<std::complex<float>> &delayBuffer, std::vector<int> &writePos,
+    bool isLeftChannel) {
 
   // Calculate hop time in ms - defensive check for zero sample rate or hop size
   float sr = static_cast<float>(currentSampleRate.load());
@@ -530,6 +530,11 @@ void SpectralDelayEngine::applyDelay(
   float hopTimeMs = (hop / sr) * 1000.0f;
   bool useHighPrecision = highPrecisionDelay.load();
 
+  // Diffuse parameters (now in ms)
+  float diffuseMaxMs = stereoAmount.load(); // 0-100ms
+  float lowCutFreq = stereoLowCut.load();
+  const float transitionWidth = 100.0f; // Hz for smooth transition
+
   // Validate buffer sizing to prevent out of bounds access
   if (delayBuffer.size() <
       static_cast<size_t>(numBins) * static_cast<size_t>(maxDelaySamples))
@@ -538,9 +543,40 @@ void SpectralDelayEngine::applyDelay(
   for (int bin = 0;
        bin < numBins && bin < static_cast<int>(delayValuesMs.size()); ++bin) {
 
-    // Calculate delay in frames (apply multiplier)
+    // Calculate base delay in frames (apply multiplier)
     float delayMs =
         delayValuesMs[static_cast<size_t>(bin)] * delayMultiplier.load();
+
+    // Add diffuse jitter (static hash-based, per bin/channel)
+    if (diffuseMaxMs > 0.0f && bin > 0) {
+      float freq = binToFrequency(bin);
+
+      // Only apply above low cut frequency
+      if (freq >= lowCutFreq) {
+        // Calculate smooth transition factor
+        float factor = 1.0f;
+        if (freq < lowCutFreq + transitionWidth) {
+          float t = (freq - lowCutFreq) / transitionWidth;
+          factor = t * t * (3.0f - 2.0f * t); // Smoothstep
+        }
+
+        // Static hash: use golden ratio for pseudo-random distribution
+        // Different seed for left/right channel
+        const float gr = 0.618033988749895f;
+        int channelSeed = isLeftChannel ? 0 : 7919; // Prime offset
+        float hash =
+            std::fmod(static_cast<float>(bin + channelSeed) * gr, 1.0f);
+
+        // Jitter range: -diffuseMaxMs to +diffuseMaxMs (centered at 0)
+        float jitterMs = (hash * 2.0f - 1.0f) * diffuseMaxMs * factor;
+        delayMs += jitterMs;
+
+        // Clamp to valid range
+        if (delayMs < 0.0f)
+          delayMs = 0.0f;
+      }
+    }
+
     float delayFramesFloat = delayMs / hopTimeMs;
 
     // Separate integer and fractional parts
@@ -600,11 +636,24 @@ void SpectralDelayEngine::applyDelay(
 
 // ==============================================================================
 float SpectralDelayEngine::getPhaseOffset(int binIndex) const {
-  // Golden ratio based pseudo-random hash
-  // Produces deterministic values in range -1 to +1 for each bin
-  const float goldenRatio = 0.618033988749895f;
-  float hash = std::fmod(static_cast<float>(binIndex) * goldenRatio, 1.0f);
-  return hash * 2.0f - 1.0f;
+  // Use two different golden ratios to generate independent Rate and Phase
+  // hashes
+  const float gr1 = 0.618033988749895f;
+  const float gr2 = 1.324717957244746f; // Plastic constant (another irrational)
+
+  // 1. Rate Hash (0..1) -> Speed: 0.02 Hz to 0.22 Hz
+  // This ensures every bin drifts at a different speed, preventing "alignment"
+  float rateHash = std::fmod(static_cast<float>(binIndex) * gr1, 1.0f);
+  float speed = 0.02f + rateHash * 0.20f;
+
+  // 2. Start Phase Hash (0..1) -> 0..2PI
+  float phaseHash = std::fmod(static_cast<float>(binIndex) * gr2, 1.0f);
+  float startPhase = phaseHash * juce::MathConstants<float>::twoPi;
+
+  // 3. Calculate Modulation
+  // Asynchronous LFO: sin(t * speed * 2PI + startPhase)
+  float t = diffuseTime.load();
+  return std::sin(t * speed * juce::MathConstants<float>::twoPi + startPhase);
 }
 
 void SpectralDelayEngine::applyStereoWidth(std::complex<float> *spectrumL,
@@ -623,11 +672,30 @@ void SpectralDelayEngine::applyStereoWidthChannel(std::complex<float> *spectrum,
     return;
 
   float lowCutFreq = stereoLowCut.load();
-  const float transitionWidth = 100.0f;  // Hz for smooth transition
-  const float maxPhaseShift = 1.047198f; // π/3 radians = 60 degrees
+  const float transitionWidth = 100.0f; // Hz for smooth transition
+  const float maxPhaseShift =
+      juce::MathConstants<float>::halfPi; // PI/2 radians = 90 degrees (Total
+                                          // 180 degrees)
 
   // Left channel gets negative phase shift, right gets positive
   float channelSign = isLeftChannel ? -1.0f : 1.0f;
+
+  // Update time accumulator (only once per frame, so we do it on Left channel)
+  if (isLeftChannel) {
+    float sr = static_cast<float>(currentSampleRate.load());
+    float hop = static_cast<float>(currentHopSize.load());
+    if (sr > 0.0f) {
+      float dt = hop / sr;
+      float newTime = diffuseTime.load() + dt;
+      // Wrap to prevent precision loss.
+      // Increased to 100,000s (~27 hours) to virtually eliminate audible clicks
+      // from wrapping discontinuities during normal session usage.
+      if (newTime > 100000.0f) {
+        newTime -= 100000.0f;
+      }
+      diffuseTime.store(newTime);
+    }
+  }
 
   for (int bin = 1; bin < numBins; ++bin) {
     float freq = binToFrequency(bin);

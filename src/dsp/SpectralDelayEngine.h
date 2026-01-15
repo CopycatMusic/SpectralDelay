@@ -126,10 +126,10 @@ public:
   void setGainTargetDb(float db) { gainTargetDb = db; }
 
   /**
-   * Set stereo width amount (0-100%).
+   * Set diffuse amount in milliseconds (0-100ms).
    */
-  void setStereoAmount(float amount) { stereoAmount = amount / 100.0f; }
-  float getStereoAmount() const { return stereoAmount * 100.0f; }
+  void setStereoAmount(float amountMs) { stereoAmount = amountMs; }
+  float getStereoAmount() const { return stereoAmount.load(); }
 
   /**
    * Set stereo low cut frequency (Hz).
@@ -176,7 +176,7 @@ private:
                      std::vector<std::complex<float>> &feedbackBuffer);
   void applyDelay(std::complex<float> *spectrum, int numBins,
                   std::vector<std::complex<float>> &delayBuffer,
-                  std::vector<int> &writePos);
+                  std::vector<int> &writePos, bool isLeftChannel);
   void applySpectralDynamics(std::complex<float> *spectrum, int numBins);
   void applySpectralGate(std::complex<float> *spectrum, int numBins);
   void applySpectralCompression(std::complex<float> *spectrum, int numBins);
@@ -239,7 +239,10 @@ private:
   std::atomic<float> stereoLowCut{150.0f}; // Hz
 
   // High precision delay mode (uses phase interpolation for sub-frame accuracy)
-  std::atomic<bool> highPrecisionDelay{false};
+  std::atomic<bool> highPrecisionDelay{true};
+
+  // Time accumulator for diffuse modulation phase
+  std::atomic<float> diffuseTime{0.0f};
 
   // Parameter curve for delay distribution
   ParameterCurve delayCurve;
