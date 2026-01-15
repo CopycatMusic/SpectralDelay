@@ -229,7 +229,7 @@ void LFOEngine::setSpeed(Parameter param, float speedOrIndex) {
     if (syncModes[idx] != SyncMode::Time)
       syncIntervals[idx] = juce::jlimit(0.0f, 8.0f, speedOrIndex);
     else
-      timeModeSpeeds[idx] = juce::jlimit(100.0f, 10000.0f, speedOrIndex);
+      timeModeSpeeds[idx] = juce::jlimit(200.0f, 20000.0f, speedOrIndex);
   }
 }
 
@@ -247,7 +247,7 @@ float LFOEngine::getSpeed(Parameter param) const {
 void LFOEngine::setTimeSpeed(Parameter param, float speedMs) {
   int idx = static_cast<int>(param);
   if (idx >= 0 && idx < kNumParams) {
-    timeModeSpeeds[idx] = juce::jlimit(100.0f, 10000.0f, speedMs);
+    timeModeSpeeds[idx] = juce::jlimit(200.0f, 20000.0f, speedMs);
   }
 }
 

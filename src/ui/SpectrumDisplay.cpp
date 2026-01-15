@@ -173,17 +173,19 @@ void SpectrumDisplay::setAxisLabel(const juce::String &unit, float displayMax) {
   axisUnit = unit;
   axisDisplayMax = displayMax;
 
-  // Update max value label text
-  if (unit.isEmpty()) {
-    maxValueLabel.setText("", juce::dontSendNotification);
-  } else {
-    // Round to integer for cleaner display if it's large, otherwise keep 1
-    // decimal
-    juce::String valStr = (displayMax >= 10.0f)
-                              ? juce::String(static_cast<int>(displayMax))
-                              : juce::String(displayMax, 1);
-    maxValueLabel.setText("MAX: " + valStr + " " + unit,
-                          juce::dontSendNotification);
+  // Only update max value label if mouse is not inside graph
+  if (!isMouseInsideGraph) {
+    if (unit.isEmpty()) {
+      maxValueLabel.setText("", juce::dontSendNotification);
+    } else {
+      // Round to integer for cleaner display if it's large, otherwise keep 1
+      // decimal
+      juce::String valStr = (displayMax >= 10.0f)
+                                ? juce::String(static_cast<int>(displayMax))
+                                : juce::String(displayMax, 1);
+      maxValueLabel.setText("MAX: " + valStr + " " + unit,
+                            juce::dontSendNotification);
+    }
   }
 
   repaint();
@@ -650,6 +652,22 @@ void SpectrumDisplay::mouseDrag(const juce::MouseEvent &e) {
   normX = juce::jlimit(0.0f, 1.0f, normX);
   normY = juce::jlimit(0.0f, 1.0f, normY);
 
+  // Update coordinate display while dragging
+  juce::String freqStr;
+  if (lfoMode) {
+    freqStr = juce::String(static_cast<int>(normX * 100.0f)) + "%";
+  } else {
+    float freq = xToFrequency(normX);
+    if (freq >= 1000.0f) {
+      freqStr = juce::String(freq / 1000.0f, 2) + " kHz";
+    } else {
+      freqStr = juce::String(static_cast<int>(freq)) + " Hz";
+    }
+  }
+  float percentage = (1.0f - normY) * 100.0f;
+  juce::String yStr = juce::String(static_cast<int>(percentage)) + "%";
+  maxValueLabel.setText(freqStr + " | " + yStr, juce::dontSendNotification);
+
   // Apply grid snapping in LFO mode
   if (lfoMode) {
     if (lfoVGrid > 0)
@@ -719,6 +737,44 @@ void SpectrumDisplay::mouseMove(const juce::MouseEvent &e) {
     hoveredPointIndex = newHovered;
     repaint();
   }
+
+  // Update coordinate display in maxValueLabel
+  auto graphBounds = getGraphBounds();
+  if (graphBounds.contains(static_cast<float>(e.x), static_cast<float>(e.y))) {
+    isMouseInsideGraph = true;
+    float normX = (e.x - graphBounds.getX()) / graphBounds.getWidth();
+    float normY = (e.y - graphBounds.getY()) / graphBounds.getHeight();
+
+    normX = juce::jlimit(0.0f, 1.0f, normX);
+    normY = juce::jlimit(0.0f, 1.0f, normY);
+
+    // Format frequency (X axis)
+    juce::String freqStr;
+    if (lfoMode) {
+      // LFO mode: show normalized position as percentage
+      freqStr = juce::String(static_cast<int>(normX * 100.0f)) + "%";
+    } else {
+      float freq = xToFrequency(normX);
+      if (freq >= 1000.0f) {
+        freqStr = juce::String(freq / 1000.0f, 2) + " kHz";
+      } else {
+        freqStr = juce::String(static_cast<int>(freq)) + " Hz";
+      }
+    }
+
+    // Format Y value - always show as 0-100% for all parameter types
+    // normY is 0 at top (100%) and 1 at bottom (0%)
+    float percentage = (1.0f - normY) * 100.0f;
+    juce::String yStr = juce::String(static_cast<int>(percentage)) + "%";
+
+    maxValueLabel.setText(freqStr + " | " + yStr, juce::dontSendNotification);
+  }
+}
+
+void SpectrumDisplay::mouseExit(const juce::MouseEvent & /*e*/) {
+  isMouseInsideGraph = false;
+  maxValueLabel.setText("", juce::dontSendNotification);
+  hoveredPointIndex = -1;
 }
 
 void SpectrumDisplay::drawFrequencyGrid(juce::Graphics &g) {

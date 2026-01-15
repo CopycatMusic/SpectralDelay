@@ -154,6 +154,7 @@ public:
   void mouseDrag(const juce::MouseEvent &e) override;
   void mouseDoubleClick(const juce::MouseEvent &e) override;
   void mouseMove(const juce::MouseEvent &e) override;
+  void mouseExit(const juce::MouseEvent &e) override;
 
 private:
   void updateLabelsVisibility();
@@ -290,6 +291,9 @@ private:
 
   // Frequency grid display (normal spectrum mode only)
   bool showFrequencyGrid = true;
+
+  // Mouse hover state for coordinate display
+  bool isMouseInsideGraph = false;
 
   // Axis label settings (right side Y-axis)
   juce::String axisUnit = "";

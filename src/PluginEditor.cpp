@@ -66,11 +66,6 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
     spectrumDisplay.setDisplayMode(isBar ? SpectrumDisplay::DisplayMode::Bar
                                          : SpectrumDisplay::DisplayMode::Line);
     processorRef.setUIDisplayModeBar(isBar);
-    // Update APVTS parameter for DAW sync
-    if (auto *param =
-            processorRef.getParameters().getParameter("displayMode")) {
-      param->setValueNotifyingHost(isBar ? 1.0f : 0.0f);
-    }
   };
 
   // Connect grid display toggle
@@ -83,11 +78,6 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
   controlPanel.onSpectrumSourceChanged = [this](bool isInput) {
     showInputSpectrum = isInput;
     processorRef.setUIShowInputSpectrum(isInput);
-    // Update APVTS parameter for DAW sync
-    if (auto *param =
-            processorRef.getParameters().getParameter("spectrumSource")) {
-      param->setValueNotifyingHost(isInput ? 1.0f : 0.0f);
-    }
   };
 
   // Connect delay mode toggle
@@ -384,24 +374,6 @@ void CopyCatSpectralDelayEditor::resized() {
 void CopyCatSpectralDelayEditor::timerCallback() {
   // Update spectrum display from engine
   auto &engine = processorRef.getEngine();
-
-  // Sync displayMode from APVTS (in case changed by DAW automation)
-  auto &parameters = processorRef.getParameters();
-  auto *displayModeParam = parameters.getRawParameterValue("displayMode");
-  if (displayModeParam) {
-    bool isBar = static_cast<int>(*displayModeParam) == 1;
-    controlPanel.setDisplayMode(isBar);
-    spectrumDisplay.setDisplayMode(isBar ? SpectrumDisplay::DisplayMode::Bar
-                                         : SpectrumDisplay::DisplayMode::Line);
-  }
-
-  // Sync spectrumSource from APVTS
-  auto *spectrumSourceParam = parameters.getRawParameterValue("spectrumSource");
-  if (spectrumSourceParam) {
-    bool isInput = static_cast<int>(*spectrumSourceParam) == 1;
-    controlPanel.setShowInputSpectrum(isInput);
-    showInputSpectrum = isInput;
-  }
 
   // Choose spectrum source based on toggle
   const float *spectrumData = showInputSpectrum

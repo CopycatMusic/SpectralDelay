@@ -172,7 +172,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   diffuseSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   diffuseSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 65, 15);
   diffuseSlider.setMouseDragSensitivity(250);
-  diffuseSlider.setRange(0.0, 100.0, 0.1);
+  diffuseSlider.setRange(0.0, 300.0, 0.1);
   diffuseSlider.setNumDecimalPlacesToDisplay(1);
   diffuseSlider.setValue(0.0);
   diffuseSlider.setTextValueSuffix("ms");
@@ -339,8 +339,8 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   lfoSpeedSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   lfoSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
   lfoSpeedSlider.setMouseDragSensitivity(250);
-  lfoSpeedSlider.setRange(100.0, 2000.0, 0.0);
-  lfoSpeedSlider.setValue(500.0); // Default 500ms
+  lfoSpeedSlider.setRange(200.0, 20000.0, 0.0);
+  lfoSpeedSlider.setValue(1000.0); // Default 1s
   lfoSpeedSlider.setTextValueSuffix("ms");
   lfoSpeedSlider.onValueChange = [this]() {
     if (isUpdating)
@@ -972,11 +972,11 @@ void ControlPanel::updateLfoSpeedSliderSettings(SyncMode mode) {
       return 0.0;
     };
   } else {
-    // Time mode: 100ms to 10000ms (10s), non-linear with 1000ms (1s) at
+    // Time mode: 200ms to 20000ms (20s), non-linear with 2000ms (2s) at
     // center
-    lfoSpeedSlider.setRange(100.0, 10000.0,
+    lfoSpeedSlider.setRange(200.0, 20000.0,
                             0.0); // Continuous (0.0 step size)
-    lfoSpeedSlider.setSkewFactorFromMidPoint(1000.0); // 1s at center
+    lfoSpeedSlider.setSkewFactorFromMidPoint(2000.0); // 2s at center
     lfoSpeedSlider.setTextValueSuffix("");
     lfoSpeedSlider.textFromValueFunction = [](double value) {
       if (value >= 1000.0) {

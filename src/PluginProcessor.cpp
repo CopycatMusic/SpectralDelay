@@ -34,16 +34,6 @@ CopyCatSpectralDelayProcessor::createParameterLayout() {
       juce::String(), juce::AudioProcessorParameter::genericParameter,
       [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
 
-  // Display mode: 0 = Line, 1 = Bar
-  params.push_back(std::make_unique<juce::AudioParameterChoice>(
-      "displayMode", "Display Mode", juce::StringArray{"Line", "Bar"},
-      0)); // Default: Line
-
-  // Spectrum source: 0 = Output, 1 = Input
-  params.push_back(std::make_unique<juce::AudioParameterChoice>(
-      "spectrumSource", "Spectrum Source", juce::StringArray{"Output", "Input"},
-      0)); // Default: Output
-
   // Feedback Multiplier (0-100%)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
       "feedbackMult", "Feedback Multiplier",
