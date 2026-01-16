@@ -157,13 +157,8 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
     processorRef.setLfoVGrid(divisions);
   };
 
-  // Connect diffuse width controls
-  controlPanel.onDiffuseChanged = [this](float amount) {
-    processorRef.getEngine().setStereoAmount(amount);
-  };
-  controlPanel.onStereoLowCutChanged = [this](float freq) {
-    processorRef.getEngine().setStereoLowCut(freq);
-  };
+  // Note: Diffuse and Cutoff parameters are now handled via APVTS attachments
+  // in ControlPanel, so no callbacks are needed here.
 
   // Connect high precision delay mode
   controlPanel.onHighPrecisionDelayChanged = [this](bool enabled) {
@@ -198,9 +193,7 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
   spectrumDisplay.setShowFrequencyGrid(processorRef.isShowFrequencyGrid());
   controlPanel.setGridDisplay(processorRef.isShowFrequencyGrid());
 
-  // Restore Diffuse parameter state
-  controlPanel.setDiffuseAmount(processorRef.getEngine().getStereoAmount());
-  controlPanel.setStereoLowCut(processorRef.getEngine().getStereoLowCut());
+  // Note: Diffuse and Cutoff parameters are restored via APVTS attachments
 
   spectrumDisplay.setDisplayMode(processorRef.getUIDisplayModeBar()
                                      ? SpectrumDisplay::DisplayMode::Bar

@@ -177,7 +177,8 @@ private:
   void applyDelay(std::complex<float> *spectrum, int numBins,
                   std::vector<std::complex<float>> &delayBuffer,
                   std::vector<int> &writePos, bool isLeftChannel);
-  void applySpectralDynamics(std::complex<float> *spectrum, int numBins);
+  void applySpectralDynamics(std::complex<float> *spectrum, int numBins,
+                             bool isLeftChannel);
   void applySpectralGate(std::complex<float> *spectrum, int numBins);
   void applySpectralCompression(std::complex<float> *spectrum, int numBins);
   void storeFeedback(std::complex<float> *spectrum, int numBins,
@@ -234,6 +235,27 @@ private:
   std::atomic<float> gateLevel{-100.0f};   // dB
   std::atomic<float> compressAmount{0.0f}; // 0.0-1.0
   std::atomic<float> gainTargetDb{0.0f};   // Target for compression
+
+  // Dynamics envelope state per bin (for attack/release smoothing)
+  std::vector<float> dynamicsEnvelopeL; // Envelope state for left channel
+  std::vector<float> dynamicsEnvelopeR; // Envelope state for right channel
+
+  // Attack/Release time constants (in milliseconds)
+  static constexpr float dynamicsAttackMs = 20.0f;   // Attack time
+  static constexpr float dynamicsReleaseMs = 282.0f; // Release time
+
+  // Dynamic anchor point parameters (RMS-based)
+  static constexpr float anchorBase = -24.0f;      // Base anchor point (dB)
+  static constexpr float anchorRmsRef = -24.0f;    // Reference RMS level (dB)
+  static constexpr float anchorSensitivity = 0.5f; // Sensitivity to RMS changes
+  static constexpr float anchorSmoothMs = 500.0f;  // RMS smoothing time (ms)
+  static constexpr float anchorMin = -60.0f;       // Minimum anchor (dB)
+  static constexpr float anchorMax = -12.0f;       // Maximum anchor (dB)
+
+  // Smoothed RMS state for dynamic anchor (per channel, in dB)
+  std::atomic<float> smoothedRmsL{-60.0f};
+  std::atomic<float> smoothedRmsR{-60.0f};
+
   // Stereo width parameters
   std::atomic<float> stereoAmount{0.0f};   // 0.0-1.0 (stored as ratio)
   std::atomic<float> stereoLowCut{150.0f}; // Hz

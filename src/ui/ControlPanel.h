@@ -236,8 +236,12 @@ private:
   // Diffuse controls (for Time/Delay parameter)
   juce::Label diffuseLabel;
   juce::Slider diffuseSlider;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+      diffuseAttachment;
   juce::Label stereoLowCutLabel;
   juce::Slider stereoLowCutSlider;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+      stereoLowCutAttachment;
 
   // Current parameter type (0 = Gain, 1 = Feedback, 2 = Delay)
   int currentParameterType = 2;

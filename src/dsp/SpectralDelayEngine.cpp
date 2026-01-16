@@ -89,6 +89,10 @@ void SpectralDelayEngine::prepare(double sampleRate, int maxBlockSize) {
   // Initialize visualization buffers
   outputMagnitudeSpectrum.resize(static_cast<size_t>(currentNumBins.load()),
                                  0.0f);
+
+  // Initialize dynamics envelope state (start at 0 dB = unity gain)
+  dynamicsEnvelopeL.assign(static_cast<size_t>(currentNumBins.load()), 0.0f);
+  dynamicsEnvelopeR.assign(static_cast<size_t>(currentNumBins.load()), 0.0f);
 }
 
 void SpectralDelayEngine::reset() {
@@ -138,7 +142,7 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
       [this](std::complex<float> *spectrum, int numBins) {
         // 1. Spectral Dynamics (Fixed: Pre-Feedback) - Now occurs before
         // Pre-Gain
-        applySpectralDynamics(spectrum, numBins);
+        applySpectralDynamics(spectrum, numBins, true); // Left channel
 
         // 2. Pre-Dynamics Gain (if in Pre mode)
         if (!gainPostMode.load()) {
@@ -200,37 +204,37 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
   auto *rightIn = buffer.getReadPointer(1);
   auto *rightOut = buffer.getWritePointer(1);
 
-  stftProcessorR.process(rightIn, rightOut, numSamples,
-                         [this](std::complex<float> *spectrum, int numBins) {
-                           // 1. Spectral Dynamics
-                           applySpectralDynamics(spectrum, numBins);
+  stftProcessorR.process(
+      rightIn, rightOut, numSamples,
+      [this](std::complex<float> *spectrum, int numBins) {
+        // 1. Spectral Dynamics
+        applySpectralDynamics(spectrum, numBins, false); // Right channel
 
-                           // 2. Pre-Dynamics Gain
-                           if (!gainPostMode.load()) {
-                             applyGainModulation(spectrum, numBins);
-                           }
+        // 2. Pre-Dynamics Gain
+        if (!gainPostMode.load()) {
+          applyGainModulation(spectrum, numBins);
+        }
 
-                           // 3. Feedback Mixing
-                           applyFeedback(spectrum, numBins, feedbackSpectrumR);
+        // 3. Feedback Mixing
+        applyFeedback(spectrum, numBins, feedbackSpectrumR);
 
-                           // 4. Core Effect - includes diffuse jitter
-                           if (useDelayMode) {
-                             applyDelay(spectrum, numBins, delayBufferR,
-                                        delayWritePosR, false);
-                           } else {
-                             applyPhaseModulation(spectrum, numBins);
-                           }
+        // 4. Core Effect - includes diffuse jitter
+        if (useDelayMode) {
+          applyDelay(spectrum, numBins, delayBufferR, delayWritePosR, false);
+        } else {
+          applyPhaseModulation(spectrum, numBins);
+        }
 
-                           // 5. (Stereo Width now integrated into applyDelay)
+        // 5. (Stereo Width now integrated into applyDelay)
 
-                           // 6. Feedback Storing
-                           storeFeedback(spectrum, numBins, feedbackSpectrumR);
+        // 6. Feedback Storing
+        storeFeedback(spectrum, numBins, feedbackSpectrumR);
 
-                           // 7. Post-Dynamics Gain
-                           if (gainPostMode.load()) {
-                             applyGainModulation(spectrum, numBins);
-                           }
-                         });
+        // 7. Post-Dynamics Gain
+        if (gainPostMode.load()) {
+          applyGainModulation(spectrum, numBins);
+        }
+      });
 
   // With STFT disabled, buffer already contains the input signal
   // which will be used as the \"wet\" signal in the mix below
@@ -333,6 +337,10 @@ void SpectralDelayEngine::setFFTSize(int size) {
     visualizationMagnitudeSpectrum.assign(
         static_cast<size_t>(currentNumBins.load()), 0.0f);
   }
+
+  // Resize dynamics envelope buffers
+  dynamicsEnvelopeL.assign(static_cast<size_t>(currentNumBins.load()), 0.0f);
+  dynamicsEnvelopeR.assign(static_cast<size_t>(currentNumBins.load()), 0.0f);
 
   // Update dry signal delay to match new STFT latency
   int latency = stftProcessorL.getLatencyInSamples();
@@ -731,7 +739,8 @@ void SpectralDelayEngine::applyStereoWidthChannel(std::complex<float> *spectrum,
 }
 
 void SpectralDelayEngine::applySpectralDynamics(std::complex<float> *spectrum,
-                                                int numBins) {
+                                                int numBins,
+                                                bool isLeftChannel) {
   float amount = compressAmount.load();
   float Tg = gateLevel.load();
 
@@ -742,55 +751,167 @@ void SpectralDelayEngine::applySpectralDynamics(std::complex<float> *spectrum,
   float acNorm = 4.0f / static_cast<float>(currentFFTSize.load());
   float dcNorm = 2.0f / static_cast<float>(currentFFTSize.load());
 
-  auto applyDynamicsToValue = [&](float &value, float norm) {
+  // Select envelope buffer and smoothed RMS based on channel
+  std::vector<float> &envelope =
+      isLeftChannel ? dynamicsEnvelopeL : dynamicsEnvelopeR;
+  std::atomic<float> &smoothedRms = isLeftChannel ? smoothedRmsL : smoothedRmsR;
+
+  // Calculate attack/release coefficients based on STFT frame rate
+  // Frame time = hopSize / sampleRate
+  float sr = static_cast<float>(currentSampleRate.load());
+  float hop = static_cast<float>(currentHopSize.load());
+  float frameTimeMs = (hop / sr) * 1000.0f;
+
+  // One-pole filter coefficients
+  float attackCoeff = 1.0f - std::exp(-frameTimeMs / dynamicsAttackMs);
+  float releaseCoeff = 1.0f - std::exp(-frameTimeMs / dynamicsReleaseMs);
+  float rmsCoeff = 1.0f - std::exp(-frameTimeMs / anchorSmoothMs);
+
+  // ========================================
+  // Step 1: Calculate current frame RMS (dB)
+  // ========================================
+  float sumSquared = 0.0f;
+  int validBins = 0;
+
+  // DC component
+  float dcMag = std::abs(spectrum[0].real()) * dcNorm;
+  if (dcMag > 1e-9f) {
+    sumSquared += dcMag * dcMag;
+    validBins++;
+  }
+
+  // AC bins
+  for (int i = 1; i < numBins - 1; ++i) {
+    float mag = std::abs(spectrum[i]) * acNorm;
+    if (mag > 1e-9f) {
+      sumSquared += mag * mag;
+      validBins++;
+    }
+  }
+
+  // Nyquist component
+  float nyMag = std::abs(spectrum[0].imag()) * dcNorm;
+  if (nyMag > 1e-9f) {
+    sumSquared += nyMag * nyMag;
+    validBins++;
+  }
+
+  // Calculate RMS in dB
+  float currentRmsDb = -120.0f;
+  if (validBins > 0 && sumSquared > 1e-18f) {
+    float rmsLinear = std::sqrt(sumSquared / static_cast<float>(validBins));
+    currentRmsDb = juce::Decibels::gainToDecibels(rmsLinear, -120.0f);
+  }
+
+  // ========================================
+  // Step 2: Smooth the RMS value
+  // ========================================
+  float prevRmsDb = smoothedRms.load();
+  float newSmoothedRmsDb = prevRmsDb + rmsCoeff * (currentRmsDb - prevRmsDb);
+  smoothedRms.store(newSmoothedRmsDb);
+
+  // ========================================
+  // Step 3: Calculate dynamic anchor point
+  // ========================================
+  float offset = anchorSensitivity * (newSmoothedRmsDb - anchorRmsRef);
+  float A = anchorBase + offset;
+  // Clamp to valid range
+  A = std::max(anchorMin, std::min(anchorMax, A));
+
+  // Debug output (rate limited to avoid flooding console)
+  static int debugCounter = 0;
+  if (isLeftChannel && ++debugCounter >= 100) {
+    debugCounter = 0;
+    DBG("Dynamics: RMS=" + juce::String(newSmoothedRmsDb, 1) +
+        "dB, Anchor=" + juce::String(A, 1) + "dB");
+  }
+
+  // S-curve soft-knee compression parameters
+  // W = knee width in dB, varies from 10 (soft) to 4 (hard) based on amount
+  const float W = 10.0f - 6.0f * amount;
+  const float k = 1.0f / R_comp; // Asymptotic slope
+
+  // Lambda to compute target dB from input dB (using dynamic anchor A)
+  // Uses arctan-based S-curve: slope=1 at anchor, slope=k at extremes
+  // Formula: y = A + k*(x-A) + (1-k)*W*atan((x-A)/W)
+  auto computeTargetDb = [&](float x) -> float {
+    if (x >= Tg) {
+      // S-curve compression zone
+      float u = x - A;
+      return A + k * u + (1.0f - k) * W * std::atan(u / W);
+    } else {
+      // Calculate y at gate threshold for continuity
+      float u_T = Tg - A;
+      float y_T = A + k * u_T + (1.0f - k) * W * std::atan(u_T / W);
+      // Expansion zone: steep drop below threshold
+      return y_T + R_exp * (x - Tg);
+    }
+  };
+
+  // Lambda to apply dynamics with envelope to a single value
+  auto applyDynamicsWithEnvelope = [&](float &value, float norm,
+                                       size_t binIdx) {
     float mag = std::abs(value);
     if (mag < 1e-9f)
       return;
 
-    float x = juce::Decibels::gainToDecibels(mag * norm, -120.0f);
-    const float A = -36.0f; // Anchor point at -36dB as requested
-    float y;
+    float inputDb = juce::Decibels::gainToDecibels(mag * norm, -120.0f);
+    float targetDb = computeTargetDb(inputDb);
 
-    if (x >= Tg) {
-      // Compression zone: x pulled towards anchor A
-      y = A + (x - A) / R_comp;
-    } else {
-      // Expansion zone: x pushed away from inflection point
-      y = (A + (Tg - A) / R_comp) + R_exp * (x - Tg);
+    // Gain in dB = targetDb - inputDb
+    float targetGainDb = targetDb - inputDb;
+
+    // Get previous envelope state
+    float prevGainDb = (binIdx < envelope.size()) ? envelope[binIdx] : 0.0f;
+
+    // Apply attack or release depending on direction
+    // Attack: gain is decreasing (compressing/gating)
+    // Release: gain is increasing (recovering)
+    float coeff = (targetGainDb < prevGainDb) ? attackCoeff : releaseCoeff;
+    float smoothedGainDb = prevGainDb + coeff * (targetGainDb - prevGainDb);
+
+    // Store envelope state
+    if (binIdx < envelope.size()) {
+      envelope[binIdx] = smoothedGainDb;
     }
 
-    float newMag = juce::Decibels::decibelsToGain(y, -120.0f);
-    value *= (newMag / (mag * norm));
+    // Apply smoothed gain
+    float gainLinear = juce::Decibels::decibelsToGain(smoothedGainDb, -120.0f);
+    value *= gainLinear;
   };
 
-  // Dynamics DC
+  // Dynamics DC (bin 0 real part)
   float dc = spectrum[0].real();
-  applyDynamicsToValue(dc, dcNorm);
+  applyDynamicsWithEnvelope(dc, dcNorm, 0);
   spectrum[0].real(dc);
 
   // Dynamics AC bins
   for (int i = 1; i < numBins - 1; ++i) {
+    size_t binIdx = static_cast<size_t>(i);
     float rawMag = std::abs(spectrum[i]);
     if (rawMag < 1e-9f)
       continue;
 
-    float x = juce::Decibels::gainToDecibels(rawMag * acNorm, -120.0f);
-    const float A = -36.0f; // Anchor point at -36dB as requested
-    float y;
+    float inputDb = juce::Decibels::gainToDecibels(rawMag * acNorm, -120.0f);
+    float targetDb = computeTargetDb(inputDb);
+    float targetGainDb = targetDb - inputDb;
 
-    if (x >= Tg) {
-      y = A + (x - A) / R_comp;
-    } else {
-      y = (A + (Tg - A) / R_comp) + R_exp * (x - Tg);
+    float prevGainDb = (binIdx < envelope.size()) ? envelope[binIdx] : 0.0f;
+    float coeff = (targetGainDb < prevGainDb) ? attackCoeff : releaseCoeff;
+    float smoothedGainDb = prevGainDb + coeff * (targetGainDb - prevGainDb);
+
+    if (binIdx < envelope.size()) {
+      envelope[binIdx] = smoothedGainDb;
     }
 
-    float newMag = juce::Decibels::decibelsToGain(y, -120.0f);
-    spectrum[i] *= (newMag / (rawMag * acNorm));
+    float gainLinear = juce::Decibels::decibelsToGain(smoothedGainDb, -120.0f);
+    spectrum[i] *= gainLinear;
   }
 
-  // Dynamics Nyquist
+  // Dynamics Nyquist (bin 0 imag part - use numBins-1 as envelope index)
   float nyquist = spectrum[0].imag();
-  applyDynamicsToValue(nyquist, dcNorm);
+  size_t nyquistIdx = static_cast<size_t>(numBins - 1);
+  applyDynamicsWithEnvelope(nyquist, dcNorm, nyquistIdx);
   spectrum[0].imag(nyquist);
 }
 

@@ -172,16 +172,10 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   diffuseSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   diffuseSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 65, 15);
   diffuseSlider.setMouseDragSensitivity(250);
-  diffuseSlider.setRange(0.0, 300.0, 0.1);
-  diffuseSlider.setNumDecimalPlacesToDisplay(1);
-  diffuseSlider.setValue(0.0);
-  diffuseSlider.setTextValueSuffix("ms");
-  diffuseSlider.onValueChange = [this]() {
-    if (onDiffuseChanged) {
-      onDiffuseChanged(static_cast<float>(diffuseSlider.getValue()));
-    }
-  };
   addChildComponent(diffuseSlider);
+  diffuseAttachment =
+      std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+          parameters, "diffuse", diffuseSlider);
 
   // Stereo Cutoff control
   stereoLowCutLabel.setText("Cutoff", juce::dontSendNotification);
@@ -193,17 +187,10 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   stereoLowCutSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   stereoLowCutSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 65, 15);
   stereoLowCutSlider.setMouseDragSensitivity(250);
-  stereoLowCutSlider.setRange(20.0, 5000.0, 0.0);
-  stereoLowCutSlider.setSkewFactorFromMidPoint(500.0);
-  stereoLowCutSlider.setNumDecimalPlacesToDisplay(0);
-  stereoLowCutSlider.setValue(150.0);
-  stereoLowCutSlider.setTextValueSuffix("Hz");
-  stereoLowCutSlider.onValueChange = [this]() {
-    if (onStereoLowCutChanged) {
-      onStereoLowCutChanged(static_cast<float>(stereoLowCutSlider.getValue()));
-    }
-  };
   addChildComponent(stereoLowCutSlider);
+  stereoLowCutAttachment =
+      std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+          parameters, "stereoLowCut", stereoLowCutSlider);
 
   // FFT settings (now a dropdown)
   fftSizeLabel.setText("FFT Size", juce::dontSendNotification);

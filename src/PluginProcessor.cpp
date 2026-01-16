@@ -36,7 +36,7 @@ CopyCatSpectralDelayProcessor::createParameterLayout() {
 
   // Feedback Multiplier (0-100%)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "feedbackMult", "Feedback Multiplier",
+      "feedbackMult", "Max Feedback",
       juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f), 100.0f,
       juce::String(), juce::AudioProcessorParameter::genericParameter,
       [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
@@ -113,6 +113,23 @@ CopyCatSpectralDelayProcessor::createParameterLayout() {
                              : juce::String(ms, 1) + " ms";
       },
       [](const juce::String &text) { return text.getFloatValue() / 20.0f; }));
+
+  // Diffuse (0-300ms, default 0)
+  params.push_back(std::make_unique<juce::AudioParameterFloat>(
+      "diffuse", "Diffuse", juce::NormalisableRange<float>(0.0f, 300.0f, 0.1f),
+      0.0f, juce::String(), juce::AudioProcessorParameter::genericParameter,
+      [](float value, int) { return juce::String(value, 1) + " ms"; },
+      [](const juce::String &text) { return text.getFloatValue(); }));
+
+  // Stereo Low Cut / Cutoff (20-5000Hz, default 150Hz, skew midpoint at 500Hz)
+  params.push_back(std::make_unique<juce::AudioParameterFloat>(
+      "stereoLowCut", "Cutoff",
+      juce::NormalisableRange<float>(20.0f, 5000.0f, 0.0f, 0.35f), 150.0f,
+      juce::String(), juce::AudioProcessorParameter::genericParameter,
+      [](float value, int) {
+        return juce::String(static_cast<int>(value)) + " Hz";
+      },
+      [](const juce::String &text) { return text.getFloatValue(); }));
 
   return {params.begin(), params.end()};
 }
@@ -316,6 +333,17 @@ void CopyCatSpectralDelayProcessor::processBlock(
   engine.setCompressAmount(smoothedCompress.getCurrentValue());
   engine.setGainTargetDb(
       gainDb); // Use unsmoothed gainDb for compression target
+
+  // Update Diffuse and Cutoff parameters
+  auto *diffuseParam = parameters.getRawParameterValue("diffuse");
+  auto *stereoLowCutParam = parameters.getRawParameterValue("stereoLowCut");
+
+  if (diffuseParam) {
+    engine.setStereoAmount(diffuseParam->load());
+  }
+  if (stereoLowCutParam) {
+    engine.setStereoLowCut(stereoLowCutParam->load());
+  }
 
   // Update latency if it changed
   int newLatency = engine.getLatencyInSamples();
