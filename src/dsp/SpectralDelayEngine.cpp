@@ -744,8 +744,8 @@ void SpectralDelayEngine::applySpectralDynamics(std::complex<float> *spectrum,
   float amount = compressAmount.load();
   float Tg = gateLevel.load();
 
-  // Mapping amount (0.0-1.0) to R_comp (1.0 to 4.0 as requested)
-  float R_comp = 1.0f + amount * 3.0f;
+  // Mapping amount (0.0-1.0) to R_comp (1.0 to 3.0)
+  float R_comp = 1.0f + amount * 2.0f;
   const float R_exp = 10.0f; // Fixed expansion ratio
 
   float acNorm = 4.0f / static_cast<float>(currentFFTSize.load());
@@ -827,8 +827,8 @@ void SpectralDelayEngine::applySpectralDynamics(std::complex<float> *spectrum,
   }
 
   // S-curve soft-knee compression parameters
-  // W = knee width in dB, varies from 10 (soft) to 4 (hard) based on amount
-  const float W = 10.0f - 6.0f * amount;
+  // W = knee width in dB, varies from 15 (soft) to 7 (hard) based on amount
+  const float W = 15.0f - 8.0f * amount;
   const float k = 1.0f / R_comp; // Asymptotic slope
 
   // Lambda to compute target dB from input dB (using dynamic anchor A)

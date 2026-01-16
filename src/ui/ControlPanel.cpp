@@ -304,17 +304,11 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   lfoAmountSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   lfoAmountSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
   lfoAmountSlider.setMouseDragSensitivity(250);
-  lfoAmountSlider.setRange(0.0, 100.0, 0.0);
-  lfoAmountSlider.setNumDecimalPlacesToDisplay(0);
-  lfoAmountSlider.setValue(100.0); // Default 100%
-  lfoAmountSlider.setTextValueSuffix("%");
-  lfoAmountSlider.onValueChange = [this]() {
-    if (onLfoAmountChanged) {
-      onLfoAmountChanged(currentParameterType,
-                         static_cast<float>(lfoAmountSlider.getValue()));
-    }
-  };
+  // Note: range, suffix, and value are now managed by APVTS attachment
   addAndMakeVisible(lfoAmountSlider);
+
+  // Initial attachment binding (will be updated in selectParameter)
+  updateLfoAmountAttachment();
 
   // LFO Speed slider (100-2000ms)
   lfoSpeedLabel.setText("Time", juce::dontSendNotification);
@@ -882,6 +876,9 @@ void ControlPanel::selectParameter(int paramType) {
   lfoVGridLabel.setVisible(currentLfoMode);
   lfoVGridSlider.setVisible(currentLfoMode);
 
+  // Update LFO amount attachment to bind to the correct parameter
+  updateLfoAmountAttachment();
+
   // Bottom section controls: shown in all modes
   bool showBottomSection = true;
   fftSizeLabel.setVisible(showBottomSection);
@@ -923,7 +920,7 @@ void ControlPanel::updateLfoControls(float amount, float speedOrIndex,
                                      float smoothMs, SyncMode mode,
                                      bool isSynced) {
   juce::ScopedValueSetter<bool> updating(isUpdating, true);
-  lfoAmountSlider.setValue(amount, juce::dontSendNotification);
+  // Note: lfoAmountSlider value is now managed by APVTS attachment
   lfoSmoothSlider.setValue(smoothMs, juce::dontSendNotification);
 
   // Update mode buttons
@@ -1032,4 +1029,29 @@ void ControlPanel::setDiffuseAmount(float amount) {
 
 void ControlPanel::setStereoLowCut(float freq) {
   stereoLowCutSlider.setValue(freq, juce::dontSendNotification);
+}
+
+void ControlPanel::updateLfoAmountAttachment() {
+  // Determine which APVTS parameter to bind based on current parameter type
+  juce::String paramId;
+  switch (currentParameterType) {
+  case 0: // Gain
+    paramId = "lfoGainAmount";
+    break;
+  case 1: // Feedback
+    paramId = "lfoFeedbackAmount";
+    break;
+  case 2: // Time/Delay
+  default:
+    paramId = "lfoTimeAmount";
+    break;
+  }
+
+  // Destroy old attachment first (must be done before creating new one)
+  lfoAmountAttachment.reset();
+
+  // Create new attachment to the appropriate parameter
+  lfoAmountAttachment =
+      std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+          parameters, paramId, lfoAmountSlider);
 }

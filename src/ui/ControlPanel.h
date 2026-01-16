@@ -258,6 +258,12 @@ private:
   // LFO controls (shown when LFO mode is active)
   juce::Label lfoAmountLabel;
   juce::Slider lfoAmountSlider;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+      lfoAmountAttachment;
+
+  // Helper to update LFO amount attachment based on current parameter type
+  void updateLfoAmountAttachment();
+
   juce::Label lfoSpeedLabel;
   juce::Slider lfoSpeedSlider;
   juce::Label lfoSmoothLabel;

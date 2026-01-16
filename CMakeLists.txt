@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
-project(CopyCatSpectralDelay VERSION 1.0.0)
+project(CopyCatSpectralDelay VERSION 1.1.0)
 
 # ============================================================================
 # JUCE Path Configuration (supports local dev and CI builds)

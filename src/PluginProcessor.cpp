@@ -131,6 +131,25 @@ CopyCatSpectralDelayProcessor::createParameterLayout() {
       },
       [](const juce::String &text) { return text.getFloatValue(); }));
 
+  // LFO Amount parameters (0-100%, default 100%)
+  params.push_back(std::make_unique<juce::AudioParameterFloat>(
+      "lfoGainAmount", "LFO Gain Amount",
+      juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f), 100.0f,
+      juce::String(), juce::AudioProcessorParameter::genericParameter,
+      [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
+
+  params.push_back(std::make_unique<juce::AudioParameterFloat>(
+      "lfoFeedbackAmount", "LFO Feedback Amount",
+      juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f), 100.0f,
+      juce::String(), juce::AudioProcessorParameter::genericParameter,
+      [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
+
+  params.push_back(std::make_unique<juce::AudioParameterFloat>(
+      "lfoTimeAmount", "LFO Time Amount",
+      juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f), 100.0f,
+      juce::String(), juce::AudioProcessorParameter::genericParameter,
+      [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
+
   return {params.begin(), params.end()};
 }
 
@@ -258,6 +277,23 @@ void CopyCatSpectralDelayProcessor::processBlock(
 
   // Advance LFO phases by buffer size
   lfoEngine.advance(numSamples);
+
+  // Update LFO amounts from APVTS parameters
+  auto *lfoGainAmountParam = parameters.getRawParameterValue("lfoGainAmount");
+  auto *lfoFeedbackAmountParam =
+      parameters.getRawParameterValue("lfoFeedbackAmount");
+  auto *lfoTimeAmountParam = parameters.getRawParameterValue("lfoTimeAmount");
+
+  if (lfoGainAmountParam) {
+    lfoEngine.setAmount(LFOEngine::Parameter::Gain, lfoGainAmountParam->load());
+  }
+  if (lfoFeedbackAmountParam) {
+    lfoEngine.setAmount(LFOEngine::Parameter::Feedback,
+                        lfoFeedbackAmountParam->load());
+  }
+  if (lfoTimeAmountParam) {
+    lfoEngine.setAmount(LFOEngine::Parameter::Time, lfoTimeAmountParam->load());
+  }
 
   // Get base multipliers from automation parameters
   auto *feedbackMultParam = parameters.getRawParameterValue("feedbackMult");
