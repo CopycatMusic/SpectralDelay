@@ -23,7 +23,7 @@ CustomLookAndFeel::CustomLookAndFeel() {
   setColour(juce::TextButton::buttonColourId, backgroundMedium);
   setColour(juce::TextButton::buttonOnColourId, accentPrimary);
   setColour(juce::TextButton::textColourOffId, textPrimary);
-  setColour(juce::TextButton::textColourOnId, backgroundDark);
+  setColour(juce::TextButton::textColourOnId, textPrimary);
 
   setColour(juce::ComboBox::backgroundColourId, backgroundMedium);
   setColour(juce::ComboBox::outlineColourId, textPrimary.withAlpha(0.3f));
@@ -204,7 +204,10 @@ void CustomLookAndFeel::drawButtonBackground(
     bool shouldDrawButtonAsDown) {
   auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
 
-  auto baseColour = button.getToggleState() ? accentPrimary : backgroundMedium;
+  auto baseColour = button.getToggleState()
+                        ? button.findColour(juce::TextButton::buttonOnColourId)
+                              .withAlpha(0.3f)
+                        : button.findColour(juce::TextButton::buttonColourId);
 
   if (shouldDrawButtonAsDown)
     baseColour = baseColour.darker(0.2f);
@@ -215,6 +218,10 @@ void CustomLookAndFeel::drawButtonBackground(
   g.fillRoundedRectangle(bounds, 6.0f);
 
   g.setColour(textPrimary.withAlpha(0.2f));
+  if (button.getToggleState())
+    g.setColour(
+        button.findColour(juce::TextButton::buttonOnColourId).withAlpha(0.5f));
+
   g.drawRoundedRectangle(bounds, 6.0f, 1.0f);
 }
 
@@ -225,7 +232,9 @@ void CustomLookAndFeel::drawButtonText(juce::Graphics &g,
   auto font = juce::Font(UIConstants::kDefaultFontSize);
   g.setFont(font);
 
-  auto textColour = button.getToggleState() ? backgroundDark : textPrimary;
+  auto textColour = button.getToggleState()
+                        ? button.findColour(juce::TextButton::textColourOnId)
+                        : button.findColour(juce::TextButton::textColourOffId);
 
   if (shouldDrawButtonAsHighlighted && !button.getToggleState())
     textColour = textPrimary;

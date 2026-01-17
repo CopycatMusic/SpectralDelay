@@ -58,7 +58,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   addChildComponent(delayModeLabel); // Initially hidden
 
   // Feedback controls - initially hidden
-  feedbackMultLabel.setText("Max Feedback", juce::dontSendNotification);
+  feedbackMultLabel.setText("Amount", juce::dontSendNotification);
   feedbackMultLabel.setJustificationType(juce::Justification::centred);
   feedbackMultLabel.setColour(juce::Label::textColourId,
                               CustomLookAndFeel::getTextPrimary());
@@ -140,7 +140,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
           parameters, "compress", compressSlider);
 
   // Delay multiply control - initially hidden
-  delayMultLabel.setText("Max Delay", juce::dontSendNotification);
+  delayMultLabel.setText("Amount", juce::dontSendNotification);
   delayMultLabel.setJustificationType(juce::Justification::centred);
   delayMultLabel.setColour(juce::Label::textColourId,
                            CustomLookAndFeel::getTextPrimary());
@@ -779,22 +779,24 @@ void ControlPanel::resized() {
 
         int rightX = UIConstants::kMargin + leftAreaWidth;
         int diffuseKnobY = currentY;
+        int knobsOffsetX = -5; // User requested 5px left shift
+
         diffuseSlider.setBounds(
-            rightX + (rightAreaWidth - sliderWidthWithText) / 2, diffuseKnobY,
-            sliderWidthWithText, UIConstants::kSmallKnobSize);
+            rightX + (rightAreaWidth - sliderWidthWithText) / 2 + knobsOffsetX,
+            diffuseKnobY, sliderWidthWithText, UIConstants::kSmallKnobSize);
         // Note: diffuseLabel is on the right of the knob in this layout
         diffuseLabel.setBounds(
-            rightX + (rightAreaWidth - sliderWidthWithText) / 2 +
+            rightX + (rightAreaWidth - sliderWidthWithText) / 2 + knobsOffsetX +
                 UIConstants::kSmallKnobSize + textGap,
             diffuseKnobY + 12, textBoxWidth, UIConstants::kLabelHeight);
 
         int cutoffKnobY =
             diffuseKnobY + UIConstants::kSmallKnobSize + UIConstants::kSpacing;
         stereoLowCutSlider.setBounds(
-            rightX + (rightAreaWidth - sliderWidthWithText) / 2, cutoffKnobY,
-            sliderWidthWithText, UIConstants::kSmallKnobSize);
+            rightX + (rightAreaWidth - sliderWidthWithText) / 2 + knobsOffsetX,
+            cutoffKnobY, sliderWidthWithText, UIConstants::kSmallKnobSize);
         stereoLowCutLabel.setBounds(
-            rightX + (rightAreaWidth - sliderWidthWithText) / 2 +
+            rightX + (rightAreaWidth - sliderWidthWithText) / 2 + knobsOffsetX +
                 UIConstants::kSmallKnobSize + textGap,
             cutoffKnobY + 12, textBoxWidth, UIConstants::kLabelHeight);
 

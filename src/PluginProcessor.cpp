@@ -36,7 +36,7 @@ CopyCatSpectralDelayProcessor::createParameterLayout() {
 
   // Feedback Multiplier (0-100%)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "feedbackMult", "Max Feedback",
+      "feedbackMult", "Feedback Amount",
       juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f), 100.0f,
       juce::String(), juce::AudioProcessorParameter::genericParameter,
       [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
@@ -104,7 +104,7 @@ CopyCatSpectralDelayProcessor::createParameterLayout() {
 
   // Delay Multiplier (0-100%, default 20%, non-linear for finer control near 0)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "delayMult", "Max Delay",
+      "delayMult", "Delay Amount",
       juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f, 0.5f), 20.0f,
       juce::String(), juce::AudioProcessorParameter::genericParameter,
       [](float value, int) {
@@ -145,7 +145,7 @@ CopyCatSpectralDelayProcessor::createParameterLayout() {
       [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
 
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "lfoTimeAmount", "LFO Time Amount",
+      "lfoTimeAmount", "LFO Delay Amount",
       juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f), 100.0f,
       juce::String(), juce::AudioProcessorParameter::genericParameter,
       [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));

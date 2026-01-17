@@ -173,20 +173,8 @@ void SpectrumDisplay::setAxisLabel(const juce::String &unit, float displayMax) {
   axisUnit = unit;
   axisDisplayMax = displayMax;
 
-  // Only update max value label if mouse is not inside graph
-  if (!isMouseInsideGraph) {
-    if (unit.isEmpty()) {
-      maxValueLabel.setText("", juce::dontSendNotification);
-    } else {
-      // Round to integer for cleaner display if it's large, otherwise keep 1
-      // decimal
-      juce::String valStr = (displayMax >= 10.0f)
-                                ? juce::String(static_cast<int>(displayMax))
-                                : juce::String(displayMax, 1);
-      maxValueLabel.setText("MAX: " + valStr + " " + unit,
-                            juce::dontSendNotification);
-    }
-  }
+  // Note: We no longer show "MAX: xxx" when mouse is outside.
+  // The label only shows coordinates when mouse is inside the graph.
 
   repaint();
 }
@@ -784,7 +772,8 @@ void SpectrumDisplay::drawFrequencyGrid(juce::Graphics &g) {
   const struct {
     float freq;
     juce::String label;
-  } majorFreqs[] = {{100.0f, "100"}, {1000.0f, "1k"}, {10000.0f, "10k"}};
+  } majorFreqs[] = {
+      {100.0f, "100"}, {1000.0f, "1k"}, {10000.0f, "10k"}, {21000.0f, "21k"}};
 
   for (const auto &item : majorFreqs) {
     if (item.freq >= minFreq && item.freq <= maxFreq) {
