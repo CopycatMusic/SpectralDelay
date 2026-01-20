@@ -248,9 +248,12 @@ private:
   static constexpr float anchorBase = -24.0f;      // Base anchor point (dB)
   static constexpr float anchorRmsRef = -24.0f;    // Reference RMS level (dB)
   static constexpr float anchorSensitivity = 0.5f; // Sensitivity to RMS changes
-  static constexpr float anchorSmoothMs = 500.0f;  // RMS smoothing time (ms)
+  static constexpr float anchorAttackMs = 50.0f;   // RMS attack time (faster)
+  static constexpr float anchorReleaseMs = 500.0f; // RMS release time (slower)
   static constexpr float anchorMin = -60.0f;       // Minimum anchor (dB)
   static constexpr float anchorMax = -12.0f;       // Maximum anchor (dB)
+  static constexpr float rmsTrackingThreshold =
+      -90.0f; // Skip tracking below this
 
   // Smoothed RMS state for dynamic anchor (per channel, in dB)
   std::atomic<float> smoothedRmsL{-60.0f};

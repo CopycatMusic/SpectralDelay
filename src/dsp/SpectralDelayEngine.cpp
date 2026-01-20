@@ -744,6 +744,10 @@ void SpectralDelayEngine::applySpectralDynamics(std::complex<float> *spectrum,
   float amount = compressAmount.load();
   float Tg = gateLevel.load();
 
+  // Bypass if no processing is needed
+  if (amount <= 0.0f && Tg <= -99.9f)
+    return;
+
   // Mapping amount (0.0-1.0) to R_comp (1.0 to 3.0)
   float R_comp = 1.0f + amount * 2.0f;
   const float R_exp = 10.0f; // Fixed expansion ratio
@@ -765,7 +769,6 @@ void SpectralDelayEngine::applySpectralDynamics(std::complex<float> *spectrum,
   // One-pole filter coefficients
   float attackCoeff = 1.0f - std::exp(-frameTimeMs / dynamicsAttackMs);
   float releaseCoeff = 1.0f - std::exp(-frameTimeMs / dynamicsReleaseMs);
-  float rmsCoeff = 1.0f - std::exp(-frameTimeMs / anchorSmoothMs);
 
   // ========================================
   // Step 1: Calculate current frame RMS (dB)
@@ -804,11 +807,24 @@ void SpectralDelayEngine::applySpectralDynamics(std::complex<float> *spectrum,
   }
 
   // ========================================
-  // Step 2: Smooth the RMS value
+  // Step 2: Smooth the RMS value (Asymmetrical + Gated)
   // ========================================
   float prevRmsDb = smoothedRms.load();
-  float newSmoothedRmsDb = prevRmsDb + rmsCoeff * (currentRmsDb - prevRmsDb);
-  smoothedRms.store(newSmoothedRmsDb);
+  float newSmoothedRmsDb = prevRmsDb;
+
+  // Gated Tracking: Only update if signal is above absolute floor
+  if (currentRmsDb > rmsTrackingThreshold) {
+    // Asymmetrical smoothing: faster for rising (attack), slower for falling
+    // (release)
+    float rmsTrackingCoeff =
+        (currentRmsDb > prevRmsDb)
+            ? (1.0f - std::exp(-frameTimeMs / anchorAttackMs))
+            : (1.0f - std::exp(-frameTimeMs / anchorReleaseMs));
+
+    newSmoothedRmsDb =
+        prevRmsDb + rmsTrackingCoeff * (currentRmsDb - prevRmsDb);
+    smoothedRms.store(newSmoothedRmsDb);
+  }
 
   // ========================================
   // Step 3: Calculate dynamic anchor point
@@ -848,10 +864,11 @@ void SpectralDelayEngine::applySpectralDynamics(std::complex<float> *spectrum,
     }
   };
 
-  // Lambda to apply dynamics with envelope to a single value
-  auto applyDynamicsWithEnvelope = [&](float &value, float norm,
+  // Lambda to apply dynamics with envelope to a single complex component (DC,
+  // AC, or Nyquist)
+  auto applyDynamicsWithEnvelope = [&](std::complex<float> &comp, float norm,
                                        size_t binIdx) {
-    float mag = std::abs(value);
+    float mag = std::abs(comp);
     if (mag < 1e-9f)
       return;
 
@@ -864,55 +881,44 @@ void SpectralDelayEngine::applySpectralDynamics(std::complex<float> *spectrum,
     // Get previous envelope state
     float prevGainDb = (binIdx < envelope.size()) ? envelope[binIdx] : 0.0f;
 
-    // Apply attack or release depending on direction
-    // Attack: gain is decreasing (compressing/gating)
-    // Release: gain is increasing (recovering)
-    float coeff = (targetGainDb < prevGainDb) ? attackCoeff : releaseCoeff;
-    float smoothedGainDb = prevGainDb + coeff * (targetGainDb - prevGainDb);
+    float smoothedGainDb = targetGainDb;
 
-    // Store envelope state
+    // Only apply smoothing if above gate threshold (Compression zone)
+    if (inputDb >= Tg) {
+      // Apply attack or release depending on direction
+      float coeff = (targetGainDb < prevGainDb) ? attackCoeff : releaseCoeff;
+      smoothedGainDb = prevGainDb + coeff * (targetGainDb - prevGainDb);
+    }
+    // Else: inputDb < Tg (Gate zone) -> smoothedGainDb remains targetGainDb
+    // (instant)
+
+    // Always store envelope state to prevent jumps when transitioning regions
     if (binIdx < envelope.size()) {
       envelope[binIdx] = smoothedGainDb;
     }
 
-    // Apply smoothed gain
+    // Apply gain
     float gainLinear = juce::Decibels::decibelsToGain(smoothedGainDb, -120.0f);
-    value *= gainLinear;
+    comp *= gainLinear;
   };
 
-  // Dynamics DC (bin 0 real part)
-  float dc = spectrum[0].real();
-  applyDynamicsWithEnvelope(dc, dcNorm, 0);
-  spectrum[0].real(dc);
+  // Dynamics DC (bin 0 real part represents DC)
+  float dcVal = spectrum[0].real();
+  std::complex<float> dcComp(dcVal, 0.0f);
+  applyDynamicsWithEnvelope(dcComp, dcNorm, 0);
+  spectrum[0].real(dcComp.real());
 
   // Dynamics AC bins
   for (int i = 1; i < numBins - 1; ++i) {
-    size_t binIdx = static_cast<size_t>(i);
-    float rawMag = std::abs(spectrum[i]);
-    if (rawMag < 1e-9f)
-      continue;
-
-    float inputDb = juce::Decibels::gainToDecibels(rawMag * acNorm, -120.0f);
-    float targetDb = computeTargetDb(inputDb);
-    float targetGainDb = targetDb - inputDb;
-
-    float prevGainDb = (binIdx < envelope.size()) ? envelope[binIdx] : 0.0f;
-    float coeff = (targetGainDb < prevGainDb) ? attackCoeff : releaseCoeff;
-    float smoothedGainDb = prevGainDb + coeff * (targetGainDb - prevGainDb);
-
-    if (binIdx < envelope.size()) {
-      envelope[binIdx] = smoothedGainDb;
-    }
-
-    float gainLinear = juce::Decibels::decibelsToGain(smoothedGainDb, -120.0f);
-    spectrum[i] *= gainLinear;
+    applyDynamicsWithEnvelope(spectrum[i], acNorm, static_cast<size_t>(i));
   }
 
-  // Dynamics Nyquist (bin 0 imag part - use numBins-1 as envelope index)
-  float nyquist = spectrum[0].imag();
-  size_t nyquistIdx = static_cast<size_t>(numBins - 1);
-  applyDynamicsWithEnvelope(nyquist, dcNorm, nyquistIdx);
-  spectrum[0].imag(nyquist);
+  // Dynamics Nyquist (bin 0 imag part represents Nyquist)
+  float nyquistVal = spectrum[0].imag();
+  std::complex<float> nyquistComp(nyquistVal, 0.0f);
+  applyDynamicsWithEnvelope(nyquistComp, dcNorm,
+                            static_cast<size_t>(numBins - 1));
+  spectrum[0].imag(nyquistComp.real());
 }
 
 void SpectralDelayEngine::applySpectralGate(std::complex<float> *spectrum,

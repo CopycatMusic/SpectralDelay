@@ -31,6 +31,13 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
   titleLabel.setJustificationType(juce::Justification::centredLeft);
   addAndMakeVisible(titleLabel);
 
+  betaLabel.setText("beta version", juce::dontSendNotification);
+  betaLabel.setFont(juce::Font(montserratTypeface).withHeight(14.0f));
+  betaLabel.setColour(juce::Label::textColourId,
+                      CustomLookAndFeel::getAccentPrimary().withAlpha(0.6f));
+  betaLabel.setJustificationType(juce::Justification::centredLeft);
+  addAndMakeVisible(betaLabel);
+
   // Spectrum display (with integrated curve editing)
   addAndMakeVisible(spectrumDisplay);
 
@@ -346,11 +353,16 @@ void CopyCatSpectralDelayEditor::resized() {
                             .withTrimmedLeft(15)
                             .withTrimmedTop(5);
 
-  // Position brand and title
+  // Position brand, title and beta version
   int brandWidth = brandLabel.getFont().getStringWidth(brandLabel.getText());
   brandLabel.setBounds(
       titleLabelArea.removeFromLeft(brandWidth + 8)); // 8px space after COPYCAT
-  titleLabel.setBounds(titleLabelArea);
+
+  int titleWidth = titleLabel.getFont().getStringWidth(titleLabel.getText());
+  titleLabel.setBounds(titleLabelArea.removeFromLeft(titleWidth + 10));
+
+  betaLabel.setBounds(titleLabelArea.withTrimmedTop(
+      12)); // Offset down to align with bottom of title
 
   // Split remaining area: right side is fixed width
   int spectrumWidth = bounds.getWidth() - UIConstants::kControlPanelWidth;
