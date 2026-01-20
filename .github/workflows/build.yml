@@ -12,6 +12,7 @@ on:
 env:
   BUILD_TYPE: Release
   JUCE_VERSION: "8.0.12"
+  PROJECT_VERSION: "1.1.0"
 
 jobs:
   # ===========================================================================
@@ -62,7 +63,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: CopyCat-Spectral-Delay-macOS
-        path: CopyCat_Spectral_Delay_v1.1.0-beta.1_macOS.dmg
+        path: "CopyCat_Spectral_Delay_v${{ env.PROJECT_VERSION }}_macOS.dmg"
         retention-days: 30
 
   # ===========================================================================
@@ -132,7 +133,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          artifacts/CopyCat-Spectral-Delay-macOS/CopyCat_Spectral_Delay_v1.1.0-beta.1_macOS.dmg
+          artifacts/CopyCat-Spectral-Delay-macOS/CopyCat_Spectral_Delay_v${{ env.PROJECT_VERSION }}_macOS.dmg
           artifacts/CopyCat-Spectral-Delay-Windows-VST3/CopyCat_Spectral_Delay_Windows_VST3.zip
         draft: false
         prerelease: true
