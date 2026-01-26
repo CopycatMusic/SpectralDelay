@@ -1,4 +1,4 @@
-name: Build VST3 Plugin
+name: Build Plugin (Standard + Lite)
 
 on:
   push:
@@ -7,12 +7,11 @@ on:
       - 'v*'
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
 
 env:
   BUILD_TYPE: Release
   JUCE_VERSION: "8.0.12"
-  PROJECT_VERSION: "1.1.0"
 
 jobs:
   # ===========================================================================
@@ -25,6 +24,13 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       
+    - name: Extract version from CMakeLists.txt
+      id: version
+      run: |
+        VERSION=$(grep -oE 'project\(CopyCatSpectralDelay VERSION ([0-9.]+)' CMakeLists.txt | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+        echo "PROJECT_VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Detected version: $VERSION"
+        
     - name: Cache JUCE
       uses: actions/cache@v4
       id: cache-juce-macos
@@ -44,26 +50,33 @@ jobs:
           -DJUCE_DIR=${{ github.workspace }}/JUCE \
           -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
           
-    - name: Build
+    - name: Build All Targets
       run: cmake --build build --config ${{ env.BUILD_TYPE }} -j$(sysctl -n hw.ncpu)
       
-    - name: Package macOS (AU + VST3)
+    - name: Package macOS Standard
       run: |
-        mkdir -p installer
-        cp -R "build/CopyCatSpectralDelay_artefacts/${{ env.BUILD_TYPE }}/AU/CopyCat Spectral Delay.component" installer/
-        cp -R "build/CopyCatSpectralDelay_artefacts/${{ env.BUILD_TYPE }}/VST3/CopyCat Spectral Delay.vst3" installer/
+        mkdir -p artifacts/macOS/Standard
+        cp -R "build/CopyCatSpectralDelay_artefacts/${{ env.BUILD_TYPE }}/AU/CopyCat Spectral Delay.component" artifacts/macOS/Standard/
+        cp -R "build/CopyCatSpectralDelay_artefacts/${{ env.BUILD_TYPE }}/VST3/CopyCat Spectral Delay.vst3" artifacts/macOS/Standard/
         
-        # Create DMG
-        hdiutil create -volname "CopyCat Spectral Delay" \
-          -srcfolder installer \
-          -ov -format UDZO \
-          "CopyCat_Spectral_Delay_v1.1.0-beta.1_macOS.dmg"
+    - name: Package macOS Lite
+      run: |
+        mkdir -p artifacts/macOS/Lite
+        cp -R "build/CopyCatSpectralDelayLite_artefacts/${{ env.BUILD_TYPE }}/AU/CopyCat Spectral Delay Lite.component" artifacts/macOS/Lite/
+        cp -R "build/CopyCatSpectralDelayLite_artefacts/${{ env.BUILD_TYPE }}/VST3/CopyCat Spectral Delay Lite.vst3" artifacts/macOS/Lite/
         
-    - name: Upload macOS Artifact
+    - name: Upload macOS Standard
       uses: actions/upload-artifact@v4
       with:
-        name: CopyCat-Spectral-Delay-macOS
-        path: "CopyCat_Spectral_Delay_v${{ env.PROJECT_VERSION }}_macOS.dmg"
+        name: macOS-Standard
+        path: artifacts/macOS/Standard/
+        retention-days: 30
+        
+    - name: Upload macOS Lite
+      uses: actions/upload-artifact@v4
+      with:
+        name: macOS-Lite
+        path: artifacts/macOS/Lite/
         retention-days: 30
 
   # ===========================================================================
@@ -76,6 +89,17 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       
+    - name: Extract version from CMakeLists.txt
+      id: version
+      shell: pwsh
+      run: |
+        $content = Get-Content CMakeLists.txt -Raw
+        if ($content -match 'project\(CopyCatSpectralDelay VERSION ([0-9.]+)') {
+          $version = $matches[1]
+          echo "PROJECT_VERSION=$version" >> $env:GITHUB_OUTPUT
+          echo "Detected version: $version"
+        }
+        
     - name: Cache JUCE
       uses: actions/cache@v4
       id: cache-juce-windows
@@ -96,21 +120,37 @@ jobs:
           -A x64 `
           -DJUCE_DIR=C:/JUCE
           
-    - name: Build
+    - name: Build All Targets
       run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
       
-    - name: Package VST3
+    - name: Package Windows Standard
+      shell: pwsh
       run: |
-        cd build/CopyCatSpectralDelay_artefacts/${{ env.BUILD_TYPE }}/VST3
-        Compress-Archive -Path "CopyCat Spectral Delay.vst3" -DestinationPath "../../../../CopyCat_Spectral_Delay_Windows_VST3.zip"
+        New-Item -ItemType Directory -Force -Path artifacts/Windows/Standard
+        Copy-Item -Recurse "build/CopyCatSpectralDelay_artefacts/${{ env.BUILD_TYPE }}/VST3/CopyCat Spectral Delay.vst3" artifacts/Windows/Standard/
         
-    - name: Upload Windows Artifact
+    - name: Package Windows Lite
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force -Path artifacts/Windows/Lite
+        Copy-Item -Recurse "build/CopyCatSpectralDelayLite_artefacts/${{ env.BUILD_TYPE }}/VST3/CopyCat Spectral Delay Lite.vst3" artifacts/Windows/Lite/
+        
+    - name: Upload Windows Standard
       uses: actions/upload-artifact@v4
       with:
-        name: CopyCat-Spectral-Delay-Windows-VST3
-        path: CopyCat_Spectral_Delay_Windows_VST3.zip
+        name: Windows-Standard
+        path: artifacts/Windows/Standard/
+        retention-days: 30
+        
+    - name: Upload Windows Lite
+      uses: actions/upload-artifact@v4
+      with:
+        name: Windows-Lite
+        path: artifacts/Windows/Lite/
         retention-days: 30
 
+  # ===========================================================================
+  # Create Release (on tag push)
   # ===========================================================================
   create-release:
     needs: [build-macos, build-windows]
@@ -132,9 +172,13 @@ jobs:
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
-        files: |
-          artifacts/CopyCat-Spectral-Delay-macOS/CopyCat_Spectral_Delay_v${{ env.PROJECT_VERSION }}_macOS.dmg
-          artifacts/CopyCat-Spectral-Delay-Windows-VST3/CopyCat_Spectral_Delay_Windows_VST3.zip
-        draft: false
-        prerelease: true
+        draft: true
+        prerelease: false
         generate_release_notes: true
+        body: |
+          ## Download Instructions
+          
+          Download artifacts and run local signing scripts to create installers.
+          
+          **macOS**: Run `./scripts/sign_and_notarize_pkg.sh --variant standard|lite`
+          **Windows**: Run Inno Setup with `installer_win_standard.iss` or `installer_win_lite.iss`

@@ -121,12 +121,7 @@ public:
   float getCompressAmount() const { return compressAmount * 100.0f; }
 
   /**
-   * Set target gain in dB for compression.
-   */
-  void setGainTargetDb(float db) { gainTargetDb = db; }
-
-  /**
-   * Set diffuse amount in milliseconds (0-100ms).
+   * Set diffuse amount in milliseconds (0-400ms).
    */
   void setStereoAmount(float amountMs) { stereoAmount = amountMs; }
   float getStereoAmount() const { return stereoAmount.load(); }
@@ -177,10 +172,10 @@ private:
   void applyDelay(std::complex<float> *spectrum, int numBins,
                   std::vector<std::complex<float>> &delayBuffer,
                   std::vector<int> &writePos, bool isLeftChannel);
-  void applySpectralDynamics(std::complex<float> *spectrum, int numBins,
-                             bool isLeftChannel);
-  void applySpectralGate(std::complex<float> *spectrum, int numBins);
-  void applySpectralCompression(std::complex<float> *spectrum, int numBins);
+  void applySpectralGate(std::complex<float> *spectrum, int numBins,
+                         bool isLeftChannel);
+  void applySpectralCompression(std::complex<float> *spectrum, int numBins,
+                                bool isLeftChannel);
   void storeFeedback(std::complex<float> *spectrum, int numBins,
                      std::vector<std::complex<float>> &feedbackBuffer);
   void applyStereoWidth(std::complex<float> *spectrumL,
@@ -234,30 +229,36 @@ private:
   // Spectral dynamics parameters
   std::atomic<float> gateLevel{-100.0f};   // dB
   std::atomic<float> compressAmount{0.0f}; // 0.0-1.0
-  std::atomic<float> gainTargetDb{0.0f};   // Target for compression
 
-  // Dynamics envelope state per bin (for attack/release smoothing)
-  std::vector<float> dynamicsEnvelopeL; // Envelope state for left channel
-  std::vector<float> dynamicsEnvelopeR; // Envelope state for right channel
+  // Dynamics envelope state per bin
+  std::vector<float> gateEnvelopeL;
+  std::vector<float> gateEnvelopeR;
+  std::vector<float> compressEnvelopeL;
+  std::vector<float> compressEnvelopeR;
 
-  // Attack/Release time constants (in milliseconds)
-  static constexpr float dynamicsAttackMs = 20.0f;   // Attack time
-  static constexpr float dynamicsReleaseMs = 282.0f; // Release time
+  // Compressor constants
+  static constexpr float compressAttackMs = 20.0f;
+  static constexpr float compressReleaseMs = 282.0f;
+
+  // Gate constants
+  static constexpr float gateAttackMs = 0.0f;  // Instant
+  static constexpr float gateReleaseMs = 0.0f; // Instant
 
   // Dynamic anchor point parameters (RMS-based)
   static constexpr float anchorBase = -24.0f;      // Base anchor point (dB)
   static constexpr float anchorRmsRef = -24.0f;    // Reference RMS level (dB)
   static constexpr float anchorSensitivity = 0.5f; // Sensitivity to RMS changes
-  static constexpr float anchorAttackMs = 50.0f;   // RMS attack time (faster)
-  static constexpr float anchorReleaseMs = 500.0f; // RMS release time (slower)
-  static constexpr float anchorMin = -60.0f;       // Minimum anchor (dB)
-  static constexpr float anchorMax = -12.0f;       // Maximum anchor (dB)
+  static constexpr float anchorAttackMs = 50.0f;   // RMS attack time
+  static constexpr float anchorReleaseMs =
+      50.0f;                                 // RMS release time (Fast tracking)
+  static constexpr float anchorMin = -30.0f; // Minimum anchor (dB)
+  static constexpr float anchorMax = -12.0f; // Maximum anchor (dB)
   static constexpr float rmsTrackingThreshold =
       -90.0f; // Skip tracking below this
 
   // Smoothed RMS state for dynamic anchor (per channel, in dB)
-  std::atomic<float> smoothedRmsL{-60.0f};
-  std::atomic<float> smoothedRmsR{-60.0f};
+  std::atomic<float> smoothedRmsL{-30.0f}; // Match anchorMin
+  std::atomic<float> smoothedRmsR{-30.0f};
 
   // Stereo width parameters
   std::atomic<float> stereoAmount{0.0f};   // 0.0-1.0 (stored as ratio)

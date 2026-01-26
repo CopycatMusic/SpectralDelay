@@ -772,8 +772,7 @@ void SpectrumDisplay::drawFrequencyGrid(juce::Graphics &g) {
   const struct {
     float freq;
     juce::String label;
-  } majorFreqs[] = {
-      {100.0f, "100"}, {1000.0f, "1k"}, {10000.0f, "10k"}, {21000.0f, "21k"}};
+  } majorFreqs[] = {{100.0f, "100"}, {1000.0f, "1k"}, {10000.0f, "10k"}};
 
   for (const auto &item : majorFreqs) {
     if (item.freq >= minFreq && item.freq <= maxFreq) {
@@ -831,8 +830,8 @@ void SpectrumDisplay::drawAmplitudeGrid(juce::Graphics &g) {
 
   // Define dB intervals to draw
   // We want to draw lines at meaningful points: 0, -6, -12, -24, -48, -72 etc.
-  std::vector<float> gridDbs = {0.0f,   -6.0f,  -12.0f, -18.0f, -24.0f,
-                                -36.0f, -48.0f, -60.0f, -72.0f, -96.0f};
+  std::vector<float> gridDbs = {0.0f,   -12.0f, -24.0f, -36.0f,  -48.0f, -60.0f,
+                                -72.0f, -84.0f, -96.0f, -108.0f, -120.0f};
 
   g.setFont(juce::Font(10.0f));
 

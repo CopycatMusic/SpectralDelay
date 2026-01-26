@@ -31,13 +31,6 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
   titleLabel.setJustificationType(juce::Justification::centredLeft);
   addAndMakeVisible(titleLabel);
 
-  betaLabel.setText("beta version", juce::dontSendNotification);
-  betaLabel.setFont(juce::Font(montserratTypeface).withHeight(14.0f));
-  betaLabel.setColour(juce::Label::textColourId,
-                      CustomLookAndFeel::getAccentPrimary().withAlpha(0.6f));
-  betaLabel.setJustificationType(juce::Justification::centredLeft);
-  addAndMakeVisible(betaLabel);
-
   // Spectrum display (with integrated curve editing)
   addAndMakeVisible(spectrumDisplay);
 
@@ -103,6 +96,7 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
     processorRef.getEngine().setFeedbackMultiplier(mult);
   };
 
+#if !LITE_VERSION
   // Connect LFO mode toggle
   controlPanel.onLfoModeChanged = [this](bool isLfoMode) {
     processorRef.setUILfoMode(isLfoMode);
@@ -163,6 +157,7 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
     spectrumDisplay.setLfoVGrid(divisions);
     processorRef.setLfoVGrid(divisions);
   };
+#endif // !LITE_VERSION
 
   // Note: Diffuse and Cutoff parameters are now handled via APVTS attachments
   // in ControlPanel, so no callbacks are needed here.
@@ -186,15 +181,19 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
 
   // Restore UI state from Processor (for DAW recall)
   controlPanel.selectParameter(processorRef.getUIParameterType());
+#if !LITE_VERSION
   controlPanel.setLfoMode(processorRef.getUILfoMode());
+#endif
   controlPanel.setDisplayMode(processorRef.getUIDisplayModeBar());
   controlPanel.setShowInputSpectrum(processorRef.getUIShowInputSpectrum());
 
+#if !LITE_VERSION
   // Restore LFO Grid state
   spectrumDisplay.setLfoHGrid(processorRef.getLfoHGrid());
   spectrumDisplay.setLfoVGrid(processorRef.getLfoVGrid());
   controlPanel.setLfoHGrid(processorRef.getLfoHGrid());
   controlPanel.setLfoVGrid(processorRef.getLfoVGrid());
+#endif
 
   // Restore Frequency Grid state
   spectrumDisplay.setShowFrequencyGrid(processorRef.isShowFrequencyGrid());
@@ -207,6 +206,7 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
                                      : SpectrumDisplay::DisplayMode::Line);
   showInputSpectrum = processorRef.getUIShowInputSpectrum();
 
+#if !LITE_VERSION
   // Sync LFO controls for current parameter
   int paramType = processorRef.getUIParameterType();
   LFOEngine::Parameter lfoParam = static_cast<LFOEngine::Parameter>(paramType);
@@ -221,6 +221,7 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
   bool isSynced = lfoEngine.getSynced(lfoParam);
 
   controlPanel.updateLfoControls(amount, speed, smooth, syncMode, isSynced);
+#endif
 
   // Initial curve setup (uses the restored parameter type)
   updateEditingCurve();
@@ -350,8 +351,7 @@ void CopyCatSpectralDelayEditor::resized() {
   // Title bar
   auto titleArea = bounds.removeFromTop(UIConstants::kTitleBarHeight);
   auto titleLabelArea = titleArea.removeFromLeft(UIConstants::kTitleAreaWidth)
-                            .withTrimmedLeft(15)
-                            .withTrimmedTop(5);
+                            .withTrimmedLeft(15);
 
   // Position brand, title and beta version
   int brandWidth = brandLabel.getFont().getStringWidth(brandLabel.getText());
@@ -360,9 +360,6 @@ void CopyCatSpectralDelayEditor::resized() {
 
   int titleWidth = titleLabel.getFont().getStringWidth(titleLabel.getText());
   titleLabel.setBounds(titleLabelArea.removeFromLeft(titleWidth + 10));
-
-  betaLabel.setBounds(titleLabelArea.withTrimmedTop(
-      12)); // Offset down to align with bottom of title
 
   // Split remaining area: right side is fixed width
   int spectrumWidth = bounds.getWidth() - UIConstants::kControlPanelWidth;

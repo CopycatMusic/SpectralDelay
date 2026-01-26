@@ -34,7 +34,6 @@ private:
   // Title labels
   juce::Label brandLabel;
   juce::Label titleLabel;
-  juce::Label betaLabel;
   juce::Label authorLabel;
 
   // Spectrum source selection (false = Output, true = Input)

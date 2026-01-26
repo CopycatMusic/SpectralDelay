@@ -1,5 +1,6 @@
 #include "ControlPanel.h"
 #include "../dsp/LFOEngine.h"
+#include "BinaryData.h"
 #include "CustomLookAndFeel.h"
 
 //==============================================================================
@@ -246,7 +247,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   // Grid toggle button
   gridButton.setClickingTogglesState(true);
-  gridButton.setToggleState(true, juce::dontSendNotification); // Default: on
+  gridButton.setToggleState(false, juce::dontSendNotification); // Default: off
   gridButton.setColour(juce::TextButton::buttonOnColourId,
                        CustomLookAndFeel::getAccentPrimary());
   gridButton.onClick = [this]() {
@@ -284,7 +285,21 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   };
   addAndMakeVisible(spectrumSourceButton);
 
-  // LFO mode button (at the top of control panel)
+  // LFO mode button (at the top of control panel) or LITE label
+#if LITE_VERSION
+  // Show "LITE" label in blue
+  liteLabel.setText("LITE VERSION", juce::dontSendNotification);
+
+  auto montserratBold = juce::Typeface::createSystemTypefaceFor(
+      BinaryData::MontserratBold_ttf, BinaryData::MontserratBold_ttfSize);
+  liteLabel.setFont(juce::Font(montserratBold).withHeight(14.0f));
+
+  liteLabel.setColour(juce::Label::textColourId,
+                      CustomLookAndFeel::getAccentPrimary());
+  liteLabel.setJustificationType(juce::Justification::centred);
+  addAndMakeVisible(liteLabel);
+#else
+  // Full version: LFO toggle button
   lfoButton.setClickingTogglesState(true);
   lfoButton.onClick = [this]() {
     setLfoMode(lfoButton.getToggleState());
@@ -293,7 +308,9 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
     }
   };
   addAndMakeVisible(lfoButton);
+#endif
 
+#if !LITE_VERSION
   // LFO Amount slider (0-100%)
   lfoAmountLabel.setText("Amount", juce::dontSendNotification);
   lfoAmountLabel.setJustificationType(juce::Justification::centred);
@@ -463,6 +480,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
     }
   };
   addAndMakeVisible(lfoVGridSlider);
+#endif // !LITE_VERSION
 }
 
 ControlPanel::~ControlPanel() { mixSlider.removeListener(this); }
@@ -574,11 +592,15 @@ void ControlPanel::resized() {
   // ============ TOP SECTION: Auto-arrange from top ============
   int currentY = UIConstants::kMargin;
 
-  // Row 1: LFO button
+  // Row 1: LFO button (Full) or LITE label (Lite)
   juce::Rectangle<int> lfoRow(UIConstants::kMargin, currentY,
                               width - UIConstants::kMargin * 2,
                               UIConstants::kRowHeight);
+#if LITE_VERSION
+  liteLabel.setBounds(lfoRow);
+#else
   lfoButton.setBounds(lfoRow);
+#endif
   currentY += UIConstants::kRowHeight + UIConstants::kSpacing;
 
   // Row 2: Parameter selector buttons (Gain, Time, Feedback)
@@ -599,6 +621,7 @@ void ControlPanel::resized() {
   currentY += UIConstants::kSpacing;
 
   // ============ MULTIPLY CONTROLS or LFO CONTROLS ============
+#if !LITE_VERSION
   if (currentLfoMode) {
     // LFO mode: Time, Amount, Smooth aligned with Gain, Delay, Feedback buttons
     int knobWithTextHeight =
@@ -672,7 +695,9 @@ void ControlPanel::resized() {
                             UIConstants::kLabelHeight);
 
     currentY += UIConstants::kSmallKnobSize + (lfoRowSpacing / 2);
-  } else { // Normal mode: show Multiply knob (CENTERED)
+  } else
+#endif // !LITE_VERSION
+  {    // Normal mode: show Multiply knob (CENTERED)
 
     if (!currentLfoMode) {
       if (currentParameterType == 0) {
@@ -908,6 +933,7 @@ void ControlPanel::sliderValueChanged(juce::Slider * /*slider*/) {
 }
 
 void ControlPanel::setLfoMode(bool isLfoMode) {
+#if !LITE_VERSION
   currentLfoMode = isLfoMode;
   lfoButton.setToggleState(isLfoMode, juce::dontSendNotification);
 
@@ -916,6 +942,9 @@ void ControlPanel::setLfoMode(bool isLfoMode) {
 
   // Repaint to update separator line visibility
   repaint();
+#else
+  juce::ignoreUnused(isLfoMode);
+#endif
 }
 
 void ControlPanel::updateLfoControls(float amount, float speedOrIndex,

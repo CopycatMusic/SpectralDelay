@@ -217,10 +217,10 @@ void CustomLookAndFeel::drawButtonBackground(
   g.setColour(baseColour);
   g.fillRoundedRectangle(bounds, 6.0f);
 
-  g.setColour(textPrimary.withAlpha(0.2f));
+  g.setColour(textPrimary.withAlpha(0.1f));
   if (button.getToggleState())
     g.setColour(
-        button.findColour(juce::TextButton::buttonOnColourId).withAlpha(0.5f));
+        button.findColour(juce::TextButton::buttonOnColourId).withAlpha(0.2f));
 
   g.drawRoundedRectangle(bounds, 6.0f, 1.0f);
 }

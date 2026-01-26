@@ -91,8 +91,10 @@ void SpectralDelayEngine::prepare(double sampleRate, int maxBlockSize) {
                                  0.0f);
 
   // Initialize dynamics envelope state (start at 0 dB = unity gain)
-  dynamicsEnvelopeL.assign(static_cast<size_t>(currentNumBins.load()), 0.0f);
-  dynamicsEnvelopeR.assign(static_cast<size_t>(currentNumBins.load()), 0.0f);
+  gateEnvelopeL.assign(static_cast<size_t>(currentNumBins.load()), 0.0f);
+  gateEnvelopeR.assign(static_cast<size_t>(currentNumBins.load()), 0.0f);
+  compressEnvelopeL.assign(static_cast<size_t>(currentNumBins.load()), 0.0f);
+  compressEnvelopeR.assign(static_cast<size_t>(currentNumBins.load()), 0.0f);
 }
 
 void SpectralDelayEngine::reset() {
@@ -140,9 +142,9 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
   stftProcessorL.process(
       leftIn, leftOut, numSamples,
       [this](std::complex<float> *spectrum, int numBins) {
-        // 1. Spectral Dynamics (Fixed: Pre-Feedback) - Now occurs before
-        // Pre-Gain
-        applySpectralDynamics(spectrum, numBins, true); // Left channel
+        // 1. Spectral Dynamics (Decoupled Stage 1: Gate -> Stage 2: Compressor)
+        applySpectralGate(spectrum, numBins, true);        // Left channel
+        applySpectralCompression(spectrum, numBins, true); // Left channel
 
         // 2. Pre-Dynamics Gain (if in Pre mode)
         if (!gainPostMode.load()) {
@@ -207,8 +209,9 @@ void SpectralDelayEngine::process(juce::AudioBuffer<float> &buffer) {
   stftProcessorR.process(
       rightIn, rightOut, numSamples,
       [this](std::complex<float> *spectrum, int numBins) {
-        // 1. Spectral Dynamics
-        applySpectralDynamics(spectrum, numBins, false); // Right channel
+        // 1. Spectral Dynamics (Decoupled Stage 1: Gate -> Stage 2: Compressor)
+        applySpectralGate(spectrum, numBins, false);        // Right channel
+        applySpectralCompression(spectrum, numBins, false); // Right channel
 
         // 2. Pre-Dynamics Gain
         if (!gainPostMode.load()) {
@@ -339,8 +342,10 @@ void SpectralDelayEngine::setFFTSize(int size) {
   }
 
   // Resize dynamics envelope buffers
-  dynamicsEnvelopeL.assign(static_cast<size_t>(currentNumBins.load()), 0.0f);
-  dynamicsEnvelopeR.assign(static_cast<size_t>(currentNumBins.load()), 0.0f);
+  gateEnvelopeL.assign(static_cast<size_t>(currentNumBins.load()), 0.0f);
+  gateEnvelopeR.assign(static_cast<size_t>(currentNumBins.load()), 0.0f);
+  compressEnvelopeL.assign(static_cast<size_t>(currentNumBins.load()), 0.0f);
+  compressEnvelopeR.assign(static_cast<size_t>(currentNumBins.load()), 0.0f);
 
   // Update dry signal delay to match new STFT latency
   int latency = stftProcessorL.getLatencyInSamples();
@@ -738,195 +743,138 @@ void SpectralDelayEngine::applyStereoWidthChannel(std::complex<float> *spectrum,
   }
 }
 
-void SpectralDelayEngine::applySpectralDynamics(std::complex<float> *spectrum,
-                                                int numBins,
-                                                bool isLeftChannel) {
-  float amount = compressAmount.load();
+void SpectralDelayEngine::applySpectralGate(std::complex<float> *spectrum,
+                                            int numBins, bool isLeftChannel) {
   float Tg = gateLevel.load();
-
-  // Bypass if no processing is needed
-  if (amount <= 0.0f && Tg <= -99.9f)
-    return;
-
-  // Mapping amount (0.0-1.0) to R_comp (1.0 to 3.0)
-  float R_comp = 1.0f + amount * 2.0f;
-  const float R_exp = 10.0f; // Fixed expansion ratio
+  if (Tg <= -99.9f)
+    return; // Bypass if gate is off
 
   float acNorm = 4.0f / static_cast<float>(currentFFTSize.load());
   float dcNorm = 2.0f / static_cast<float>(currentFFTSize.load());
 
-  // Select envelope buffer and smoothed RMS based on channel
-  std::vector<float> &envelope =
-      isLeftChannel ? dynamicsEnvelopeL : dynamicsEnvelopeR;
-  std::atomic<float> &smoothedRms = isLeftChannel ? smoothedRmsL : smoothedRmsR;
+  const float R_exp = 10.0f; // Expansion ratio
 
-  // Calculate attack/release coefficients based on STFT frame rate
-  // Frame time = hopSize / sampleRate
-  float sr = static_cast<float>(currentSampleRate.load());
-  float hop = static_cast<float>(currentHopSize.load());
-  float frameTimeMs = (hop / sr) * 1000.0f;
-
-  // One-pole filter coefficients
-  float attackCoeff = 1.0f - std::exp(-frameTimeMs / dynamicsAttackMs);
-  float releaseCoeff = 1.0f - std::exp(-frameTimeMs / dynamicsReleaseMs);
-
-  // ========================================
-  // Step 1: Calculate current frame RMS (dB)
-  // ========================================
-  float sumSquared = 0.0f;
-  int validBins = 0;
-
-  // DC component
-  float dcMag = std::abs(spectrum[0].real()) * dcNorm;
-  if (dcMag > 1e-9f) {
-    sumSquared += dcMag * dcMag;
-    validBins++;
-  }
-
-  // AC bins
-  for (int i = 1; i < numBins - 1; ++i) {
-    float mag = std::abs(spectrum[i]) * acNorm;
-    if (mag > 1e-9f) {
-      sumSquared += mag * mag;
-      validBins++;
-    }
-  }
-
-  // Nyquist component
-  float nyMag = std::abs(spectrum[0].imag()) * dcNorm;
-  if (nyMag > 1e-9f) {
-    sumSquared += nyMag * nyMag;
-    validBins++;
-  }
-
-  // Calculate RMS in dB
-  float currentRmsDb = -120.0f;
-  if (validBins > 0 && sumSquared > 1e-18f) {
-    float rmsLinear = std::sqrt(sumSquared / static_cast<float>(validBins));
-    currentRmsDb = juce::Decibels::gainToDecibels(rmsLinear, -120.0f);
-  }
-
-  // ========================================
-  // Step 2: Smooth the RMS value (Asymmetrical + Gated)
-  // ========================================
-  float prevRmsDb = smoothedRms.load();
-  float newSmoothedRmsDb = prevRmsDb;
-
-  // Gated Tracking: Only update if signal is above absolute floor
-  if (currentRmsDb > rmsTrackingThreshold) {
-    // Asymmetrical smoothing: faster for rising (attack), slower for falling
-    // (release)
-    float rmsTrackingCoeff =
-        (currentRmsDb > prevRmsDb)
-            ? (1.0f - std::exp(-frameTimeMs / anchorAttackMs))
-            : (1.0f - std::exp(-frameTimeMs / anchorReleaseMs));
-
-    newSmoothedRmsDb =
-        prevRmsDb + rmsTrackingCoeff * (currentRmsDb - prevRmsDb);
-    smoothedRms.store(newSmoothedRmsDb);
-  }
-
-  // ========================================
-  // Step 3: Calculate dynamic anchor point
-  // ========================================
-  float offset = anchorSensitivity * (newSmoothedRmsDb - anchorRmsRef);
-  float A = anchorBase + offset;
-  // Clamp to valid range
-  A = std::max(anchorMin, std::min(anchorMax, A));
-
-  // Debug output (rate limited to avoid flooding console)
-  static int debugCounter = 0;
-  if (isLeftChannel && ++debugCounter >= 100) {
-    debugCounter = 0;
-    DBG("Dynamics: RMS=" + juce::String(newSmoothedRmsDb, 1) +
-        "dB, Anchor=" + juce::String(A, 1) + "dB");
-  }
-
-  // S-curve soft-knee compression parameters
-  // W = knee width in dB, varies from 15 (soft) to 7 (hard) based on amount
-  const float W = 15.0f - 8.0f * amount;
-  const float k = 1.0f / R_comp; // Asymptotic slope
-
-  // Lambda to compute target dB from input dB (using dynamic anchor A)
-  // Uses arctan-based S-curve: slope=1 at anchor, slope=k at extremes
-  // Formula: y = A + k*(x-A) + (1-k)*W*atan((x-A)/W)
-  auto computeTargetDb = [&](float x) -> float {
-    if (x >= Tg) {
-      // S-curve compression zone
-      float u = x - A;
-      return A + k * u + (1.0f - k) * W * std::atan(u / W);
-    } else {
-      // Calculate y at gate threshold for continuity
-      float u_T = Tg - A;
-      float y_T = A + k * u_T + (1.0f - k) * W * std::atan(u_T / W);
-      // Expansion zone: steep drop below threshold
-      return y_T + R_exp * (x - Tg);
-    }
-  };
-
-  // Lambda to apply dynamics with envelope to a single complex component (DC,
-  // AC, or Nyquist)
-  auto applyDynamicsWithEnvelope = [&](std::complex<float> &comp, float norm,
-                                       size_t binIdx) {
+  auto applyGateToBin = [&](std::complex<float> &comp, float norm) {
     float mag = std::abs(comp);
     if (mag < 1e-9f)
       return;
 
     float inputDb = juce::Decibels::gainToDecibels(mag * norm, -120.0f);
-    float targetDb = computeTargetDb(inputDb);
 
-    // Gain in dB = targetDb - inputDb
-    float targetGainDb = targetDb - inputDb;
-
-    // Get previous envelope state
-    float prevGainDb = (binIdx < envelope.size()) ? envelope[binIdx] : 0.0f;
-
-    float smoothedGainDb = targetGainDb;
-
-    // Only apply smoothing if above gate threshold (Compression zone)
-    if (inputDb >= Tg) {
-      // Apply attack or release depending on direction
-      float coeff = (targetGainDb < prevGainDb) ? attackCoeff : releaseCoeff;
-      smoothedGainDb = prevGainDb + coeff * (targetGainDb - prevGainDb);
+    if (inputDb < Tg) {
+      // Instant downward expansion
+      float targetGainDb = R_exp * (inputDb - Tg);
+      comp *= juce::Decibels::decibelsToGain(targetGainDb, -120.0f);
     }
-    // Else: inputDb < Tg (Gate zone) -> smoothedGainDb remains targetGainDb
-    // (instant)
-
-    // Always store envelope state to prevent jumps when transitioning regions
-    if (binIdx < envelope.size()) {
-      envelope[binIdx] = smoothedGainDb;
-    }
-
-    // Apply gain
-    float gainLinear = juce::Decibels::decibelsToGain(smoothedGainDb, -120.0f);
-    comp *= gainLinear;
   };
 
-  // Dynamics DC (bin 0 real part represents DC)
-  float dcVal = spectrum[0].real();
-  std::complex<float> dcComp(dcVal, 0.0f);
-  applyDynamicsWithEnvelope(dcComp, dcNorm, 0);
+  // DC
+  std::complex<float> dcComp(spectrum[0].real(), 0.0f);
+  applyGateToBin(dcComp, dcNorm);
   spectrum[0].real(dcComp.real());
 
-  // Dynamics AC bins
+  // AC
   for (int i = 1; i < numBins - 1; ++i) {
-    applyDynamicsWithEnvelope(spectrum[i], acNorm, static_cast<size_t>(i));
+    applyGateToBin(spectrum[i], acNorm);
   }
 
-  // Dynamics Nyquist (bin 0 imag part represents Nyquist)
-  float nyquistVal = spectrum[0].imag();
-  std::complex<float> nyquistComp(nyquistVal, 0.0f);
-  applyDynamicsWithEnvelope(nyquistComp, dcNorm,
-                            static_cast<size_t>(numBins - 1));
-  spectrum[0].imag(nyquistComp.real());
-}
-
-void SpectralDelayEngine::applySpectralGate(std::complex<float> *spectrum,
-                                            int numBins) {
-  // Logic merged into applySpectralDynamics - legacy stub
+  // Nyquist
+  std::complex<float> nyComp(spectrum[0].imag(), 0.0f);
+  applyGateToBin(nyComp, dcNorm);
+  spectrum[0].imag(nyComp.real());
 }
 
 void SpectralDelayEngine::applySpectralCompression(
-    std::complex<float> *spectrum, int numBins) {
-  // Logic merged into applySpectralDynamics - legacy stub
+    std::complex<float> *spectrum, int numBins, bool isLeftChannel) {
+  float amount = compressAmount.load();
+  if (amount <= 0.0f)
+    return;
+
+  float acNorm = 4.0f / static_cast<float>(currentFFTSize.load());
+  float dcNorm = 2.0f / static_cast<float>(currentFFTSize.load());
+
+  std::vector<float> &envelope =
+      isLeftChannel ? compressEnvelopeL : compressEnvelopeR;
+  std::atomic<float> &smoothedRms = isLeftChannel ? smoothedRmsL : smoothedRmsR;
+
+  float sr = static_cast<float>(currentSampleRate.load());
+  float hop = static_cast<float>(currentHopSize.load());
+  float frameTimeMs = (hop / sr) * 1000.0f;
+
+  float attackCoeff = 1.0f - std::exp(-frameTimeMs / compressAttackMs);
+  float releaseCoeff = 1.0f - std::exp(-frameTimeMs / compressReleaseMs);
+
+  // 1. RMS Tracking for Dynamic Anchor
+  float sumSquared = 0.0f;
+  sumSquared += std::pow(std::abs(spectrum[0].real()) * dcNorm, 2.0f);
+  for (int i = 1; i < numBins - 1; ++i) {
+    sumSquared += std::pow(std::abs(spectrum[i]) * acNorm, 2.0f);
+  }
+  sumSquared += std::pow(std::abs(spectrum[0].imag()) * dcNorm, 2.0f);
+
+  float currentRmsDb = -120.0f;
+  if (sumSquared > 1e-18f) {
+    currentRmsDb = juce::Decibels::gainToDecibels(
+        std::sqrt(sumSquared / static_cast<float>(numBins)), -120.0f);
+  }
+
+  float prevRmsDb = smoothedRms.load();
+  if (currentRmsDb > rmsTrackingThreshold) {
+    if (prevRmsDb <= anchorMin + 0.1f && currentRmsDb > anchorMin)
+      prevRmsDb = currentRmsDb;
+
+    float rmsCoeff = (currentRmsDb > prevRmsDb)
+                         ? (1.0f - std::exp(-frameTimeMs / anchorAttackMs))
+                         : (1.0f - std::exp(-frameTimeMs / anchorReleaseMs));
+    prevRmsDb += rmsCoeff * (currentRmsDb - prevRmsDb);
+    smoothedRms.store(prevRmsDb);
+  } else {
+    prevRmsDb +=
+        (1.0f - std::exp(-frameTimeMs / 500.0f)) * (anchorMin - prevRmsDb);
+    smoothedRms.store(prevRmsDb);
+  }
+
+  // 2. Dynamic Anchor Calculation
+  float A = anchorBase + anchorSensitivity * (prevRmsDb - anchorRmsRef);
+  A = std::max(anchorMin, std::min(anchorMax, A));
+
+  // 3. S-Curve Compression
+  const float W = 15.0f - 8.0f * amount;
+  const float k = 1.0f / (1.0f + amount * 2.0f);
+
+  auto applyCompToBin = [&](std::complex<float> &comp, float norm,
+                            size_t binIdx) {
+    float mag = std::abs(comp);
+    if (mag < 1e-9f)
+      return;
+
+    float inputDb = juce::Decibels::gainToDecibels(mag * norm, -120.0f);
+    float u = inputDb - A;
+    float targetDb = A + k * u + (1.0f - k) * W * std::atan(u / W);
+    float targetGainDb = targetDb - inputDb;
+
+    float prevGainDb = (binIdx < envelope.size()) ? envelope[binIdx] : 0.0f;
+    float coeff = (targetGainDb < prevGainDb) ? attackCoeff : releaseCoeff;
+    float smoothedGainDb = prevGainDb + coeff * (targetGainDb - prevGainDb);
+
+    if (binIdx < envelope.size())
+      envelope[binIdx] = smoothedGainDb;
+
+    comp *= juce::Decibels::decibelsToGain(smoothedGainDb, -120.0f);
+  };
+
+  // DC
+  std::complex<float> dcComp(spectrum[0].real(), 0.0f);
+  applyCompToBin(dcComp, dcNorm, 0);
+  spectrum[0].real(dcComp.real());
+
+  // AC
+  for (int i = 1; i < numBins - 1; ++i) {
+    applyCompToBin(spectrum[i], acNorm, static_cast<size_t>(i));
+  }
+
+  // Nyquist
+  std::complex<float> nyComp(spectrum[0].imag(), 0.0f);
+  applyCompToBin(nyComp, dcNorm, static_cast<size_t>(numBins - 1));
+  spectrum[0].imag(nyComp.real());
 }
