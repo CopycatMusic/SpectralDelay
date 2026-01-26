@@ -409,17 +409,25 @@ void SpectrumDisplay::drawParameterCurve(juce::Graphics &g,
   };
 
   if (points.empty()) {
-    // No points: draw horizontal line at default value
+    // No points: draw horizontal line at default value with rounded ends
     float y = valToY(curve->getDefaultValue());
     float screenY = graphBounds.getY() + y * graphBounds.getHeight();
-    g.drawLine(graphBounds.getX(), screenY, graphBounds.getRight(), screenY,
-               isActive ? 3.0f : 2.5f);
+    juce::Path linePath;
+    linePath.startNewSubPath(graphBounds.getX(), screenY);
+    linePath.lineTo(graphBounds.getRight(), screenY);
+    g.strokePath(linePath, juce::PathStrokeType(isActive ? 3.0f : 2.5f,
+                                                juce::PathStrokeType::curved,
+                                                juce::PathStrokeType::rounded));
   } else if (points.size() == 1) {
-    // One point: horizontal line at that value
+    // One point: horizontal line at that value with rounded ends
     float y = valToY(points[0].value);
     float screenY = graphBounds.getY() + y * graphBounds.getHeight();
-    g.drawLine(graphBounds.getX(), screenY, graphBounds.getRight(), screenY,
-               isActive ? 3.0f : 2.5f);
+    juce::Path linePath;
+    linePath.startNewSubPath(graphBounds.getX(), screenY);
+    linePath.lineTo(graphBounds.getRight(), screenY);
+    g.strokePath(linePath, juce::PathStrokeType(isActive ? 3.0f : 2.5f,
+                                                juce::PathStrokeType::curved,
+                                                juce::PathStrokeType::rounded));
   } else {
     // Multiple points: draw polyline
     juce::Path curvePath;

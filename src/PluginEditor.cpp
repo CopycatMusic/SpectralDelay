@@ -365,8 +365,9 @@ void CopyCatSpectralDelayEditor::resized() {
   int spectrumWidth = bounds.getWidth() - UIConstants::kControlPanelWidth;
 
   // Left side: Spectrum display with curve editing
+  // Add small margins to ensure control points at edges remain clickable
   auto leftArea = bounds.removeFromLeft(spectrumWidth);
-  spectrumDisplay.setBounds(leftArea);
+  spectrumDisplay.setBounds(leftArea.withTrimmedBottom(5).withTrimmedLeft(5));
 
   // Right side: Control panel (takes the remaining 290px)
   auto rightArea = bounds;
