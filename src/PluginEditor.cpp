@@ -333,12 +333,8 @@ void CopyCatSpectralDelayEditor::updateAxisLabel() {
 }
 
 void CopyCatSpectralDelayEditor::paint(juce::Graphics &g) {
-  // Background gradient using centralized palette
-  juce::ColourGradient gradient(CustomLookAndFeel::getBackgroundDark(), 0.0f,
-                                0.0f, CustomLookAndFeel::getBackgroundMedium(),
-                                0.0f, static_cast<float>(getHeight()), false);
-  g.setGradientFill(gradient);
-  g.fillAll();
+  // Use the darkest background color for seamless margins
+  g.fillAll(CustomLookAndFeel::getBackgroundPanel());
 
   // Draw separator below title bar
   g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.1f));

@@ -13,7 +13,7 @@
 #define AppURL "https://github.com/CopycatMusic/SpectralDelay"
 
 [Setup]
-AppId={D3F9A1B2-C4D8-4E9F-9123-B68C72A19011}
+AppId={{D3F9A1B2-C4D8-4E9F-9123-B68C72A19011}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}

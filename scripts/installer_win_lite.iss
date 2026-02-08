@@ -14,7 +14,7 @@
 
 [Setup]
 ; Different AppId for Lite version - allows both to be installed
-AppId={E4F0B2C3-D5E9-4F0A-A234-C79D83B2A122}
+AppId={{E4F0B2C3-D5E9-4F0A-A234-C79D83B2A122}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
