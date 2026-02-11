@@ -44,9 +44,9 @@ void SpectralDelayEngine::prepare(double sampleRate, int maxBlockSize) {
   delayValuesMs.resize(static_cast<size_t>(currentNumBins.load()), 0.0f);
   delayNeedsUpdate = true;
 
-  // Calculate max delay in STFT frames (2000ms at current sample rate)
+  // Calculate max delay in STFT frames (2400ms at current sample rate)
   // For sample-level delay, we store complex spectrum values per bin
-  float maxDelayMs = 2000.0f;
+  float maxDelayMs = 2400.0f;
   float hopSizeSec = static_cast<float>(currentFFTSize.load()) /
                      static_cast<float>(currentOverlapFactor.load()) /
                      static_cast<float>(sampleRate);
@@ -295,7 +295,7 @@ void SpectralDelayEngine::setFFTSize(int size) {
   currentHopSize = stftProcessorL.getHopSize();
 
   // Recalculate maxDelaySamples based on new hop size
-  float maxDelayMs = 2000.0f;
+  float maxDelayMs = 2400.0f;
   float hopSizeSec = static_cast<float>(currentHopSize.load()) /
                      static_cast<float>(currentSampleRate.load());
   maxDelaySamples = static_cast<int>(maxDelayMs / 1000.0f / hopSizeSec) + 1;
@@ -560,6 +560,10 @@ void SpectralDelayEngine::applyDelay(
     float delayMs =
         delayValuesMs[static_cast<size_t>(bin)] * delayMultiplier.load();
 
+    // Get write position for this bin
+    size_t binIdx = static_cast<size_t>(bin);
+    int wp = writePos[binIdx];
+
     // Add diffuse jitter (static hash-based, per bin/channel)
     if (diffuseMaxMs > 0.0f && bin > 0) {
       float freq = binToFrequency(bin);
@@ -573,20 +577,39 @@ void SpectralDelayEngine::applyDelay(
           factor = t * t * (3.0f - 2.0f * t); // Smoothstep
         }
 
-        // Static hash: use golden ratio for pseudo-random distribution
-        // Different seed for left/right channel
-        const float gr = 0.618033988749895f;
-        int channelSeed = isLeftChannel ? 0 : 7919; // Prime offset
-        float hash =
-            std::fmod(static_cast<float>(bin + channelSeed) * gr, 1.0f);
+        // Integer hash function (Wang Hash) for chaotic per-bin distribution
+        auto intHash = [](uint32_t x) -> float {
+          x = ((x >> 16) ^ x) * 0x45d9f3b;
+          x = ((x >> 16) ^ x) * 0x45d9f3b;
+          x = (x >> 16) ^ x;
+          return static_cast<float>(x) / static_cast<float>(0xFFFFFFFF);
+        };
 
-        // Jitter range: -diffuseMaxMs to +diffuseMaxMs (centered at 0)
-        float jitterMs = (hash * 2.0f - 1.0f) * diffuseMaxMs * factor;
-        delayMs += jitterMs;
+        // Standard 1x Grain Mode equivalent
+        int effectiveBin = bin;
 
-        // Clamp to valid range
-        if (delayMs < 0.0f)
-          delayMs = 0.0f;
+        // Stereo Width Logic: Interpolate between Mono (avg hash) and Stereo
+        // (independent hash)
+        // Assume 100% stereo width for now as per "Diffuse" knob integration
+        float width = 1.0f;
+
+        uint32_t seedL =
+            static_cast<uint32_t>(effectiveBin) + 0x243F6A88u; // Left Seed
+        uint32_t seedR =
+            static_cast<uint32_t>(effectiveBin) + 0x9E3779B9u; // Right Seed
+
+        float hL = intHash(seedL);
+        float hR = intHash(seedR);
+        float hAvg = (hL + hR) * 0.5f;
+
+        float currentRawH = isLeftChannel ? hL : hR;
+        float hash = hAvg + (currentRawH - hAvg) * width;
+
+        // Apply hash to delay time
+        // Note: CopycatDiffuse uses unipolar delay (0 to max)
+        // SpectralDelayEngine used bipolar (-max to +max) centered at 0
+        // We switch to unipolar to match the reference implementation
+        delayMs += hash * diffuseMaxMs * factor;
       }
     }
 
@@ -602,10 +625,6 @@ void SpectralDelayEngine::applyDelay(
       delayFramesInt = maxDelaySamples - 1;
       fractionalFrames = 0.0f; // No fractional part if clamped
     }
-
-    // Get write position for this bin
-    size_t binIdx = static_cast<size_t>(bin);
-    int wp = writePos[binIdx];
 
     // Circular buffer size is constant for all bins now
     int bufferSize = maxDelaySamples;

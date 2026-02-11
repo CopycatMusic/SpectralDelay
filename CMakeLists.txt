@@ -25,7 +25,8 @@ add_subdirectory(${JUCE_DIR} build/JUCE)
 # ============================================================================
 juce_add_binary_data(FontResources
     SOURCES
-        resources/fonts/Montserrat-Bold.ttf)
+        resources/fonts/Montserrat-Bold.ttf
+        resources/fonts/Montserrat-Light.ttf)
 
 # ============================================================================
 # Function to create plugin targets (Full and Lite versions)

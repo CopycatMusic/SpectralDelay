@@ -23,29 +23,30 @@ CopyCatSpectralDelayProcessor::createParameterLayout() {
 
   // FFT Size: indices for 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384
   params.push_back(std::make_unique<juce::AudioParameterChoice>(
-      "fftSize", "FFT Size",
+      juce::ParameterID("fftSize", 1), "FFT Size",
       juce::StringArray{"32", "64", "128", "256", "512", "1024", "2048", "4096",
                         "8192", "16384"},
       6)); // Default: 2048 (index 6)
 
   // Mix (dry/wet)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "mix", "Mix", juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f), 100.0f,
-      juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
+      juce::ParameterID("mix", 1), "Mix",
+      juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f), 100.0f,
+      juce::AudioParameterFloatAttributes().withStringFromValueFunction(
+          [](float value, int) { return juce::String(value, 1) + "%"; })));
 
   // Feedback Multiplier (0-100%)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "feedbackMult", "Feedback Amount",
+      juce::ParameterID("feedbackMult", 1), "Feedback Amount",
       juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f), 100.0f,
-      juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
+      juce::AudioParameterFloatAttributes().withStringFromValueFunction(
+          [](float value, int) { return juce::String(value, 1) + "%"; })));
 
   // Gain Multiplier (dB, default 0 dB)
   // Custom mapping: 0dB at center (0.5), with enhanced precision near 0dB
   // The negative range uses a quadratic curve to "zoom in" on the 0dB point.
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "gainMult", "Gain",
+      juce::ParameterID("gainMult", 1), "Gain",
       juce::NormalisableRange<float>(
           -64.0f, 18.0f,
           [](float min, float max, float norm) {
@@ -66,91 +67,98 @@ CopyCatSpectralDelayProcessor::createParameterLayout() {
               return 0.5f + (value / 18.0f) * 0.5f;
             }
           }),
-      0.0f, juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) {
-        if (value <= -63.9f)
-          return juce::String("-inf dB");
-        if (std::abs(value) < 0.05f)
-          return juce::String("0.0 dB");
-        return juce::String(value, 1) + " dB";
-      },
-      [](const juce::String &text) {
-        if (text.containsIgnoreCase("inf"))
-          return -64.0f;
-        return text.getFloatValue();
-      }));
+      0.0f,
+      juce::AudioParameterFloatAttributes()
+          .withStringFromValueFunction([](float value, int) {
+            if (value <= -63.9f)
+              return juce::String("-inf dB");
+            if (std::abs(value) < 0.05f)
+              return juce::String("0.0 dB");
+            return juce::String(value, 1) + " dB";
+          })
+          .withValueFromStringFunction([](const juce::String &text) {
+            if (text.containsIgnoreCase("inf"))
+              return -64.0f;
+            return text.getFloatValue();
+          })));
 
   // Gate (dB, default -100 dB)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "gate", "Gate", juce::NormalisableRange<float>(-100.0f, 0.0f, 0.0f, 0.6f),
-      -100.0f, juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) {
-        if (value <= -99.9f)
-          return juce::String("-inf dB");
-        return juce::String(value, 1) + " dB";
-      },
-      [](const juce::String &text) {
-        if (text.containsIgnoreCase("inf"))
-          return -100.0f;
-        return text.getFloatValue();
-      }));
+      juce::ParameterID("gate", 1), "Gate",
+      juce::NormalisableRange<float>(-100.0f, 0.0f, 0.0f, 0.6f), -100.0f,
+      juce::AudioParameterFloatAttributes()
+          .withStringFromValueFunction([](float value, int) {
+            if (value <= -99.9f)
+              return juce::String("-inf dB");
+            return juce::String(value, 1) + " dB";
+          })
+          .withValueFromStringFunction([](const juce::String &text) {
+            if (text.containsIgnoreCase("inf"))
+              return -100.0f;
+            return text.getFloatValue();
+          })));
 
   // Compress (0-100%)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "compress", "Compress",
+      juce::ParameterID("compress", 1), "Compress",
       juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f, 1.0f), 0.0f,
-      juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
+      juce::AudioParameterFloatAttributes().withStringFromValueFunction(
+          [](float value, int) { return juce::String(value, 1) + "%"; })));
 
   // Delay Multiplier (0-100%, default 20%, non-linear for finer control near 0)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "delayMult", "Delay Amount",
+      juce::ParameterID("delayMult", 1), "Delay Amount",
       juce::NormalisableRange<float>(0.0f, 100.0f, 0.05f, 0.5f), 20.0f,
-      juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) {
-        float ms = value * 20.0f;
-        return (ms >= 10.0f) ? juce::String(static_cast<int>(ms)) + " ms"
-                             : juce::String(ms, 1) + " ms";
-      },
-      [](const juce::String &text) { return text.getFloatValue() / 20.0f; }));
+      juce::AudioParameterFloatAttributes()
+          .withStringFromValueFunction([](float value, int) {
+            float ms = value * 20.0f;
+            return (ms >= 10.0f) ? juce::String(static_cast<int>(ms)) + " ms"
+                                 : juce::String(ms, 1) + " ms";
+          })
+          .withValueFromStringFunction([](const juce::String &text) {
+            return text.getFloatValue() / 20.0f;
+          })));
 
   // Diffuse (0-400ms, default 0, skew 0.5 for fine control of lower values)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "diffuse", "Diffuse",
+      juce::ParameterID("diffuse", 1), "Diffuse",
       juce::NormalisableRange<float>(0.0f, 400.0f, 0.1f, 0.5f), 0.0f,
-      juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) { return juce::String(value, 1) + " ms"; },
-      [](const juce::String &text) { return text.getFloatValue(); }));
+      juce::AudioParameterFloatAttributes()
+          .withStringFromValueFunction(
+              [](float value, int) { return juce::String(value, 1) + " ms"; })
+          .withValueFromStringFunction(
+              [](const juce::String &text) { return text.getFloatValue(); })));
 
   // Stereo Low Cut / Cutoff (20-5000Hz, default 150Hz, skew midpoint at 500Hz)
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "stereoLowCut", "Cutoff",
+      juce::ParameterID("stereoLowCut", 1), "Cutoff",
       juce::NormalisableRange<float>(20.0f, 5000.0f, 0.0f, 0.35f), 150.0f,
-      juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) {
-        return juce::String(static_cast<int>(value)) + " Hz";
-      },
-      [](const juce::String &text) { return text.getFloatValue(); }));
+      juce::AudioParameterFloatAttributes()
+          .withStringFromValueFunction([](float value, int) {
+            return juce::String(static_cast<int>(value)) + " Hz";
+          })
+          .withValueFromStringFunction(
+              [](const juce::String &text) { return text.getFloatValue(); })));
 
   // LFO Amount parameters (0-100%, default 100%)
 #if !LITE_VERSION
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "lfoGainAmount", "LFO Gain Amount",
+      juce::ParameterID("lfoGainAmount", 1), "LFO Gain Amount",
       juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f), 100.0f,
-      juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
+      juce::AudioParameterFloatAttributes().withStringFromValueFunction(
+          [](float value, int) { return juce::String(value, 1) + "%"; })));
 
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "lfoFeedbackAmount", "LFO Feedback Amount",
+      juce::ParameterID("lfoFeedbackAmount", 1), "LFO Feedback Amount",
       juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f), 100.0f,
-      juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
+      juce::AudioParameterFloatAttributes().withStringFromValueFunction(
+          [](float value, int) { return juce::String(value, 1) + "%"; })));
 
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "lfoTimeAmount", "LFO Delay Amount",
+      juce::ParameterID("lfoTimeAmount", 1), "LFO Delay Amount",
       juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f), 100.0f,
-      juce::String(), juce::AudioProcessorParameter::genericParameter,
-      [](float value, int) { return juce::String(value, 1) + "%"; }, nullptr));
+      juce::AudioParameterFloatAttributes().withStringFromValueFunction(
+          [](float value, int) { return juce::String(value, 1) + "%"; })));
 #endif // !LITE_VERSION
 
   return {params.begin(), params.end()};

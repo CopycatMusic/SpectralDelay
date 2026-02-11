@@ -66,6 +66,8 @@ public:
                          const juce::Drawable *icon,
                          const juce::Colour *textColour) override;
 
+  juce::Typeface::Ptr getTypefaceForFont(const juce::Font &f) override;
+
   juce::Slider::SliderLayout getSliderLayout(juce::Slider &slider) override;
 
 private:

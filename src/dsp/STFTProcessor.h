@@ -40,7 +40,7 @@ private:
 
   // FFT configuration
   static constexpr int defaultFftOrder = 11; // 2048 samples
-  static constexpr int maxFftSize = 8192;
+  static constexpr int maxFftSize = 16384;
 
   int fftSize = 1 << defaultFftOrder; // 2048
   int fftOrder = defaultFftOrder;

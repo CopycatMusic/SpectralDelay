@@ -1,5 +1,18 @@
 #include "CustomLookAndFeel.h"
+#include "BinaryData.h"
 #include "UIConstants.h"
+
+//==============================================================================
+juce::Typeface::Ptr CustomLookAndFeel::getTypefaceForFont(const juce::Font &f) {
+  static auto typefaceLight = juce::Typeface::createSystemTypefaceFor(
+      BinaryData::MontserratLight_ttf, BinaryData::MontserratLight_ttfSize);
+  static auto typefaceBold = juce::Typeface::createSystemTypefaceFor(
+      BinaryData::MontserratBold_ttf, BinaryData::MontserratBold_ttfSize);
+
+  if (f.isBold())
+    return typefaceBold;
+  return typefaceLight;
+}
 
 //==============================================================================
 CustomLookAndFeel::CustomLookAndFeel() {

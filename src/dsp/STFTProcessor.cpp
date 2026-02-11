@@ -38,7 +38,7 @@ void STFTProcessor::reset() {
 }
 
 void STFTProcessor::setFFTSize(int size) {
-  jassert(size >= 256 && size <= maxFftSize);
+  jassert(size >= 16 && size <= maxFftSize);
   jassert((size & (size - 1)) == 0); // Must be power of 2
 
   if (size != fftSize) {
