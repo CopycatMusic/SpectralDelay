@@ -83,8 +83,8 @@ private:
   bool uiShowInputSpectrum = false;
   bool uiLfoMode = false; // false=Normal, true=LFO editing mode
   int lfoHGrid = 0;
-  int lfoVGrid = 0;
-  bool showFrequencyGrid = false;
+  int lfoVGrid = 8;
+  bool showFrequencyGrid = true;
 
 public:
   // UI state accessors

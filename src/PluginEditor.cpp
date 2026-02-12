@@ -10,25 +10,44 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
       controlPanel(p.getParameters()) {
   setLookAndFeel(&customLookAndFeel);
 
-  // Load embedded Montserrat font
-  auto montserratTypeface = juce::Typeface::createSystemTypefaceFor(
+  // Load embedded Montserrat fonts
+  auto boldTypeface = juce::Typeface::createSystemTypefaceFor(
       BinaryData::MontserratBold_ttf, BinaryData::MontserratBold_ttfSize);
+  titleFont = juce::Font(boldTypeface).withHeight(UIConstants::kTitleFontSize);
 
-  // Title labels
-  brandLabel.setText("COPYCAT", juce::dontSendNotification);
-  brandLabel.setFont(
-      juce::Font(montserratTypeface).withHeight(UIConstants::kTitleFontSize));
-  brandLabel.setColour(juce::Label::textColourId,
-                       CustomLookAndFeel::getTextPrimary());
-  brandLabel.setJustificationType(juce::Justification::centredLeft);
-  addAndMakeVisible(brandLabel);
+  auto mediumTypeface = juce::Typeface::createSystemTypefaceFor(
+      BinaryData::MontserratMedium_ttf, BinaryData::MontserratMedium_ttfSize);
+  defaultFont =
+      juce::Font(mediumTypeface).withHeight(UIConstants::kDefaultFontSize);
+
+  // Set default font for all UI components via LookAndFeel
+  customLookAndFeel.setDefaultFont(defaultFont);
+
+  // Logo labels: COPY / CAT
+  brandLabelCopy.setText("COPY", juce::dontSendNotification);
+  brandLabelCopy.setFont(titleFont.withHeight(16.0f)); // Smaller logo font
+  brandLabelCopy.setColour(juce::Label::textColourId,
+                           CustomLookAndFeel::getTextTertiary());
+  brandLabelCopy.setJustificationType(juce::Justification::centredLeft);
+  brandLabelCopy.getProperties().set("isTitle", true);
+  brandLabelCopy.setBorderSize(juce::BorderSize<int>(0, 0, 0, 0));
+  addAndMakeVisible(brandLabelCopy);
+
+  brandLabelCat.setText("CAT.", juce::dontSendNotification);
+  brandLabelCat.setFont(titleFont.withHeight(16.0f));
+  brandLabelCat.setColour(juce::Label::textColourId,
+                          CustomLookAndFeel::getTextTertiary());
+  brandLabelCat.setJustificationType(juce::Justification::centredLeft);
+  brandLabelCat.getProperties().set("isTitle", true);
+  brandLabelCat.setBorderSize(juce::BorderSize<int>(0, 0, 0, 0));
+  addAndMakeVisible(brandLabelCat);
 
   titleLabel.setText("SPECTRAL DELAY", juce::dontSendNotification);
-  titleLabel.setFont(
-      juce::Font(montserratTypeface).withHeight(UIConstants::kTitleFontSize));
+  titleLabel.setFont(titleFont);
   titleLabel.setColour(juce::Label::textColourId,
-                       CustomLookAndFeel::getTextSecondary());
+                       CustomLookAndFeel::getTextPrimary());
   titleLabel.setJustificationType(juce::Justification::centredLeft);
+  titleLabel.getProperties().set("isTitle", true);
   addAndMakeVisible(titleLabel);
 
   // Spectrum display (with integrated curve editing)
@@ -334,11 +353,47 @@ void CopyCatSpectralDelayEditor::updateAxisLabel() {
 
 void CopyCatSpectralDelayEditor::paint(juce::Graphics &g) {
   // Use the darkest background color for seamless margins
-  g.fillAll(CustomLookAndFeel::getBackgroundPanel());
+  g.fillAll(CustomLookAndFeel::getBackgroundDark());
+
+  // Title Bar Background
+  g.setColour(CustomLookAndFeel::getBackgroundMedium());
+  g.fillRect(0, 0, getWidth(), UIConstants::kTitleBarHeight);
 
   // Draw separator below title bar
-  g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.1f));
+  g.setColour(CustomLookAndFeel::getTextSecondary().withAlpha(0.1f));
   g.fillRect(0, UIConstants::kTitleBarHeight - 1, getWidth(), 1);
+
+  // Draw vertical separator between spectrum and control panel
+  int rightPanelX = getWidth() - UIConstants::kControlPanelWidth;
+  g.fillRect(rightPanelX, UIConstants::kTitleBarHeight, 1,
+             getHeight() - UIConstants::kTitleBarHeight);
+}
+
+void CopyCatSpectralDelayEditor::paintOverChildren(juce::Graphics &g) {
+  // 1. Draw vertical shadow gradient from control panel separator (on top of
+  // children) This creates the effect that the right panel is on a higher
+  // layer. It should be drawn before the title shadow so the title shadow can
+  // "cover" it at the corner.
+  int startY = UIConstants::kTitleBarHeight;
+  int endY = getHeight();
+  int rightPanelX = getWidth() - UIConstants::kControlPanelWidth;
+  int shadowWidth = 8;
+
+  juce::ColourGradient sideShadow(
+      juce::Colours::black.withAlpha(0.5f), rightPanelX, 0,
+      juce::Colours::transparentBlack, rightPanelX - shadowWidth, 0, false);
+
+  g.setGradientFill(sideShadow);
+  g.fillRect(rightPanelX - shadowWidth, startY, shadowWidth, endY - startY);
+
+  // 2. Draw horizontal shadow gradient below title bar (on top of children)
+  // This is the top-most shadow layer.
+  juce::ColourGradient shadowGradient(juce::Colours::black.withAlpha(0.6f), 0,
+                                      UIConstants::kTitleBarHeight,
+                                      juce::Colours::transparentBlack, 0,
+                                      UIConstants::kTitleBarHeight + 8, false);
+  g.setGradientFill(shadowGradient);
+  g.fillRect(0, UIConstants::kTitleBarHeight, getWidth(), 8);
 }
 
 void CopyCatSpectralDelayEditor::resized() {
@@ -349,11 +404,21 @@ void CopyCatSpectralDelayEditor::resized() {
   auto titleLabelArea = titleArea.removeFromLeft(UIConstants::kTitleAreaWidth)
                             .withTrimmedLeft(15);
 
-  // Position brand, title and beta version
-  int brandWidth = brandLabel.getFont().getStringWidth(brandLabel.getText());
-  brandLabel.setBounds(
-      titleLabelArea.removeFromLeft(brandWidth + 8)); // 8px space after COPYCAT
+  // Position brand logo (stacked)
+  const int logoFontSize = 16;
+  const int logoX = 15;
+  const int totalLogoHeight = logoFontSize * 2 - 4;
+  const int logoStartY = (UIConstants::kTitleBarHeight - totalLogoHeight) / 2;
+  const int logoWidth = 60;
+  const int logoHeight = logoFontSize + 4;
 
+  brandLabelCopy.setBounds(logoX, logoStartY - 2, logoWidth, logoHeight);
+  brandLabelCat.setBounds(logoX, logoStartY + logoFontSize - 6, logoWidth,
+                          logoHeight);
+
+  // Position title next to logo
+  titleLabelArea.removeFromLeft(logoWidth -
+                                10); // Offset title relative to logo
   int titleWidth = titleLabel.getFont().getStringWidth(titleLabel.getText());
   titleLabel.setBounds(titleLabelArea.removeFromLeft(titleWidth + 10));
 
@@ -363,7 +428,7 @@ void CopyCatSpectralDelayEditor::resized() {
   // Left side: Spectrum display with curve editing
   // Add small margins to ensure control points at edges remain clickable
   auto leftArea = bounds.removeFromLeft(spectrumWidth);
-  spectrumDisplay.setBounds(leftArea.withTrimmedBottom(5).withTrimmedLeft(5));
+  spectrumDisplay.setBounds(leftArea.reduced(5));
 
   // Right side: Control panel (takes the remaining 290px)
   auto rightArea = bounds;

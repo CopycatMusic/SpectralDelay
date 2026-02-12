@@ -207,7 +207,7 @@ private:
   float currentMaxDb = 0.0f;
   float targetMinDb = -80.0f;
   float currentMinDb = -80.0f;
-  float maxDbFloor = -12.0f;
+  float maxDbFloor = -10.0f;
   float maxDbCeiling = 30.0f;
   float minDbFloor = -120.0f;
   float minDbCeiling = -60.0f;

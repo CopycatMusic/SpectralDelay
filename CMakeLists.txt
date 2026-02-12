@@ -26,6 +26,7 @@ add_subdirectory(${JUCE_DIR} build/JUCE)
 juce_add_binary_data(FontResources
     SOURCES
         resources/fonts/Montserrat-Bold.ttf
+        resources/fonts/Montserrat-Medium.ttf
         resources/fonts/Montserrat-Light.ttf)
 
 # ============================================================================

@@ -22,9 +22,8 @@ constexpr int kTitleAreaWidth = 600;
 // ===== Margins and Spacing =====
 constexpr int kMargin = 10;
 constexpr int kSpacing = 8;
-constexpr int kRowHeight = 25;
-constexpr int kLabelHeight = 15;
-constexpr int kTextBoxHeight = 15;
+constexpr int kElementHeight = 15; // Standard height for labels and textboxes
+constexpr int kButtonHeight = 25;  // Standard height for buttons/toggles
 
 // ===== Knob Sizes (square) =====
 constexpr int kLargeKnobSize = 90;  // Multiply knob
@@ -33,6 +32,18 @@ constexpr int kSmallKnobSize = 55;  // FFT, Mix, Stereo, LowCut, Grid
 
 // ===== Font Sizes =====
 constexpr float kTitleFontSize = 32.0f;   // Brand and title labels
-constexpr float kDefaultFontSize = 14.0f; // Buttons, knob text, general UI
+constexpr float kDefaultFontSize = 16.0f; // Buttons, knob text, general UI
+
+// ===== Component Specifics =====
+constexpr int kButtonWidth = 80;
+constexpr int kSegmentedItemWidth = 72;
+constexpr int kButtonShadowMargin = 2;
+constexpr float kBorderWidth = 1.6f;
+
+// ===== Shadow Settings =====
+constexpr float kShadowAlpha = 0.6f;
+constexpr int kShadowRadius = 16;
+constexpr int kShadowXOffset = 3;
+constexpr int kShadowYOffset = 6;
 
 } // namespace UIConstants

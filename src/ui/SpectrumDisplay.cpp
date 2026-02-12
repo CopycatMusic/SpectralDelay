@@ -6,7 +6,7 @@
 //==============================================================================
 SpectrumDisplay::SpectrumDisplay() {
   // Set up colors from centralized palette
-  backgroundColour = CustomLookAndFeel::getBackgroundPanel();
+  backgroundColour = CustomLookAndFeel::getBackgroundDark();
   gridColour = CustomLookAndFeel::getTextPrimary().withAlpha(0.2f);
   spectrumColour = CustomLookAndFeel::getAccentPrimary();
   spectrumFillColour = spectrumColour.withAlpha(0.3f);
@@ -306,10 +306,6 @@ void SpectrumDisplay::paint(juce::Graphics &g) {
     g.setColour(juce::Colour(0xFFAADDFF)); // Solid light blue
     g.drawLine(lineX, graphBounds.getY(), lineX, graphBounds.getBottom(), 2.0f);
   }
-
-  // Draw vertical divider line at right edge
-  g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.1f));
-  g.fillRect(getWidth() - 1, 0, 1, getHeight());
 }
 
 void SpectrumDisplay::drawCurve(juce::Graphics &g) {
@@ -802,8 +798,8 @@ void SpectrumDisplay::drawFrequencyGrid(juce::Graphics &g) {
   // Minor grid frequencies: 20-90Hz, 200-900Hz, 2k-9kHz (alpha 0.1)
   g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.1f));
 
-  // 20-90 Hz (excluding 100)
-  for (int i = 2; i <= 9; ++i) {
+  // 30-90 Hz (excluding 100)
+  for (int i = 3; i <= 9; ++i) {
     float freq = static_cast<float>(i * 10);
     if (freq >= minFreq && freq <= maxFreq) {
       float x =

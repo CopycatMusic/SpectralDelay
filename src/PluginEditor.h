@@ -15,6 +15,7 @@ public:
 
   //==============================================================================
   void paint(juce::Graphics &) override;
+  void paintOverChildren(juce::Graphics &) override;
   void resized() override;
 
 private:
@@ -32,9 +33,13 @@ private:
   ControlPanel controlPanel;
 
   // Title labels
-  juce::Label brandLabel;
+  juce::Label brandLabelCopy;
+  juce::Label brandLabelCat;
   juce::Label titleLabel;
   juce::Label authorLabel;
+
+  juce::Font titleFont;
+  juce::Font defaultFont;
 
   // Spectrum source selection (false = Output, true = Input)
   bool showInputSpectrum = false;

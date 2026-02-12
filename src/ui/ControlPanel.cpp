@@ -247,7 +247,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   // Grid toggle button
   gridButton.setClickingTogglesState(true);
-  gridButton.setToggleState(false, juce::dontSendNotification); // Default: off
+  gridButton.setToggleState(true, juce::dontSendNotification); // Default: on
   gridButton.setColour(juce::TextButton::buttonOnColourId,
                        CustomLookAndFeel::getAccentPrimary());
   gridButton.onClick = [this]() {
@@ -420,7 +420,6 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   lfoHGridSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   lfoHGridSlider.setTextBoxStyle(juce::Slider::TextBoxLeft, false, 65, 15);
   lfoHGridSlider.setRange(0.0, numGridValues - 1, 1.0); // Index-based range
-  lfoHGridSlider.setValue(0.0);
   lfoHGridSlider.textFromValueFunction = [](double value) {
     static const int gv[] = {0, 2, 3, 4, 6, 8, 12, 16, 32};
     int idx = juce::jlimit(0, 8, static_cast<int>(value));
@@ -436,6 +435,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
     }
     return 0.0;
   };
+  lfoHGridSlider.setValue(0.0);
   lfoHGridSlider.onValueChange = [this]() {
     static const int gv[] = {0, 2, 3, 4, 6, 8, 12, 16, 32};
     int idx = static_cast<int>(lfoHGridSlider.getValue());
@@ -456,7 +456,6 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
   lfoVGridSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
   lfoVGridSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 65, 15);
   lfoVGridSlider.setRange(0.0, numGridValues - 1, 1.0); // Index-based range
-  lfoVGridSlider.setValue(0.0);
   lfoVGridSlider.textFromValueFunction = [](double value) {
     static const int gv[] = {0, 2, 3, 4, 6, 8, 12, 16, 32};
     int idx = juce::jlimit(0, 8, static_cast<int>(value));
@@ -471,6 +470,7 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
     }
     return 0.0;
   };
+  lfoVGridSlider.setValue(5.0); // Default index 5 = 8 divisions
   lfoVGridSlider.onValueChange = [this]() {
     static const int gv[] = {0, 2, 3, 4, 6, 8, 12, 16, 32};
     int idx = static_cast<int>(lfoVGridSlider.getValue());
@@ -487,7 +487,7 @@ ControlPanel::~ControlPanel() { mixSlider.removeListener(this); }
 
 //==============================================================================
 void ControlPanel::paint(juce::Graphics &g) {
-  g.fillAll(CustomLookAndFeel::getBackgroundPanel());
+  g.fillAll(CustomLookAndFeel::getBackgroundDark());
 
   g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(0.1f));
 
@@ -495,8 +495,8 @@ void ControlPanel::paint(juce::Graphics &g) {
   // Gain/Delay/Feedback) Top section = UIConstants::kMargin + LFO row +
   // UIConstants::kSpacing + param row
   // + UIConstants::kSpacing
-  int topSectionEndY = UIConstants::kMargin + UIConstants::kRowHeight +
-                       UIConstants::kSpacing + UIConstants::kRowHeight +
+  int topSectionEndY = UIConstants::kMargin + UIConstants::kButtonHeight +
+                       UIConstants::kSpacing + UIConstants::kButtonHeight +
                        UIConstants::kSpacing;
   g.fillRect(UIConstants::kMargin, topSectionEndY,
              getWidth() - UIConstants::kMargin * 2, 1);
@@ -506,7 +506,7 @@ void ControlPanel::paint(juce::Graphics &g) {
   {
     // Must match resized() calculations exactly!
     int smallKnobSize = UIConstants::kSmallKnobSize; // 55
-    int displayRowHeight = UIConstants::kRowHeight + UIConstants::kSpacing;
+    int displayRowHeight = UIConstants::kButtonHeight + UIConstants::kSpacing;
 
     int middleSectionHeight = 0;
     if (currentParameterType == 2) {
@@ -515,9 +515,9 @@ void ControlPanel::paint(juce::Graphics &g) {
       middleSectionHeight = (smallKnobSize + UIConstants::kSpacing) * 2;
     } else {
       // Original centered Gain/Feedback mode height
-      middleSectionHeight = UIConstants::kLabelHeight +
+      middleSectionHeight = UIConstants::kElementHeight +
                             UIConstants::kLargeKnobSize +
-                            UIConstants::kTextBoxHeight;
+                            UIConstants::kElementHeight;
     }
 
     // Bottom section: 55px (Label and Value are on the sides)
@@ -541,7 +541,7 @@ void ControlPanel::resized() {
   int knobSectionHeight = UIConstants::kSmallKnobSize;
 
   // Display row
-  int displayRowHeight = UIConstants::kRowHeight + UIConstants::kSpacing;
+  int displayRowHeight = UIConstants::kButtonHeight + UIConstants::kSpacing;
 
   int bottomY = height - UIConstants::kMargin - knobSectionHeight -
                 UIConstants::kSpacing - displayRowHeight;
@@ -549,7 +549,7 @@ void ControlPanel::resized() {
   // --- Display Row: Grid, Line/Bar, and HiRes on the same row ---
   juce::Rectangle<int> displayRow(UIConstants::kMargin, bottomY,
                                   width - UIConstants::kMargin * 2,
-                                  UIConstants::kRowHeight);
+                                  UIConstants::kButtonHeight);
   int buttonAreaWidth = displayRow.getWidth();
   int singleButtonWidth =
       (buttonAreaWidth - UIConstants::kSpacing * 2) / 3; // 3 buttons now
@@ -573,7 +573,7 @@ void ControlPanel::resized() {
   int comboHeight = 22;
   int fftX = UIConstants::kMargin + (halfWidth - comboWidth) / 2;
   fftSizeLabel.setBounds(fftX, bottomY + 2, comboWidth,
-                         UIConstants::kLabelHeight);
+                         UIConstants::kElementHeight);
   fftSizeSelector.setBounds(fftX, bottomY + 18, comboWidth, comboHeight);
 
   // Mix Knob (RIGHT-WING: Knob on Left, Text on Right)
@@ -582,7 +582,7 @@ void ControlPanel::resized() {
   mixSlider.setBounds(mixX, bottomY, sliderWidthWithText,
                       UIConstants::kSmallKnobSize);
   mixLabel.setBounds(mixX + UIConstants::kSmallKnobSize + textGap, bottomY + 12,
-                     textBoxWidth, UIConstants::kLabelHeight);
+                     textBoxWidth, UIConstants::kElementHeight);
 
   bottomY += UIConstants::kSmallKnobSize + UIConstants::kMargin +
              UIConstants::kSpacing;
@@ -595,25 +595,25 @@ void ControlPanel::resized() {
   // Row 1: LFO button (Full) or LITE label (Lite)
   juce::Rectangle<int> lfoRow(UIConstants::kMargin, currentY,
                               width - UIConstants::kMargin * 2,
-                              UIConstants::kRowHeight);
+                              UIConstants::kButtonHeight);
 #if LITE_VERSION
   liteLabel.setBounds(lfoRow);
 #else
   lfoButton.setBounds(lfoRow);
 #endif
-  currentY += UIConstants::kRowHeight + UIConstants::kSpacing;
+  currentY += UIConstants::kButtonHeight + UIConstants::kSpacing;
 
   // Row 2: Parameter selector buttons (Gain, Time, Feedback)
   juce::Rectangle<int> paramRow(UIConstants::kMargin, currentY,
                                 width - UIConstants::kMargin * 2,
-                                UIConstants::kRowHeight);
+                                UIConstants::kButtonHeight);
   int buttonWidth = (paramRow.getWidth() - UIConstants::kSpacing * 2) / 3;
   gainButton.setBounds(paramRow.removeFromLeft(buttonWidth));
   paramRow.removeFromLeft(UIConstants::kSpacing);
   delayButton.setBounds(paramRow.removeFromLeft(buttonWidth));
   paramRow.removeFromLeft(UIConstants::kSpacing);
   feedbackButton.setBounds(paramRow);
-  currentY += UIConstants::kRowHeight + UIConstants::kSpacing;
+  currentY += UIConstants::kButtonHeight + UIConstants::kSpacing;
 
   // Row 3: Mode row removed (Phase mode removed, always Delay mode)
 
@@ -625,7 +625,7 @@ void ControlPanel::resized() {
   if (currentLfoMode) {
     // LFO mode: Time, Amount, Smooth aligned with Gain, Delay, Feedback buttons
     int knobWithTextHeight =
-        UIConstants::kMediumKnobSize + UIConstants::kTextBoxHeight;
+        UIConstants::kMediumKnobSize + UIConstants::kElementHeight;
     int lfoRowSpacing = 12;
 
     // Align knob centers with button centers (Each button is 90px wide)
@@ -637,13 +637,13 @@ void ControlPanel::resized() {
 
     // Labels row
     lfoSpeedLabel.setBounds(speedX, currentY, UIConstants::kMediumKnobSize,
-                            UIConstants::kLabelHeight);
+                            UIConstants::kElementHeight);
     lfoAmountLabel.setBounds(amountX, currentY, UIConstants::kMediumKnobSize,
-                             UIConstants::kLabelHeight);
+                             UIConstants::kElementHeight);
     lfoSmoothLabel.setBounds(smoothX, currentY, UIConstants::kMediumKnobSize,
-                             UIConstants::kLabelHeight);
+                             UIConstants::kElementHeight);
 
-    currentY += UIConstants::kLabelHeight + 2;
+    currentY += UIConstants::kElementHeight + 2;
 
     // Knobs row
     lfoSpeedSlider.setBounds(speedX, currentY, UIConstants::kMediumKnobSize,
@@ -658,7 +658,7 @@ void ControlPanel::resized() {
     // Row 4: LFO Mode options (Time/Beat and Sync)
     juce::Rectangle<int> lfoOptionsRow(UIConstants::kMargin, currentY,
                                        width - UIConstants::kMargin * 2,
-                                       UIConstants::kRowHeight);
+                                       UIConstants::kButtonHeight);
     int optionButtonWidth =
         (lfoOptionsRow.getWidth() - UIConstants::kSpacing) / 2;
     lfoBeatModeButton.setBounds(
@@ -666,7 +666,7 @@ void ControlPanel::resized() {
     lfoOptionsRow.removeFromLeft(UIConstants::kSpacing);
     lfoSyncButton.setBounds(lfoOptionsRow);
 
-    currentY += UIConstants::kRowHeight + (lfoRowSpacing / 2);
+    currentY += UIConstants::kButtonHeight + (lfoRowSpacing / 2);
 
     // Row 5: Grid controls (H Grid and V Grid SYMMETRIC)
     int textBoxWidth = 65;
@@ -681,7 +681,7 @@ void ControlPanel::resized() {
     int hGridX =
         UIConstants::kMargin + (halfControlWidth - sliderWidthWithText) / 2;
     lfoHGridLabel.setBounds(hGridX, currentY + 12, textBoxWidth,
-                            UIConstants::kLabelHeight);
+                            UIConstants::kElementHeight);
     lfoHGridSlider.setBounds(hGridX, currentY, sliderWidthWithText,
                              UIConstants::kSmallKnobSize);
 
@@ -692,7 +692,7 @@ void ControlPanel::resized() {
                              UIConstants::kSmallKnobSize);
     lfoVGridLabel.setBounds(vGridX + UIConstants::kSmallKnobSize + textGap,
                             currentY + 12, textBoxWidth,
-                            UIConstants::kLabelHeight);
+                            UIConstants::kElementHeight);
 
     currentY += UIConstants::kSmallKnobSize + (lfoRowSpacing / 2);
   } else
@@ -710,9 +710,9 @@ void ControlPanel::resized() {
         int sideSlotWidth = (usableWidth - centerSlotWidth) / 2;
 
         int gainHeight = UIConstants::kLargeKnobSize +
-                         UIConstants::kLabelHeight +
-                         UIConstants::kTextBoxHeight; // 90+15+15=120
-        int knobCenterY = currentY + UIConstants::kLabelHeight +
+                         UIConstants::kElementHeight +
+                         UIConstants::kElementHeight; // 90+15+15=120
+        int knobCenterY = currentY + UIConstants::kElementHeight +
                           UIConstants::kLargeKnobSize / 2;
 
         // --- 1. GATE (LEFT SLOT) ---
@@ -720,22 +720,22 @@ void ControlPanel::resized() {
                     (sideSlotWidth - UIConstants::kSmallKnobSize) / 2;
         gateLabel.setBounds(UIConstants::kMargin,
                             knobCenterY - UIConstants::kSmallKnobSize / 2 -
-                                UIConstants::kLabelHeight - 5,
-                            sideSlotWidth, UIConstants::kLabelHeight);
+                                UIConstants::kElementHeight - 5,
+                            sideSlotWidth, UIConstants::kElementHeight);
         gateSlider.setBounds(
             gateX, knobCenterY - UIConstants::kSmallKnobSize / 2,
             UIConstants::kSmallKnobSize,
-            UIConstants::kSmallKnobSize + UIConstants::kTextBoxHeight);
+            UIConstants::kSmallKnobSize + UIConstants::kElementHeight);
 
         // --- 2. GAIN (CENTER SLOT) ---
         int gainX = UIConstants::kMargin + sideSlotWidth +
                     (centerSlotWidth - UIConstants::kLargeKnobSize) / 2;
         gainMultLabel.setBounds(UIConstants::kMargin + sideSlotWidth, currentY,
-                                centerSlotWidth, UIConstants::kLabelHeight);
-        gainMultSlider.setBounds(gainX, currentY + UIConstants::kLabelHeight,
+                                centerSlotWidth, UIConstants::kElementHeight);
+        gainMultSlider.setBounds(gainX, currentY + UIConstants::kElementHeight,
                                  UIConstants::kLargeKnobSize,
                                  UIConstants::kLargeKnobSize +
-                                     UIConstants::kTextBoxHeight);
+                                     UIConstants::kElementHeight);
 
         // --- 3. COMPRESS (RIGHT SLOT) ---
         int compressX = UIConstants::kMargin + sideSlotWidth + centerSlotWidth +
@@ -743,35 +743,35 @@ void ControlPanel::resized() {
         compressLabel.setBounds(UIConstants::kMargin + sideSlotWidth +
                                     centerSlotWidth,
                                 knobCenterY - UIConstants::kSmallKnobSize / 2 -
-                                    UIConstants::kLabelHeight - 5,
-                                sideSlotWidth, UIConstants::kLabelHeight);
+                                    UIConstants::kElementHeight - 5,
+                                sideSlotWidth, UIConstants::kElementHeight);
         compressSlider.setBounds(
             compressX, knobCenterY - UIConstants::kSmallKnobSize / 2,
             UIConstants::kSmallKnobSize,
-            UIConstants::kSmallKnobSize + UIConstants::kTextBoxHeight);
+            UIConstants::kSmallKnobSize + UIConstants::kElementHeight);
 
         // --- 4. BUTTONS ROW (TIED IN CENTER) ---
         int buttonY = currentY + gainHeight + UIConstants::kSpacing;
         juce::Rectangle<int> buttonsRow(UIConstants::kMargin, buttonY,
                                         width - UIConstants::kMargin * 2,
-                                        UIConstants::kRowHeight);
+                                        UIConstants::kButtonHeight);
         gainPostButton.setBounds(buttonsRow);
 
-        currentY = buttonY + UIConstants::kRowHeight + UIConstants::kSpacing;
+        currentY = buttonY + UIConstants::kButtonHeight + UIConstants::kSpacing;
 
       } else if (currentParameterType == 1) {
         // ORIGINAL CENTERED LAYOUT FOR FEEDBACK
         juce::Rectangle<int> multLabelRow(UIConstants::kMargin, currentY,
                                           width - UIConstants::kMargin * 2,
-                                          UIConstants::kLabelHeight);
+                                          UIConstants::kElementHeight);
         feedbackMultLabel.setBounds(multLabelRow);
-        currentY += UIConstants::kLabelHeight;
+        currentY += UIConstants::kElementHeight;
 
         int knobX = (width - UIConstants::kLargeKnobSize) / 2;
         feedbackMultSlider.setBounds(
             knobX, currentY, UIConstants::kLargeKnobSize,
-            UIConstants::kLargeKnobSize + UIConstants::kTextBoxHeight);
-        currentY += UIConstants::kLargeKnobSize + UIConstants::kTextBoxHeight;
+            UIConstants::kLargeKnobSize + UIConstants::kElementHeight);
+        currentY += UIConstants::kLargeKnobSize + UIConstants::kElementHeight;
 
       } else if (currentParameterType == 2) {
         // NEW COMPOSITE LAYOUT FOR TIME MODE:
@@ -788,18 +788,18 @@ void ControlPanel::resized() {
         int rightAreaWidth = (width - UIConstants::kMargin * 2) - leftAreaWidth;
 
         int largeKnobWithTextHeight =
-            UIConstants::kLargeKnobSize + UIConstants::kTextBoxHeight;
+            UIConstants::kLargeKnobSize + UIConstants::kElementHeight;
         int largeControlHeight =
-            UIConstants::kLabelHeight + largeKnobWithTextHeight;
+            UIConstants::kElementHeight + largeKnobWithTextHeight;
 
         int largeYOffset = (compositeHeight - largeControlHeight) / 2;
 
         delayMultLabel.setBounds(UIConstants::kMargin, currentY + largeYOffset,
-                                 leftAreaWidth, UIConstants::kLabelHeight);
+                                 leftAreaWidth, UIConstants::kElementHeight);
         delayMultSlider.setBounds(
             UIConstants::kMargin +
                 (leftAreaWidth - UIConstants::kLargeKnobSize) / 2,
-            currentY + largeYOffset + UIConstants::kLabelHeight,
+            currentY + largeYOffset + UIConstants::kElementHeight,
             UIConstants::kLargeKnobSize, largeKnobWithTextHeight);
 
         int rightX = UIConstants::kMargin + leftAreaWidth;
@@ -813,7 +813,7 @@ void ControlPanel::resized() {
         diffuseLabel.setBounds(
             rightX + (rightAreaWidth - sliderWidthWithText) / 2 + knobsOffsetX +
                 UIConstants::kSmallKnobSize + textGap,
-            diffuseKnobY + 12, textBoxWidth, UIConstants::kLabelHeight);
+            diffuseKnobY + 12, textBoxWidth, UIConstants::kElementHeight);
 
         int cutoffKnobY =
             diffuseKnobY + UIConstants::kSmallKnobSize + UIConstants::kSpacing;
@@ -823,7 +823,7 @@ void ControlPanel::resized() {
         stereoLowCutLabel.setBounds(
             rightX + (rightAreaWidth - sliderWidthWithText) / 2 + knobsOffsetX +
                 UIConstants::kSmallKnobSize + textGap,
-            cutoffKnobY + 12, textBoxWidth, UIConstants::kLabelHeight);
+            cutoffKnobY + 12, textBoxWidth, UIConstants::kElementHeight);
 
         currentY += compositeHeight;
       }
@@ -1026,6 +1026,7 @@ void ControlPanel::setLfoHGrid(int divisions) {
     }
   }
   lfoHGridSlider.setValue(static_cast<double>(idx), juce::dontSendNotification);
+  lfoHGridSlider.updateText();
 }
 
 void ControlPanel::setLfoVGrid(int divisions) {
@@ -1038,6 +1039,7 @@ void ControlPanel::setLfoVGrid(int divisions) {
     }
   }
   lfoVGridSlider.setValue(static_cast<double>(idx), juce::dontSendNotification);
+  lfoVGridSlider.updateText();
 }
 
 juce::String ControlPanel::getSyncModeString(SyncMode mode) {

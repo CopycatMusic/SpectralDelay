@@ -13,8 +13,8 @@ public:
   ~CustomLookAndFeel() override;
 
   // Static color getters for use throughout the application
-  static juce::Colour getBackgroundPanel() { return juce::Colour(0xFF0a131f); }
-  static juce::Colour getBackgroundDark() { return juce::Colour(0xFF0F1C2E); }
+  // Static color getters for use throughout the application
+  static juce::Colour getBackgroundDark() { return juce::Colour(0xFF0a131f); }
   static juce::Colour getBackgroundMedium() { return juce::Colour(0xFF0f1c2e); }
 
   static juce::Colour getAccentPrimary() { return juce::Colour(0xFF56D9F0); }
@@ -24,7 +24,8 @@ public:
   static juce::Colour getAccentTertiary() { return juce::Colour(0xFFffd93d); }
   // Mustard Yellow
   static juce::Colour getTextPrimary() { return juce::Colour(0xFFf5f5f5); }
-  static juce::Colour getTextSecondary() { return juce::Colour(0xFF999999); }
+  static juce::Colour getTextSecondary() { return juce::Colour(0xFFAAAAAA); }
+  static juce::Colour getTextTertiary() { return juce::Colour(0xFF566A8A); }
 
   // https://coolors.co/0d1117-161b22-00d4ff-ff6b6b-ffd93d-ffffff
   // new color version
@@ -68,6 +69,19 @@ public:
 
   juce::Typeface::Ptr getTypefaceForFont(const juce::Font &f) override;
 
+  // Font Management
+  void setDefaultFont(const juce::Font &font) { defaultFont = font; }
+  juce::Font getLabelFont(juce::Label &label) override {
+    if (label.getProperties().contains("isTitle"))
+      return label.getFont();
+    return defaultFont;
+  }
+  juce::Font getComboBoxFont(juce::ComboBox &) override { return defaultFont; }
+  juce::Font getTextButtonFont(juce::TextButton &, int) override {
+    return defaultFont;
+  }
+  juce::Font getPopupMenuFont() override { return defaultFont; }
+
   juce::Slider::SliderLayout getSliderLayout(juce::Slider &slider) override;
 
 private:
@@ -78,6 +92,9 @@ private:
   juce::Colour accentSecondary;
   juce::Colour accentTertiary;
   juce::Colour textPrimary;
+  juce::Colour textSecondary;
+  juce::Colour textTertiary;
+  juce::Font defaultFont;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CustomLookAndFeel)
 };

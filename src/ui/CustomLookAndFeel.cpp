@@ -1,17 +1,18 @@
 #include "CustomLookAndFeel.h"
 #include "BinaryData.h"
+#include "ShadowButton.h"
 #include "UIConstants.h"
 
 //==============================================================================
 juce::Typeface::Ptr CustomLookAndFeel::getTypefaceForFont(const juce::Font &f) {
-  static auto typefaceLight = juce::Typeface::createSystemTypefaceFor(
-      BinaryData::MontserratLight_ttf, BinaryData::MontserratLight_ttfSize);
+  static auto typefaceMedium = juce::Typeface::createSystemTypefaceFor(
+      BinaryData::MontserratMedium_ttf, BinaryData::MontserratMedium_ttfSize);
   static auto typefaceBold = juce::Typeface::createSystemTypefaceFor(
       BinaryData::MontserratBold_ttf, BinaryData::MontserratBold_ttfSize);
 
   if (f.isBold())
     return typefaceBold;
-  return typefaceLight;
+  return typefaceMedium;
 }
 
 //==============================================================================
@@ -23,6 +24,8 @@ CustomLookAndFeel::CustomLookAndFeel() {
   accentSecondary = getAccentSecondary();
   accentTertiary = getAccentTertiary();
   textPrimary = getTextPrimary();
+  textSecondary = getTextSecondary();
+  textTertiary = getTextTertiary();
 
   // Set default colors
   setColour(juce::Slider::thumbColourId, accentPrimary);
@@ -68,20 +71,28 @@ void CustomLookAndFeel::drawRotarySlider(juce::Graphics &g, int x, int y,
   auto angle =
       rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
 
-  // 1. Background Track (Darker arc)
+  // 1. Background Track (Groove)
   // ----------------------------------------------------
-  float trackWidth = 4.0f;
+  bool isMini = slider.getProperties().contains("isMini");
+  float trackWidth = isMini ? 3.0f : 4.0f;
   juce::Path bgArc;
   bgArc.addCentredArc(centreX, centreY, radius - trackWidth / 2,
                       radius - trackWidth / 2, 0.0f, rotaryStartAngle,
                       rotaryEndAngle, true);
 
-  g.setColour(backgroundDark.darker(0.3f));
+  // Outer edge (highlight)
+  g.setColour(backgroundDark.brighter(0.1f));
   g.strokePath(bgArc,
                juce::PathStrokeType(trackWidth, juce::PathStrokeType::curved,
                                     juce::PathStrokeType::rounded));
 
-  // 2. Value Arc (Solid Color - No Gradient)
+  // Inner track (shadow/dark base)
+  g.setColour(backgroundDark.darker(0.8f));
+  g.strokePath(bgArc,
+               juce::PathStrokeType(trackWidth, juce::PathStrokeType::curved,
+                                    juce::PathStrokeType::rounded));
+
+  // 2. Value Arc (Lit area within the groove)
   // ----------------------------------------------------
   if (slider.isEnabled()) {
     juce::Path valueArc;
@@ -89,11 +100,17 @@ void CustomLookAndFeel::drawRotarySlider(juce::Graphics &g, int x, int y,
                            radius - trackWidth / 2, 0.0f, rotaryStartAngle,
                            angle, true);
 
-    // Use solid accent color instead of gradient
-    g.setColour(accentPrimary);
+    // Subtle inner glow effect
+    g.setColour(accentPrimary.withAlpha(0.3f));
     g.strokePath(valueArc,
                  juce::PathStrokeType(trackWidth, juce::PathStrokeType::curved,
                                       juce::PathStrokeType::rounded));
+
+    // Main accent arc
+    g.setColour(accentPrimary);
+    g.strokePath(valueArc, juce::PathStrokeType(trackWidth - 2.0f,
+                                                juce::PathStrokeType::curved,
+                                                juce::PathStrokeType::rounded));
   }
 
   // 3. Knob Body (The central rotating part)
@@ -107,7 +124,10 @@ void CustomLookAndFeel::drawRotarySlider(juce::Graphics &g, int x, int y,
                         knobRadius * 2.0f, knobRadius * 2.0f);
 
     // Subtle shadow
-    juce::DropShadow shadow(juce::Colours::black.withAlpha(0.6f), 5, {0, 2});
+    juce::DropShadow shadow(
+        juce::Colours::black.withAlpha(UIConstants::kShadowAlpha),
+        UIConstants::kShadowRadius,
+        {UIConstants::kShadowXOffset, UIConstants::kShadowYOffset});
     shadow.drawForPath(g, knobPath);
 
     // Knob gradient (subtle top-down lighting for 3D effect)
@@ -120,27 +140,36 @@ void CustomLookAndFeel::drawRotarySlider(juce::Graphics &g, int x, int y,
                   knobRadius * 2.0f);
 
     // Inner bezel (thin ring reflection)
-    g.setColour(textPrimary.withAlpha(0.2f));
+    g.setColour(textSecondary.withAlpha(0.1f));
     g.drawEllipse(centreX - knobRadius, centreY - knobRadius, knobRadius * 2.0f,
                   knobRadius * 2.0f, 1.0f);
   }
 
-  // 4. Pointer / Indicator
+  // 4. Pointer / Indicator (Ridge effect)
   // ----------------------------------------------------
   if (knobRadius > 5.0f) {
     juce::Path p;
     float pointerLength = knobRadius * 0.75f;
-    float pointerThickness = 3.0f;
+    float pointerThickness = isMini ? 3.0f : 4.0f; // Match track width
 
-    p.addRoundedRectangle(-pointerThickness * 0.5f, -pointerLength,
-                          pointerThickness, pointerLength, 1.5f);
+    p.startNewSubPath(0.0, 0.0);
+    p.lineTo(0.0f, -pointerLength);
 
     p.applyTransform(
         juce::AffineTransform::rotation(angle).translated(centreX, centreY));
 
-    // Draw pointer (glowing effect)
+    // Draw pointer (layered neon/glow effect matching the track)
+    // 1. Glow layer (Wider, semi-transparent)
+    g.setColour(accentPrimary.withAlpha(0.3f));
+    g.strokePath(p, juce::PathStrokeType(pointerThickness,
+                                         juce::PathStrokeType::curved,
+                                         juce::PathStrokeType::rounded));
+
+    // 2. Core layer (Narrower, solid)
     g.setColour(accentPrimary);
-    g.fillPath(p);
+    g.strokePath(p, juce::PathStrokeType(pointerThickness - 2.0f,
+                                         juce::PathStrokeType::curved,
+                                         juce::PathStrokeType::rounded));
   }
 }
 
@@ -215,35 +244,77 @@ void CustomLookAndFeel::drawButtonBackground(
     juce::Graphics &g, juce::Button &button,
     const juce::Colour &backgroundColour, bool shouldDrawButtonAsHighlighted,
     bool shouldDrawButtonAsDown) {
-  auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
+  // Use a reduced area for the visual button body to leave space for shadows
+  // within the component bounds.
+  const float shadowMargin = (float)UIConstants::kButtonShadowMargin;
+  auto visualBounds = button.getLocalBounds().toFloat().reduced(shadowMargin);
+  const float cornerSize = 6.0f;
 
-  auto baseColour = button.getToggleState()
-                        ? button.findColour(juce::TextButton::buttonOnColourId)
-                              .withAlpha(0.3f)
-                        : button.findColour(juce::TextButton::buttonColourId);
+  auto segmentPos = ShadowButton::kSingle;
+  if (auto *sb = dynamic_cast<ShadowButton *>(&button))
+    segmentPos = sb->getSegmentPosition();
 
-  if (shouldDrawButtonAsDown)
-    baseColour = baseColour.darker(0.2f);
-  else if (shouldDrawButtonAsHighlighted)
-    baseColour = baseColour.brighter(0.1f);
+  // Create path based on segment position
+  juce::Path buttonPath;
+  if (segmentPos == ShadowButton::kSingle) {
+    buttonPath.addRoundedRectangle(visualBounds, cornerSize);
+  } else {
+    buttonPath.addRoundedRectangle(
+        visualBounds.getX(), visualBounds.getY(), visualBounds.getWidth(),
+        visualBounds.getHeight(), cornerSize, cornerSize,
+        segmentPos == ShadowButton::kLeft,  // Top Left
+        segmentPos == ShadowButton::kRight, // Top Right
+        segmentPos == ShadowButton::kLeft,  // Bottom Left
+        segmentPos == ShadowButton::kRight  // Bottom Right
+    );
+  }
 
-  g.setColour(baseColour);
-  g.fillRoundedRectangle(bounds, 6.0f);
+  // 1. Drop Shadow (now has space within component bounds)
+  if (button.isEnabled()) {
+    juce::DropShadow shadow(
+        juce::Colours::black.withAlpha(UIConstants::kShadowAlpha),
+        UIConstants::kShadowRadius,
+        {UIConstants::kShadowXOffset, UIConstants::kShadowYOffset});
+    shadow.drawForPath(g, buttonPath);
+  }
 
+  // 2. Base Background
+  if (button.getToggleState()) {
+    // Premium opaque gradient for "on" state
+    auto accent = button.findColour(juce::TextButton::buttonOnColourId);
+    juce::ColourGradient grad(accent.darker(0.4f), visualBounds.getX(),
+                              visualBounds.getY(), accent.darker(0.7f),
+                              visualBounds.getX(), visualBounds.getBottom(),
+                              false);
+    g.setGradientFill(grad);
+  } else {
+    auto baseColour = backgroundMedium;
+    if (shouldDrawButtonAsDown)
+      baseColour = baseColour.darker(0.2f);
+    else if (shouldDrawButtonAsHighlighted)
+      baseColour = baseColour.brighter(0.1f);
+    g.setColour(baseColour);
+  }
+  g.fillPath(buttonPath);
+
+  // 3. Border
   g.setColour(textPrimary.withAlpha(0.1f));
   if (button.getToggleState())
     g.setColour(
-        button.findColour(juce::TextButton::buttonOnColourId).withAlpha(0.2f));
+        button.findColour(juce::TextButton::buttonOnColourId).withAlpha(0.4f));
 
-  g.drawRoundedRectangle(bounds, 6.0f, 1.0f);
+  g.strokePath(buttonPath, juce::PathStrokeType(UIConstants::kBorderWidth));
 }
 
 void CustomLookAndFeel::drawButtonText(juce::Graphics &g,
                                        juce::TextButton &button,
                                        bool shouldDrawButtonAsHighlighted,
                                        bool shouldDrawButtonAsDown) {
-  auto font = juce::Font(UIConstants::kDefaultFontSize);
-  g.setFont(font);
+  g.setFont(defaultFont);
+
+  // Match the visual bounds from drawButtonBackground
+  const float shadowMargin = (float)UIConstants::kButtonShadowMargin;
+  auto visualBounds = button.getLocalBounds().reduced((int)shadowMargin);
 
   auto textColour = button.getToggleState()
                         ? button.findColour(juce::TextButton::textColourOnId)
@@ -253,8 +324,8 @@ void CustomLookAndFeel::drawButtonText(juce::Graphics &g,
     textColour = textPrimary;
 
   g.setColour(textColour);
-  g.drawText(button.getButtonText(), button.getLocalBounds(),
-             juce::Justification::centred, true);
+  g.drawText(button.getButtonText(), visualBounds, juce::Justification::centred,
+             true);
 }
 
 //==============================================================================
@@ -307,7 +378,7 @@ void CustomLookAndFeel::drawPopupMenuItem(
 
     r.reduce(juce::jmin(5, area.getWidth() / 20), 0);
 
-    auto font = juce::Font(UIConstants::kDefaultFontSize);
+    auto font = defaultFont;
     auto maxFontHeight = r.getHeight() / 1.3f;
 
     if (font.getHeight() > maxFontHeight)

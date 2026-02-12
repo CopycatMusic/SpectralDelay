@@ -2,6 +2,7 @@
 
 #include "../dsp/LFOEngine.h"
 #include "../utils/ParameterCurve.h"
+#include "ShadowButton.h"
 #include "UIConstants.h"
 #include <functional>
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -165,9 +166,9 @@ private:
 
   // Parameter selector buttons
   juce::Label parameterLabel;
-  juce::TextButton gainButton{"Gain"};
-  juce::TextButton delayButton{"Delay"};
-  juce::TextButton feedbackButton{"Feedback"};
+  ShadowButton gainButton{"Gain"};
+  ShadowButton delayButton{"Delay"};
+  ShadowButton feedbackButton{"Feedback"};
 
   // FFT settings
   juce::Label fftSizeLabel;
