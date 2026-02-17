@@ -306,6 +306,34 @@ void CustomLookAndFeel::drawButtonBackground(
   g.strokePath(buttonPath, juce::PathStrokeType(UIConstants::kBorderWidth));
 }
 
+void CustomLookAndFeel::drawLabel(juce::Graphics &g, juce::Label &label) {
+  g.fillAll(label.findColour(juce::Label::backgroundColourId));
+
+  if (!label.isBeingEdited()) {
+    auto font = getLabelFont(label);
+    g.setFont(font);
+
+    auto textArea =
+        getLabelBorderSize(label).subtractedFrom(label.getLocalBounds());
+
+    // Force textSecondary color for slider readouts
+    auto textColour = label.findColour(juce::Label::textColourId);
+    if (dynamic_cast<juce::Slider *>(label.getParentComponent()) != nullptr) {
+      textColour = textSecondary;
+    }
+
+    g.setColour(textColour);
+    g.drawFittedText(label.getText(), textArea, label.getJustificationType(),
+                     juce::jmax(1, (int)(label.getHeight() / font.getHeight())),
+                     label.getMinimumHorizontalScale());
+  }
+}
+
+void CustomLookAndFeel::drawTextEditorOutline(juce::Graphics &, int, int,
+                                              juce::TextEditor &) {
+  // Do nothing to avoid drawing any borders around text editors
+}
+
 void CustomLookAndFeel::drawButtonText(juce::Graphics &g,
                                        juce::TextButton &button,
                                        bool shouldDrawButtonAsHighlighted,

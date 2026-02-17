@@ -11,17 +11,20 @@ ControlPanel::ControlPanel(juce::AudioProcessorValueTreeState &apvts)
 
   gainButton.setRadioGroupId(1);
   gainButton.setClickingTogglesState(true);
+  gainButton.setSegmentPosition(ShadowButton::kLeft);
   gainButton.onClick = [this]() { selectParameter(0); };
   addAndMakeVisible(gainButton);
 
   feedbackButton.setRadioGroupId(1);
   feedbackButton.setClickingTogglesState(true);
+  feedbackButton.setSegmentPosition(ShadowButton::kRight);
   feedbackButton.onClick = [this]() { selectParameter(1); };
   addAndMakeVisible(feedbackButton);
 
   delayButton.setRadioGroupId(1);
   delayButton.setClickingTogglesState(true);
   delayButton.setToggleState(true, juce::dontSendNotification);
+  delayButton.setSegmentPosition(ShadowButton::kMiddle);
   delayButton.onClick = [this]() { selectParameter(2); };
   addAndMakeVisible(delayButton);
 
@@ -607,12 +610,26 @@ void ControlPanel::resized() {
   juce::Rectangle<int> paramRow(UIConstants::kMargin, currentY,
                                 width - UIConstants::kMargin * 2,
                                 UIConstants::kButtonHeight);
-  int buttonWidth = (paramRow.getWidth() - UIConstants::kSpacing * 2) / 3;
-  gainButton.setBounds(paramRow.removeFromLeft(buttonWidth));
-  paramRow.removeFromLeft(UIConstants::kSpacing);
-  delayButton.setBounds(paramRow.removeFromLeft(buttonWidth));
-  paramRow.removeFromLeft(UIConstants::kSpacing);
-  feedbackButton.setBounds(paramRow);
+
+  // Segmented layout: buttons overlap by (2 * kButtonShadowMargin) to share
+  // visual edge
+  const int shadowMargin = UIConstants::kButtonShadowMargin;
+  const int totalWidth = paramRow.getWidth();
+  const int buttonWidth = totalWidth / 3;
+  const int buttonWidthWithShadow = buttonWidth + (shadowMargin * 2);
+
+  gainButton.setBounds(paramRow.getX() - shadowMargin, currentY - shadowMargin,
+                       buttonWidthWithShadow,
+                       UIConstants::kButtonHeight + (shadowMargin * 2));
+
+  delayButton.setBounds(paramRow.getX() + buttonWidth - shadowMargin,
+                        currentY - shadowMargin, buttonWidthWithShadow,
+                        UIConstants::kButtonHeight + (shadowMargin * 2));
+
+  feedbackButton.setBounds(paramRow.getX() + (buttonWidth * 2) - shadowMargin,
+                           currentY - shadowMargin, buttonWidthWithShadow,
+                           UIConstants::kButtonHeight + (shadowMargin * 2));
+
   currentY += UIConstants::kButtonHeight + UIConstants::kSpacing;
 
   // Row 3: Mode row removed (Phase mode removed, always Delay mode)

@@ -143,11 +143,11 @@ void SpectrumDisplay::setEditingCurve(ParameterCurve *curve, float valueMin,
 }
 
 void SpectrumDisplay::updateLabelsVisibility() {
-  // Clear button is only visible when editing a curve AND there are points
+  // Clear button is always visible when editing a curve
   if (editingCurve == nullptr) {
     clearButton.setVisible(false);
   } else {
-    clearButton.setVisible(editingCurve->getNumPoints() > 0);
+    clearButton.setVisible(true);
   }
 
   // Max value label is visible when NOT in LFO mode

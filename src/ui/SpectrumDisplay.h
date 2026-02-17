@@ -226,14 +226,16 @@ private:
     void paintButton(juce::Graphics &g, bool isMouseOver,
                      bool isButtonDown) override {
       auto bounds = getLocalBounds().toFloat();
-      float alpha = isButtonDown ? 0.6f : (isMouseOver ? 0.4f : 0.25f);
+      // Increased opacity for better visibility
+      float alpha = isButtonDown ? 0.8f : (isMouseOver ? 0.6f : 0.4f);
 
       g.setColour(juce::Colours::black.withAlpha(alpha));
       g.fillRoundedRectangle(bounds, 8.0f);
 
       // Draw thin diagonal lines for "X"
+      // Increased icon opacity
       g.setColour(CustomLookAndFeel::getTextPrimary().withAlpha(
-          isMouseOver ? 0.9f : 0.6f));
+          isMouseOver ? 1.0f : 0.8f));
       float inset = bounds.getWidth() * 0.3f;
       g.drawLine(inset, inset, bounds.getWidth() - inset,
                  bounds.getHeight() - inset, 1.2f);

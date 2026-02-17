@@ -84,6 +84,11 @@ public:
 
   juce::Slider::SliderLayout getSliderLayout(juce::Slider &slider) override;
 
+  // Label & TextEditor
+  void drawLabel(juce::Graphics &g, juce::Label &label) override;
+  void drawTextEditorOutline(juce::Graphics &g, int width, int height,
+                             juce::TextEditor &textEditor) override;
+
 private:
   // Color palette (cached from static getters)
   juce::Colour backgroundDark;
