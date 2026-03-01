@@ -1,14 +1,25 @@
-; CopyCat Spectral Delay - Windows Installer Script (Standard Version)
+; CopyCat Spectral Delay - Windows Installer Script
 ; For use with Inno Setup (https://jrsoftware.org/isdl.php)
 ;
-; Usage: Place this file alongside the plugin folder and run with Inno Setup
-; Expected structure:
-;   release/vX.X.X/Windows/Standard/
-;     ├── CopyCat Spectral Delay.vst3/
-;     └── installer_win_standard.iss (copy this file here)
+; Usage (local):
+;   Place this file alongside the plugin folder and run with Inno Setup
+;   Expected structure:
+;     release/vX.X.X/Windows/
+;       ├── CopyCat Spectral Delay.vst3/
+;       └── installer_win.iss (copy this file here)
+;
+; Usage (CI):
+;   ISCC.exe /DAppVersion="X.X.X" /DSourcePath="path\to\vst3\folder" installer_win.iss
+
+#ifndef AppVersion
+  #define AppVersion "1.1.0"
+#endif
+
+#ifndef SourcePath
+  #define SourcePath "."
+#endif
 
 #define AppName "CopyCat Spectral Delay"
-#define AppVersion "1.1.0"
 #define AppPublisher "CopyCat"
 #define AppURL "https://github.com/CopycatMusic/SpectralDelay"
 
@@ -37,8 +48,8 @@ ArchitecturesInstallIn64BitMode=x64
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-; The plugin bundle (.vst3 folder) - relative path from script location
-Source: "CopyCat Spectral Delay.vst3\*"; DestDir: "{commoncf64}\VST3\CopyCat Spectral Delay.vst3"; Flags: ignoreversion recursesubdirs createallsubdirs
+; The plugin bundle (.vst3 folder) - relative path from SourcePath
+Source: "{#SourcePath}\{#AppName}.vst3\*"; DestDir: "{commoncf64}\VST3\{#AppName}.vst3"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\Uninstall {#AppName}"; Filename: "{uninstallexe}"
@@ -47,4 +58,4 @@ Name: "{group}\Uninstall {#AppName}"; Filename: "{uninstallexe}"
 WelcomeLabel2=This will install {#AppName} v{#AppVersion} on your computer.%n%nThe plugin will be installed to:%nC:\Program Files\Common Files\VST3
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{commoncf64}\VST3\CopyCat Spectral Delay.vst3"
+Type: filesandordirs; Name: "{commoncf64}\VST3\{#AppName}.vst3"

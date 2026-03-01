@@ -33,7 +33,7 @@ CopyCatSpectralDelayEditor::CopyCatSpectralDelayEditor(
   brandLabelCopy.setBorderSize(juce::BorderSize<int>(0, 0, 0, 0));
   addAndMakeVisible(brandLabelCopy);
 
-  brandLabelCat.setText("CAT.", juce::dontSendNotification);
+  brandLabelCat.setText("CAT", juce::dontSendNotification);
   brandLabelCat.setFont(titleFont.withHeight(16.0f));
   brandLabelCat.setColour(juce::Label::textColourId,
                           CustomLookAndFeel::getTextTertiary());

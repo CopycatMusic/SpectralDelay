@@ -611,22 +611,23 @@ void ControlPanel::resized() {
                                 width - UIConstants::kMargin * 2,
                                 UIConstants::kButtonHeight);
 
-  // Segmented layout: buttons overlap by (2 * kButtonShadowMargin) to share
-  // visual edge
+  // Segmented layout: buttons with 2px gap
   const int shadowMargin = UIConstants::kButtonShadowMargin;
+  const int gap = 2;
   const int totalWidth = paramRow.getWidth();
-  const int buttonWidth = totalWidth / 3;
+  const int buttonWidth = (totalWidth - (gap * 2)) / 3;
   const int buttonWidthWithShadow = buttonWidth + (shadowMargin * 2);
 
   gainButton.setBounds(paramRow.getX() - shadowMargin, currentY - shadowMargin,
                        buttonWidthWithShadow,
                        UIConstants::kButtonHeight + (shadowMargin * 2));
 
-  delayButton.setBounds(paramRow.getX() + buttonWidth - shadowMargin,
+  delayButton.setBounds(paramRow.getX() + buttonWidth + gap - shadowMargin,
                         currentY - shadowMargin, buttonWidthWithShadow,
                         UIConstants::kButtonHeight + (shadowMargin * 2));
 
-  feedbackButton.setBounds(paramRow.getX() + (buttonWidth * 2) - shadowMargin,
+  feedbackButton.setBounds(paramRow.getX() + (buttonWidth + gap) * 2 -
+                               shadowMargin,
                            currentY - shadowMargin, buttonWidthWithShadow,
                            UIConstants::kButtonHeight + (shadowMargin * 2));
 
