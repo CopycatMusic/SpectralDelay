@@ -1,0 +1,15 @@
+Montserrat Font
+===============
+Copyright 2011 The Montserrat Project Authors
+(https://github.com/JulietaUla/Montserrat)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is available with a FAQ at: http://scripts.sil.org/OFL
+
+This font is free software: you can redistribute it and/or modify it under
+the terms of the SIL Open Font License, Version 1.1, as published by
+SIL International.
+
+This font is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.

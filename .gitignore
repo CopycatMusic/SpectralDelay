@@ -1,33 +1,31 @@
-# ==============================================================================
-# macOS
-# ==============================================================================
+# OS and editor files
 .DS_Store
+._*
+Thumbs.db
 *.swp
+*.swo
 *~
+.idea/
+.vscode/
+.vs/
+*.xcodeproj/
+*.xcworkspace/
 
-# ==============================================================================
-# Build directories
-# ==============================================================================
+# CMake / JUCE generated files
 build/
 build-*/
 cmake-build-*/
-
-# ==============================================================================
-# IDE files
-# ==============================================================================
-.idea/
-*.xcodeproj/
-*.xcworkspace/
-.vscode/
-
-# ==============================================================================
-# JUCE generated files
-# ==============================================================================
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
 JuceLibraryCode/
+Builds/
+*_artefacts/
+juce_binarydata_*/
+/JUCE/
 
-# ==============================================================================
-# Compiled files
-# ==============================================================================
+# Compiled plugins and debugging output
 *.o
 *.obj
 *.a
@@ -35,26 +33,34 @@ JuceLibraryCode/
 *.dll
 *.dylib
 *.so
-*.vst3
-*.component
-*.app
+*.vst3/
+*.component/
+*.app/
+*.pdb
+*.dSYM/
 
-# ==============================================================================
-# Package files
-# ==============================================================================
+# Local distribution, installers and signing materials
+/release/
+/artifacts/
+/scripts/
+*.exe
 *.zip
 *.dmg
 *.pkg
+*.p12
+*.pfx
+*.key
+.env
+.env.*
 
-# ==============================================================================
-# Temporary files
-# ==============================================================================
+# Logs and local-only archive (never publish)
 *.log
+build_output.txt
+build_log.txt
 *.tmp
-.cache
-
-#others
-docs/
-marketing/
+.cache/
+_local_archive/
 .agent/
-resources/BackUp
+.agents/
+.codex/
+resources/BackUp/

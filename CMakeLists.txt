@@ -1,6 +1,17 @@
-cmake_minimum_required(VERSION 3.15)
-set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
-project(CopyCatSpectralDelay VERSION 1.1.0)
+cmake_minimum_required(VERSION 3.22)
+
+# Preserve architecture overrides; default to a universal macOS build.
+if(CMAKE_HOST_APPLE AND NOT DEFINED CMAKE_OSX_ARCHITECTURES)
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "macOS architectures")
+endif()
+project(CopyCatSpectralDelay VERSION 1.2.0 LANGUAGES C CXX)
+
+option(COPYCAT_COPY_PLUGIN_AFTER_BUILD "Install plugins into local plugin folders after building" OFF)
+
+set(COPYCAT_PLUGIN_FORMATS VST3)
+if(APPLE)
+    list(APPEND COPYCAT_PLUGIN_FORMATS AU)
+endif()
 
 # ============================================================================
 # JUCE Path Configuration (supports local dev and CI builds)
@@ -9,7 +20,7 @@ project(CopyCatSpectralDelay VERSION 1.1.0)
 
 if(NOT DEFINED JUCE_DIR)
     if(DEFINED ENV{JUCE_DIR})
-        set(JUCE_DIR $ENV{JUCE_DIR})
+        set(JUCE_DIR "$ENV{JUCE_DIR}")
     elseif(WIN32)
         set(JUCE_DIR "C:/JUCE")
     else()
@@ -18,7 +29,10 @@ if(NOT DEFINED JUCE_DIR)
 endif()
 
 message(STATUS "Using JUCE from: ${JUCE_DIR}")
-add_subdirectory(${JUCE_DIR} build/JUCE)
+if(NOT EXISTS "${JUCE_DIR}/CMakeLists.txt")
+    message(FATAL_ERROR "JUCE source tree not found at '${JUCE_DIR}'. Set -DJUCE_DIR=/path/to/JUCE (tested with 8.0.12).")
+endif()
+add_subdirectory("${JUCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/JUCE")
 
 # ============================================================================
 # Binary Resources (Fonts)
@@ -40,10 +54,10 @@ function(create_spectral_delay_plugin TARGET_NAME IS_LITE PLUGIN_CODE BUNDLE_SUF
         NEEDS_MIDI_OUTPUT FALSE
         IS_MIDI_EFFECT FALSE
         EDITOR_WANTS_KEYBOARD_FOCUS FALSE
-        COPY_PLUGIN_AFTER_BUILD TRUE 
+        COPY_PLUGIN_AFTER_BUILD ${COPYCAT_COPY_PLUGIN_AFTER_BUILD}
         PLUGIN_MANUFACTURER_CODE "CpCt"
         PLUGIN_CODE "${PLUGIN_CODE}"
-        FORMATS AU VST3
+        FORMATS ${COPYCAT_PLUGIN_FORMATS}
         BUNDLE_ID "com.copycat.spectraldelay${BUNDLE_SUFFIX}"
         PRODUCT_NAME "CopyCat Spectral Delay${PRODUCT_SUFFIX}")
 
@@ -59,8 +73,6 @@ function(create_spectral_delay_plugin TARGET_NAME IS_LITE PLUGIN_CODE BUNDLE_SUF
             
             src/dsp/STFTProcessor.cpp
             src/dsp/STFTProcessor.h
-            src/dsp/PerBinDelayBuffer.cpp
-            src/dsp/PerBinDelayBuffer.h
             src/dsp/SpectralDelayEngine.cpp
             src/dsp/SpectralDelayEngine.h
             src/dsp/LFOEngine.cpp
@@ -90,7 +102,7 @@ function(create_spectral_delay_plugin TARGET_NAME IS_LITE PLUGIN_CODE BUNDLE_SUF
             juce::juce_recommended_lto_flags
             juce::juce_recommended_warning_flags)
 
-    target_include_directories(${TARGET_NAME} PRIVATE "${JUCE_DIR}/modules")
+    target_compile_features(${TARGET_NAME} PRIVATE cxx_std_17)
 
     # ============================================================================
     # Compile Definitions
