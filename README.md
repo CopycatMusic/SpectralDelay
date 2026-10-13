@@ -103,11 +103,14 @@ CMake is the supported build entry point.
 
 ## Install and try
 
-Existing downloads are available on the [source repository Releases page](https://github.com/CopycatMusic/SpectralDelay/releases)
-and the [public beta Releases page](https://github.com/CopycatMusic/Spectral-Delay-beta-release/releases).
-The latest existing beta download is [v1.1beta3](https://github.com/CopycatMusic/Spectral-Delay-beta-release/releases/tag/v1.1beta3).
-These historical binaries differ from the current **1.2.0** source; there is no
-1.2.0 binary release yet.
+Download the distributed plugin from [Gumroad](https://copycatmusic.gumroad.com/l/spectral_delay).
+The product page currently describes **Version 1.1**; check the downloaded bundle
+for its exact version before comparing it with the current **1.2.0** source.
+
+Historical downloads are also available on the [source repository Releases page](https://github.com/CopycatMusic/SpectralDelay/releases)
+and the [public beta Releases page](https://github.com/CopycatMusic/Spectral-Delay-beta-release/releases),
+including [v1.1beta3](https://github.com/CopycatMusic/Spectral-Delay-beta-release/releases/tag/v1.1beta3).
+There is no 1.2.0 binary release on GitHub yet.
 
 New source builds can be installed manually:
 
