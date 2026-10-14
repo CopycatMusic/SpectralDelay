@@ -253,13 +253,8 @@ private:
   // LFO mode state
   bool currentLfoMode = false;
 
-#if LITE_VERSION
-  // Lite version: show "LITE" label instead of LFO button
-  juce::Label liteLabel;
-#else
-  // Full version: LFO button
+  // LFO button
   juce::TextButton lfoButton{"LFO"};
-#endif
 
   // LFO controls (shown when LFO mode is active)
   juce::Label lfoAmountLabel;

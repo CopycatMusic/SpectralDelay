@@ -6,7 +6,7 @@ A stereo audio effect built with C++17 and JUCE 8. Frequency curves control dela
 gain and feedback independently across STFT bins, with spectral dynamics and LFO
 modulation for evolving textures. Suitable for shaping dynamics, time and feedback independently across the frequency spectrum.
 
-![CopyCat Spectral Delay — Full version, Delay view](docs/images/Main.png)
+![CopyCat Spectral Delay — Delay view](docs/images/Main.png)
 
 ---
 
@@ -88,14 +88,13 @@ cmake --build build --config Release --parallel 4
 These commands build directly with CMake; no packaging or signing script is required.
 The local `JUCE/` checkout is ignored by Git.
 
-Both Full and Lite are built by default. To build one plugin format explicitly:
+The project builds one plugin with all features enabled. To build VST3 explicitly:
 
 ```sh
 cmake --build build --config Release --target CopyCatSpectralDelay_VST3
 ```
 
-Outputs are in `build/CopyCatSpectralDelay_artefacts/Release/` and
-`build/CopyCatSpectralDelayLite_artefacts/Release/`. Builds do not install plugins
+Outputs are in `build/CopyCatSpectralDelay_artefacts/Release/`. Builds do not install plugins
 by default. Opt in with `-DCOPYCAT_COPY_PLUGIN_AFTER_BUILD=ON`, or manually copy
 bundles into the host's plugin folder.
 
@@ -103,16 +102,18 @@ CMake is the supported build entry point.
 
 ## Install and try
 
-Download the distributed plugin from [Gumroad](https://copycatmusic.gumroad.com/l/spectral_delay).
-The product page currently describes **Version 1.1**; check the downloaded bundle
-for its exact version before comparing it with the current **1.2.0** source.
+Download **1.2.0** from the [GitHub Release](https://github.com/CopycatMusic/SpectralDelay/releases/tag/v1.2.0-release):
 
-Historical downloads are also available on the [source repository Releases page](https://github.com/CopycatMusic/SpectralDelay/releases)
-and the [public beta Releases page](https://github.com/CopycatMusic/Spectral-Delay-beta-release/releases),
-including [v1.1beta3](https://github.com/CopycatMusic/Spectral-Delay-beta-release/releases/tag/v1.1beta3).
-There is no 1.2.0 binary release on GitHub yet.
+- **macOS:** universal AU and VST3 bundles for Apple Silicon and Intel Macs.
+- **Windows:** x64 VST3 bundle.
 
-New source builds can be installed manually:
+The plugin is distributed as one version with all features enabled.
+[Gumroad](https://copycatmusic.gumroad.com/l/spectral_delay) is an alternate distribution page;
+check its download version separately.
+Historical downloads remain on the [Releases page](https://github.com/CopycatMusic/SpectralDelay/releases)
+and the [public beta repository](https://github.com/CopycatMusic/Spectral-Delay-beta-release/releases).
+
+Install the downloaded bundles or new source builds manually:
 
 | Platform | Format | Plugin directory |
 | --- | --- | --- |
@@ -120,15 +121,14 @@ New source builds can be installed manually:
 | macOS | AU | `~/Library/Audio/Plug-Ins/Components/` |
 | Windows | VST3 | `C:\Program Files\Common Files\VST3\` |
 
-Rescan plugins in your DAW after copying the bundle. CI outputs are unsigned and
-not notarized.
+Rescan plugins in your DAW after copying the bundle. macOS bundles use ad-hoc
+signing and are not notarized; Windows bundles are not code-signed.
 
-The build workflow uploads the Full-version plugin bundles as CI artifacts on
+The build workflow uploads the plugin bundles as CI artifacts on
 branch pushes. Pushing a `v*` tag runs both platform builds and creates a **draft
 Release** with Windows VST3 and macOS AU/VST3 ZIPs. A maintainer must review and
-publish the draft before it becomes a downloadable release. Lite remains available
-through a source build. No installer or signing script is required for a source
-build or manual installation.
+publish the draft before it becomes a downloadable release. No installer or
+signing script is required for a source build or manual installation.
 
 See [validation status](docs/VALIDATION.md) and [engineering notes](docs/ENGINEERING_REVIEW.md)
 for the checks performed and known limitations.

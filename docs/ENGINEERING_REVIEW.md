@@ -39,7 +39,7 @@ The items below are code findings, not measured performance results.
   rates, block sizes and active controls; do not claim a percentage speedup without
   matched baseline measurements.
 - Verify bypass/dry alignment, host session recall, feedback stability, FFT-size
-  automation and Full/Lite coexistence in a real DAW.
+  automation in a real DAW.
 
 ## Validation
 

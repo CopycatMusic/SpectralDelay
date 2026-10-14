@@ -141,7 +141,6 @@ CopyCatSpectralDelayProcessor::createParameterLayout() {
               [](const juce::String &text) { return text.getFloatValue(); })));
 
   // LFO Amount parameters (0-100%, default 100%)
-#if !LITE_VERSION
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
       juce::ParameterID("lfoGainAmount", 1), "LFO Gain Amount",
       juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f), 100.0f,
@@ -159,7 +158,6 @@ CopyCatSpectralDelayProcessor::createParameterLayout() {
       juce::NormalisableRange<float>(0.0f, 100.0f, 0.0f), 100.0f,
       juce::AudioParameterFloatAttributes().withStringFromValueFunction(
           [](float value, int) { return juce::String(value, 1) + "%"; })));
-#endif // !LITE_VERSION
 
   return {params.begin(), params.end()};
 }
@@ -277,7 +275,6 @@ void CopyCatSpectralDelayProcessor::processBlock(
   }
 
   // Update LFO host info
-#if !LITE_VERSION
   if (auto *playHead = getPlayHead()) {
     if (auto hostInfo = playHead->getPosition()) {
       double bpm = hostInfo->getBpm().orFallback(120.0);
@@ -306,7 +303,6 @@ void CopyCatSpectralDelayProcessor::processBlock(
   if (lfoTimeAmountParam) {
     lfoEngine.setAmount(LFOEngine::Parameter::Time, lfoTimeAmountParam->load());
   }
-#endif // !LITE_VERSION
 
   // Get base multipliers from automation parameters
   auto *feedbackMultParam = parameters.getRawParameterValue("feedbackMult");
@@ -319,7 +315,6 @@ void CopyCatSpectralDelayProcessor::processBlock(
                    100.0f; // Scale to 100% for engine
   float delayMult = delayMultParam ? delayMultParam->load() : 20.0f;
 
-#if !LITE_VERSION
   // Apply LFO modulation to multipliers
   // Use frame-averaged modulation to prevent aliasing with large FFT sizes
   float gainLfoRaw = lfoEngine.getFrameAveragedModulation(
@@ -349,12 +344,6 @@ void CopyCatSpectralDelayProcessor::processBlock(
   float targetGainMult = gainMult * gainLfoMod;
   float targetFeedbackMult = feedbackMult * feedbackLfoMod;
   float targetDelayMult = delayMult * delayLfoMod;
-#else
-  // Lite version: no LFO modulation, use base values directly
-  float targetGainMult = gainMult;
-  float targetFeedbackMult = feedbackMult;
-  float targetDelayMult = delayMult;
-#endif // !LITE_VERSION
 
   // Set target values for system smoothers (10ms fixed, prevents clicks)
   smoothedGainMult.setTargetValue(targetGainMult);
@@ -422,13 +411,6 @@ void CopyCatSpectralDelayProcessor::getStateInformation(
   // Start with parameter state
   auto state = parameters.copyState();
   std::unique_ptr<juce::XmlElement> xml(state.createXml());
-
-  // Add version type for preset isolation (Lite vs Full)
-#if LITE_VERSION
-  xml->setAttribute("versionType", "lite");
-#else
-  xml->setAttribute("versionType", "full");
-#endif
 
   // Add curve point data
   xml->setAttribute("phaseCurve", engine.getPhaseCurve().serializePoints());
@@ -534,16 +516,6 @@ void CopyCatSpectralDelayProcessor::setStateInformation(const void *data,
       getXmlFromBinary(data, sizeInBytes));
 
   if (xmlState.get() != nullptr) {
-    // Check version type for preset isolation
-#if LITE_VERSION
-    auto versionType = xmlState->getStringAttribute("versionType");
-    if (versionType == "full") {
-      // Lite version cannot load Full version presets
-      DBG("CopyCat Spectral Delay Lite: Cannot load Full version preset");
-      return;
-    }
-#endif
-
     if (xmlState->hasTagName(parameters.state.getType())) {
       parameters.replaceState(juce::ValueTree::fromXml(*xmlState));
     }

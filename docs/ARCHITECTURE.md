@@ -12,7 +12,7 @@ The processor uses 4× overlap and reports the current FFT size as STFT latency.
 ## Responsibilities
 
 - `PluginProcessor`: JUCE host integration, APVTS parameters, host tempo/transport,
-  Full-version LFO modulation, smoothing, latency reporting and state serialization.
+  LFO modulation, smoothing, latency reporting and state serialization.
 - `STFTProcessor`: periodic Hann analysis/synthesis windows, FFT processing,
   circular input/output FIFOs and overlap-add.
 - `SpectralDelayEngine`: per-bin parameter caches, complex delay/feedback buffers,
@@ -32,8 +32,9 @@ of every line or replace a detailed third-party provenance review.
   the reported 2048-sample latency is about 42.7 ms.
 - Per-bin complex delay memory gives independent frequency-band timing. Buffer
   sizing depends on both bin count and hop duration, rather than FFT size alone.
-- Full and Lite share source with a compile-time LFO feature switch and separate
-  host identifiers to avoid colliding installations.
+- A single plugin target includes all processing and LFO controls. Its original
+  manufacturer code, plugin code, bundle identifier and parameter IDs are retained
+  for host/session compatibility.
 - Audio and UI currently share curve and spectrum data. Some locking reduces
   conflicts, but the handoff is not yet safe enough for a hard real-time claim.
 
