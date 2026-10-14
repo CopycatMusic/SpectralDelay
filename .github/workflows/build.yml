@@ -69,6 +69,12 @@ jobs:
           lipo "$bundle/Contents/MacOS/CopyCat Spectral Delay" -verify_arch arm64 x86_64
         done
         
+    - name: Include macOS licence and source notices
+      run: |
+        cp LICENSE THIRD_PARTY_NOTICES.md SOURCE.md artifacts/macOS/
+        mkdir -p artifacts/macOS/licenses
+        cp docs/licenses/* resources/fonts/LICENSE.txt resources/fonts/OFL.txt artifacts/macOS/licenses/
+
     - name: Upload macOS artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -127,6 +133,13 @@ jobs:
         New-Item -ItemType Directory -Force -Path artifacts/Windows
         Copy-Item -Recurse "build/CopyCatSpectralDelay_artefacts/${{ env.BUILD_TYPE }}/VST3/CopyCat Spectral Delay.vst3" artifacts/Windows/
         
+    - name: Include Windows licence and source notices
+      shell: pwsh
+      run: |
+        Copy-Item LICENSE, THIRD_PARTY_NOTICES.md, SOURCE.md artifacts/Windows/
+        New-Item -ItemType Directory -Force -Path artifacts/Windows/licenses
+        Copy-Item docs/licenses/*, resources/fonts/LICENSE.txt, resources/fonts/OFL.txt artifacts/Windows/licenses/
+
     - name: Upload Windows artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -146,6 +159,9 @@ jobs:
       contents: write
       
     steps:
+    - name: Checkout release source
+      uses: actions/checkout@v4
+
     - name: Download all artifacts
       uses: actions/download-artifact@v4
       with:
@@ -167,6 +183,9 @@ jobs:
         cd artifacts/Windows
         zip -r ../CopyCat_Spectral_Delay_Windows.zip .
 
+    - name: Zip corresponding project source
+      run: git archive --format=zip --output=artifacts/CopyCat_Spectral_Delay_Source.zip HEAD
+
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
@@ -176,6 +195,7 @@ jobs:
         files: |
           artifacts/CopyCat_Spectral_Delay_Windows.zip
           artifacts/CopyCat_Spectral_Delay_macOS.zip
+          artifacts/CopyCat_Spectral_Delay_Source.zip
         body: |
           ## Download Instructions
           
@@ -184,3 +204,6 @@ jobs:
           
           ### macOS
           Download the macOS ZIP for manual installation. These builds are ad-hoc signed and not notarized.
+
+          ### Source and licence
+          Source and binaries use AGPLv3. Download the project Source ZIP and the external JUCE 8.0.12 source linked in SOURCE.md to rebuild.

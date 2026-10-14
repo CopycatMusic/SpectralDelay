@@ -4,10 +4,12 @@
 
 External dependency: https://github.com/juce-framework/JUCE/tree/8.0.12
 
-JUCE framework modules use the AGPLv3 / JUCE commercial licence routes described
-in https://github.com/juce-framework/JUCE/blob/8.0.12/LICENSE.md . This cleanup does
-not select or change the author's JUCE licence. Confirm the applicable route
-before distributing source or new binaries under a project-wide licence.
+This source project and the 1.2.0 release use JUCE under its **AGPLv3** route.
+JUCE's original framework/dependency notice is retained in
+[docs/licenses/JUCE-8.0.12-LICENSE.md](docs/licenses/JUCE-8.0.12-LICENSE.md).
+The complete licence is provided in [LICENSE](LICENSE). The original JUCE 8.0.12
+source, including its bundled dependency licences, is available at:
+https://github.com/juce-framework/JUCE/archive/refs/tags/8.0.12.tar.gz .
 
 ## STFT reference implementation
 
@@ -16,8 +18,8 @@ https://github.com/hollance/fft-juce . The upstream project identifies its licen
 as MIT, with `Copyright (c) 2023 Matthijs Hollemans`:
 https://github.com/hollance/fft-juce/blob/main/LICENSE . The upstream copyright
 and licence text are retained in [docs/licenses/fft-juce-MIT.txt](docs/licenses/fft-juce-MIT.txt).
-This notice applies to code derived from that reference; it does not grant rights
-to the author's independently written code.
+The upstream MIT notice is retained for derived code; the author's additions
+are covered by this project's AGPLv3 licence.
 
 ## Montserrat fonts
 

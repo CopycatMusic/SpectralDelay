@@ -26,7 +26,7 @@ Compare the original input (Dry) with the processed output (Wet).
 
 ### [1] Delay
 
-![Delay amount, diffuse and cutoff controls](docs/images/1.png)
+![1.2.0 AU host — Delay, complete window](docs/images/1.png)
 
 - **Per frequency-bin delay -** Up to **2000 ms**
 - Free drawing delay curve
@@ -34,7 +34,7 @@ Compare the original input (Dry) with the processed output (Wet).
 
 ### [2] Dynamics
 
-![Gain, spectral gate and compression controls](docs/images/2.png)
+![1.2.0 AU host — Dynamics, complete window](docs/images/2.png)
 
 - Gain knob: toggle between pre/post delay
 - Free drawing gain curve
@@ -43,13 +43,13 @@ Compare the original input (Dry) with the processed output (Wet).
 
 ### **[3] Feedback**
 
-![Per-bin feedback amount controls](docs/images/3.png)
+![1.2.0 AU host — Feedback, complete window](docs/images/3.png)
 
 - Free drawing feedback curve
 
 ### **[4] LFO**
 
-![LFO time, amount, smoothing and synchronization controls](docs/images/4.png)
+![1.2.0 AU host — LFO, complete window](docs/images/4.png)
 
 - Gain, Delay and feedback amount modulation
 - Free drawing curve
@@ -139,9 +139,16 @@ STFT processing is based on [hollance/fft-juce](https://github.com/hollance/fft-
 The plugin uses [JUCE](https://github.com/juce-framework/JUCE) and Montserrat fonts.
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for their licensing and provenance.
 
-The author's project code remains **All Rights Reserved**, as in the previous
-README. Public visibility does not change that policy. A project-wide open-source
-licence has not been selected; third-party components retain their own licences.
+Copyright (c) 2026 CopycatMusic. The author's source code is licensed under the
+**GNU Affero General Public License v3.0 (AGPL-3.0-only)**; see [LICENSE](LICENSE).
+You may use, modify and redistribute it, including commercially. When distributing
+a covered modified or combined program, provide its Corresponding Source under
+AGPLv3. Modified versions offered to users over a network must also offer their
+Corresponding Source as required by section 13.
+
+Using the plugin to process your own music does not require publishing your songs
+or DAW sessions. Third-party components retain their own licences; this release
+uses JUCE 8.0.12 under its AGPLv3 route.
 
 
 ## About
