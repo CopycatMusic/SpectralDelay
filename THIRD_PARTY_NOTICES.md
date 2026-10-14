@@ -30,3 +30,11 @@ restored at `resources/fonts/LICENSE.txt`. The full SIL Open Font License text
 is included in [resources/fonts/OFL.txt](resources/fonts/OFL.txt), with the copyright
 notice matching the bundled fonts' embedded metadata. Fonts retain their own licence independently of
 the author's code policy.
+
+## JUCE bundled dependencies
+
+Original licence notices for the AU/VST3 SDKs, FLAC/Ogg Vorbis, JPEG/PNG,
+HarfBuzz, SheenBidi and zlib are retained under
+[docs/licenses/JUCE-dependencies](docs/licenses/JUCE-dependencies). These files
+are copied from the pinned JUCE 8.0.12 source. The complete upstream source and
+its embedded notices are linked above and in SOURCE.md.

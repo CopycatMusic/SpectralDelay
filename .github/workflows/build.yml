@@ -73,7 +73,8 @@ jobs:
       run: |
         cp LICENSE THIRD_PARTY_NOTICES.md SOURCE.md artifacts/macOS/
         mkdir -p artifacts/macOS/licenses
-        cp docs/licenses/* resources/fonts/LICENSE.txt resources/fonts/OFL.txt artifacts/macOS/licenses/
+        cp -R docs/licenses/. artifacts/macOS/licenses/
+        cp resources/fonts/LICENSE.txt resources/fonts/OFL.txt artifacts/macOS/licenses/
 
     - name: Upload macOS artifacts
       uses: actions/upload-artifact@v4
@@ -138,7 +139,8 @@ jobs:
       run: |
         Copy-Item LICENSE, THIRD_PARTY_NOTICES.md, SOURCE.md artifacts/Windows/
         New-Item -ItemType Directory -Force -Path artifacts/Windows/licenses
-        Copy-Item docs/licenses/*, resources/fonts/LICENSE.txt, resources/fonts/OFL.txt artifacts/Windows/licenses/
+        Copy-Item -Recurse docs/licenses/* artifacts/Windows/licenses/
+        Copy-Item resources/fonts/LICENSE.txt, resources/fonts/OFL.txt artifacts/Windows/licenses/
 
     - name: Upload Windows artifacts
       uses: actions/upload-artifact@v4
