@@ -66,7 +66,7 @@ jobs:
           codesign --force --sign - "$bundle"
           codesign --verify --deep --strict "$bundle"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$bundle/Contents/Info.plist")" = "${{ steps.version.outputs.PROJECT_VERSION }}"
-          lipo -verify_arch arm64 x86_64 "$bundle/Contents/MacOS/CopyCat Spectral Delay"
+          lipo "$bundle/Contents/MacOS/CopyCat Spectral Delay" -verify_arch arm64 x86_64
         done
         
     - name: Upload macOS artifacts
