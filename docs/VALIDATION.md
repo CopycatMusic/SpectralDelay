@@ -1,17 +1,21 @@
 # Validation status
 
-Source version: **1.2.0**. Local checks performed on **2026-10-13**.
+Source version: **1.2.0**. Local checks performed on **2026-10-13–14**.
 
 ## Confirmed locally
 
 - Fresh Release build with JUCE 8.0.12, CMake, Ninja and AppleClang on Apple Silicon.
 - AU/VST3 version 1.2.0 was built on Apple Silicon. The plugin now has one target
   with all functionality enabled; consolidation checks are recorded below.
-- macOS universal and Windows Release builds both passed in
-  [GitHub Actions run 38382530567](https://github.com/CopycatMusic/SpectralDelay/actions/runs/38382530567)
-  for source commit `950c6f9`. The subsequent README update only adds the Gumroad link.
+- The consolidated macOS universal and Windows x64 Release builds passed in
+  [GitHub Actions run 38489077946](https://github.com/CopycatMusic/SpectralDelay/actions/runs/38489077946)
+  for build commit `d9dad27`. The release tag additionally contains licence,
+  screenshot and packaging-documentation updates; plugin source, CMake and fonts
+  are identical to that successful build.
 - Current editor instantiated and rendered using the piano demo as real DSP input.
-  The README main image is a native JUCE component render, not a DAW-host screenshot.
+  The README main image is a native JUCE component render. The four feature images
+  are complete-window screenshots of the installed 1.2.0 AU in a temporary native
+  host, with the same piano demo processed by the actual AU binary.
 - All CMake source/resource inputs, Markdown media references and image files exist.
 - Workflow YAML parses, both Git diff whitespace checks pass, and local signing tools
   and archives are excluded from the published source tree.
@@ -19,8 +23,8 @@ Source version: **1.2.0**. Local checks performed on **2026-10-13**.
 
 ## Pending and known limits
 
-- macOS universal and Windows CI compile checks passed. Real-host compatibility,
-  runtime audio correctness and installer verification still need separate testing.
+- Additional host/platform compatibility, a DSP regression suite and installer
+  verification still need separate testing.
 - No automated DSP reconstruction/regression suite or published CPU benchmark yet.
 - The author completed local macOS DAW testing and reported no issues on
   2026-10-14. The host name and individual test coverage were not recorded. Intel
@@ -46,8 +50,8 @@ curve points, LFO sync/smoothing, all 12 parameters, state save/reload and edito
 instantiation. This is a local compatibility check, not a DAW session-recall test.
 
 The author tested the installed arm64 candidate in a local DAW and approved
-publication on 2026-10-14. The CI results above apply to the earlier source;
-universal macOS and Windows builds of the consolidated release are being checked.
+publication on 2026-10-14. Universal macOS and Windows x64 builds of the same
+consolidated source subsequently passed the release CI linked above.
 
 ## Installed AU validation
 
@@ -59,3 +63,13 @@ binaries match the reviewed candidates and pass signature verification.
 `AU VALIDATION SUCCEEDED`, including format, render and parameter-scheduling checks.
 The author subsequently reported successful local DAW testing on 2026-10-14.
 No automated VST3 host-validation run was performed.
+
+## Published archive verification
+
+The 1.2.0 draft release ZIPs were downloaded and checked before publication on
+2026-10-14. The binary and project-source archives passed integrity checks and matched the GitHub asset
+digests. The macOS AU/VST3 bundles report 1.2.0, contain arm64 and x86_64 slices,
+retain executable permissions after extraction and pass ad-hoc signature checks.
+The Windows VST3 reports 1.2.0 and contains an x64 PE binary. Neither archive
+contains an alternate limited-feature plugin. SHA-256 checksums accompany the
+[public Release](https://github.com/CopycatMusic/SpectralDelay/releases/tag/v1.2.0-release).
